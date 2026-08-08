@@ -1,4 +1,5 @@
 /**
+ * @module
  * Image reveal. Independent of the video module by design: an image needs no
  * IntersectionObserver, no source negotiation and no playback arbitration, and
  * it is not skipped on a metered connection the way video is -- you still have
@@ -14,6 +15,21 @@
  * just does so instantly. No JS gate, because "show the picture without
  * animating" is a pure styling concern.
  */
+
+import { POLITE_IMAGE_READY, type PoliteImageEventDetail } from './events.js';
+
+/**
+ * Anything that names one or more images: a selector, a single element, or any
+ * collection of them.
+ *
+ * `ArrayLike` is listed alongside `Iterable` deliberately. `NodeListOf` and
+ * `HTMLCollectionOf` are iterable at runtime, but their `[Symbol.iterator]`
+ * lives in `lib.dom.iterable`, so a consumer whose `lib` omits it cannot pass
+ * `document.querySelectorAll('img')` to an `Iterable`-only parameter even though
+ * it works. `ArrayLike` is structural and needs no `lib` support.
+ */
+export type ImageTarget =
+  string | HTMLImageElement | ArrayLike<HTMLImageElement> | Iterable<HTMLImageElement>;
 
 export interface RevealImagesOptions {
   /**
@@ -36,12 +52,22 @@ const READY = 'data-polite-ready';
 
 function markReady(image: HTMLImageElement): void {
   image.setAttribute(READY, '');
-  image.dispatchEvent(new CustomEvent('polite-image:ready', { bubbles: true }));
+  image.dispatchEvent(
+    new CustomEvent<PoliteImageEventDetail>(POLITE_IMAGE_READY, {
+      bubbles: true,
+      detail: { image },
+    })
+  );
 }
 
-function resolve(target: string | Iterable<HTMLImageElement>): HTMLImageElement[] {
-  if (typeof target !== 'string') return [...target];
-  return [...document.querySelectorAll<HTMLImageElement>(target)];
+function resolve(target: ImageTarget): HTMLImageElement[] {
+  if (typeof target === 'string') {
+    return [...document.querySelectorAll<HTMLImageElement>(target)];
+  }
+  // A single element is the obvious thing to pass when you already hold one, and
+  // it used to be rejected: `revealImages(myImg)` did not compile.
+  if (target instanceof HTMLImageElement) return [target];
+  return Array.from(target as ArrayLike<HTMLImageElement>);
 }
 
 /**
@@ -50,10 +76,7 @@ function resolve(target: string | Iterable<HTMLImageElement>): HTMLImageElement[
  * Returns a function that stops any reveals still pending, for a client-side
  * router tearing the page down before the images resolved.
  */
-export function revealImages(
-  target: string | Iterable<HTMLImageElement>,
-  options: RevealImagesOptions = {}
-): () => void {
+export function revealImages(target: ImageTarget, options: RevealImagesOptions = {}): () => void {
   const controller = new AbortController();
   const { signal } = controller;
 
@@ -109,3 +132,8 @@ export function revealImages(
 
   return () => controller.abort();
 }
+
+// Re-exported so `polite-media/image` carries the ElementEventMap and
+// DocumentEventMap augmentation too: it only reaches a consumer whose program
+// includes the module that declares it.
+export { POLITE_IMAGE_READY, type PoliteImageEventDetail } from './events.js';

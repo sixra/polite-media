@@ -18,7 +18,7 @@ import { gzipSync } from 'node:zlib';
  */
 const budgets = {
   'src/video.ts': 2500,
-  'src/image.ts': 450,
+  'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,
 };

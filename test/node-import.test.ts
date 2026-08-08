@@ -21,7 +21,7 @@ describe('importing in Node without a DOM', () => {
 
   it('exposes its API without having evaluated any browser global', async () => {
     const mod = await import('../src/video.js');
-    expect(typeof mod.revealWhenPainted).toBe('function');
-    expect(typeof mod.motionAllowed).toBe('function');
+    expect(typeof mod.register).toBe('function');
+    expect(typeof mod.configure).toBe('function');
   });
 });

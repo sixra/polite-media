@@ -1,26 +1,32 @@
 import { connectionAllowsMedia, mediaQuery, motionAllowed } from './env.js';
+import { POLITE_VIDEO_FAILED, POLITE_VIDEO_READY, type PoliteVideoEventDetail } from './events.js';
 import { revealWhenPainted } from './reveal.js';
 import { isUnusable, manageSources, type SourceManager } from './sources.js';
 
 /**
+ * @module
  * The single arbiter of what plays. Nothing outside this module calls `play()`
  * or `pause()`, so "why is this video running" always has one answer.
+ *
+ * The `@module` tag matters: without it TypeScript attaches this preamble to the
+ * first declaration below, and a consumer hovering that symbol gets a sentence
+ * about internal call discipline instead of its own documentation.
  */
 
-export interface Config {
+export interface PoliteVideoOptions {
   /** How far outside the viewport a video may start preparing. */
-  rootMargin: string;
+  rootMargin?: string;
   /**
    * Anti-flicker debounce for a video wobbling at the viewport edge. Not a
    * window in which offscreen video is meant to keep decoding: leaving the
    * viewport should read as stopping immediately.
    */
-  pauseGraceMs: number;
+  pauseGraceMs?: number;
   /**
    * Which viewports count as small. Configurable because 767px is one project's
    * breakpoint, not a fact about phones.
    */
-  smallViewport: string;
+  smallViewport?: string;
   /**
    * What a small viewport is allowed to do.
    *
@@ -33,12 +39,12 @@ export interface Config {
    * battery. No standards or platform source recommends either; the default is
    * `arbitrate` only because that is the one with device testing behind it.
    */
-  mobile: 'arbitrate' | 'poster';
+  mobile?: 'arbitrate' | 'poster';
   /**
    * How much more visible a rival must be before it takes the single slot.
    * Without it, a carousel's peeking neighbour flaps the slot back and forth.
    */
-  hysteresis: number;
+  hysteresis?: number;
   /**
    * Visible fraction, 0 to 1, at or below which a video stops.
    *
@@ -52,10 +58,24 @@ export interface Config {
    * with the defaults a video keeps playing until it is fully 50px past the
    * viewport edge.
    */
-  pauseBelow: number;
+  pauseBelow?: number;
 }
 
-const defaults: Config = {
+/**
+ * Every field resolved. Internal: a caller never has to supply all six, which is
+ * what {@link PoliteVideoOptions} is for.
+ */
+type ResolvedConfig = Required<PoliteVideoOptions>;
+
+/**
+ * The public options type is all-optional, and this is why. As a fully required
+ * interface it could not be used for the things a consumer naturally reaches
+ * for: `const preset: Config = { mobile: 'poster' }` failed to compile, and only
+ * the inline `configure({ ... })` form worked, via contextual typing.
+ */
+export type Config = PoliteVideoOptions;
+
+const defaults: ResolvedConfig = {
   rootMargin: '50px',
   pauseGraceMs: 400,
   smallViewport: '(max-width: 767px)',
@@ -64,7 +84,7 @@ const defaults: Config = {
   pauseBelow: 0,
 };
 
-let config: Config = { ...defaults };
+let config: ResolvedConfig = { ...defaults };
 
 /**
  * Settings captured when the observer and the lifecycle listeners are built, at
@@ -89,7 +109,7 @@ const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'smallViewport'] as 
  * in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while videos
  * are registered. Unregister everything first, or configure earlier.
  */
-export function configure(patch: Partial<Config>): void {
+export function configure(patch: PoliteVideoOptions): void {
   validate(patch);
 
   if (observer !== null) {
@@ -120,7 +140,7 @@ export function configure(patch: Partial<Config>): void {
  * arbitration silently never engages and phones behave like desktops. Only the
  * obviously empty case is caught; the rest is a documentation problem.
  */
-function validate(patch: Partial<Config>): void {
+function validate(patch: PoliteVideoOptions): void {
   for (const key of ['pauseBelow', 'hysteresis'] as const) {
     const value = patch[key];
     if (value === undefined) continue;
@@ -284,7 +304,12 @@ function pauseAfterGrace(entry: Entry): void {
  * because the useful listener is usually on a container, not on each video.
  */
 function emit(entry: Entry, type: 'ready' | 'failed'): void {
-  entry.video.dispatchEvent(new CustomEvent(`polite-video:${type}`, { bubbles: true }));
+  entry.video.dispatchEvent(
+    new CustomEvent<PoliteVideoEventDetail>(
+      type === 'ready' ? POLITE_VIDEO_READY : POLITE_VIDEO_FAILED,
+      { bubbles: true, detail: { video: entry.video } }
+    )
+  );
 }
 
 function markReady(entry: Entry): void {
@@ -552,6 +577,18 @@ function detachLifecycle(): void {
   gestureArmed = false;
 }
 
+/**
+ * Starts managing a video: reveals it on its first genuinely painted frame,
+ * plays it only while it is visible, falls through its `<source>` list when one
+ * cannot be decoded, and stops it when a gate closes.
+ *
+ * The video and its poster must already share a box carrying `data-polite-media`
+ * in the authored markup, and the video should be `muted loop playsinline
+ * preload="none"`. Calling this twice on the same element is a no-op.
+ *
+ * @param video the element to manage
+ * @param options see {@link RegisterOptions}
+ */
 export function register(video: HTMLVideoElement, options: RegisterOptions = {}): void {
   if (entries.has(video)) return;
 
@@ -591,6 +628,11 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   }
 }
 
+/**
+ * Stops managing a video and releases everything it owned: the observer entry,
+ * any pending pause timer, its listeners, and the page-level listeners once it
+ * was the last one. Safe to call for a video that was never registered.
+ */
 export function unregister(video: HTMLVideoElement): void {
   const entry = entries.get(video);
   if (!entry) return;
@@ -629,6 +671,7 @@ export function pauseAll(): void {
   reconcile();
 }
 
+/** Lets playback resume, undoing {@link pauseAll}. */
 export function resumeAll(): void {
   userPaused = false;
   document.documentElement.removeAttribute('data-polite-paused');
