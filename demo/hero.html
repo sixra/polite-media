@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-video — hero</title>
+    <link rel="stylesheet" href="/dist/polite-video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Above-the-fold hero</h1>
+      <p class="note">
+        The poster is the LCP candidate, so it is preloaded and never starts hidden. Only the
+        video layer fades in, once a frame has actually painted.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="frame hero" data-polite-media id="hero">
+        <img
+          src="/demo/assets/sample-poster.avif"
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+        />
+        <video muted loop playsinline preload="none">
+          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </main>
+
+    <script type="module">
+      import { register } from '/dist/index.js';
+
+      const hero = document.getElementById('hero');
+      const video = hero.querySelector('video');
+
+      // Recorded so the e2e suite can assert the reveal never lands before a
+      // frame is presented -- the library's central claim, and the one that is
+      // vacuous if only asserted against `playing`.
+      const marks = { playing: null, ready: null };
+      video.addEventListener('playing', () => {
+        marks.playing ??= performance.now();
+      });
+      hero.addEventListener('polite-video:ready', () => {
+        marks.ready ??= performance.now();
+      });
+      window.__marks = marks;
+
+      register(video, { observe: hero });
+    </script>
+  </body>
+</html>

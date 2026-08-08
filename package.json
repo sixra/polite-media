@@ -1,0 +1,51 @@
+{
+  "name": "polite-video",
+  "version": "0.0.0",
+  "description": "Background video that behaves itself: reveals on the frame that actually painted, plays only when visible, and respects data, motion and battery.",
+  "keywords": [
+    "video",
+    "background-video",
+    "autoplay",
+    "poster",
+    "lazy",
+    "intersection-observer",
+    "requestVideoFrameCallback",
+    "performance",
+    "web-components"
+  ],
+  "license": "MIT",
+  "author": "sixra",
+  "repository": "github:sixra/polite-video",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles": "./dist/polite-video.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/polite-video.css dist/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fixtures": "sh scripts/make-fixtures.sh",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.0.0",
+    "happy-dom": "^20.11.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

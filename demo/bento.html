@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-video — grid</title>
+    <link rel="stylesheet" href="/dist/polite-video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Grid of lazy videos</h1>
+      <p class="note">
+        The hard case. On a small viewport only the most visible card plays; on a large one
+        they all do. Scroll to hand the slot along.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="spacer">scroll down — nothing above has started</div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="spacer">everything above should now be paused</div>
+    </main>
+
+    <div class="controls">
+      <!-- The library binds any element with this attribute; the markup and
+           styling are entirely the host's. -->
+      <button data-polite-pause type="button"><span>pause / resume</span></button>
+    </div>
+
+    <script type="module">
+      import { register } from '/dist/index.js';
+
+      // Twelve cards, matching the shape of a real bento grid: the count is the
+      // point, since one video never exercises the arbiter.
+      const grid = document.getElementById('grid');
+      for (let i = 0; i < 12; i += 1) {
+        const frame = document.createElement('div');
+        frame.className = 'frame';
+        frame.setAttribute('data-polite-media', '');
+        frame.dataset.card = String(i);
+        frame.innerHTML = `
+          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <video muted loop playsinline preload="none">
+            <source src="/demo/assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
+            <source src="/demo/assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
+          </video>`;
+        grid.append(frame);
+      }
+
+      for (const frame of grid.children) {
+        // Observe the frame, not the video: the video is inset:0 and has no
+        // layout box of its own.
+        register(frame.querySelector('video'), { observe: frame });
+      }
+
+      // Exposed for the e2e suite, which needs to count what is actually running
+      // rather than what was asked to run.
+      window.__playingCount = () =>
+        [...document.querySelectorAll('video')].filter((v) => !v.paused).length;
+    </script>
+  </body>
+</html>

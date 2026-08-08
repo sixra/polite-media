@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-video — any size</title>
+    <link rel="stylesheet" href="/dist/polite-video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>One video, four boxes</h1>
+      <p class="note">
+        Identical markup and identical source in a 16:9 hero, a 3:4 card, a square thumbnail
+        and a 640×90 strip. The library sets no width, height or aspect ratio — the page does
+        all of it — which is the whole reason it drops into an existing design.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="sizes" id="sizes">
+        <div class="frame wide" data-polite-media></div>
+        <div class="frame tall" data-polite-media></div>
+        <div class="frame square" data-polite-media></div>
+        <div class="frame strip" data-polite-media></div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { configure, register } from '/dist/index.js';
+
+      // Arbitration off, because this page is about geometry: every box should
+      // be running at once so the sizes can be compared.
+      configure({ mobile: 'arbitrate', smallViewport: '(max-width: 1px)' });
+
+      const markup = `
+        <img src="/demo/assets/sample-poster.avif" alt="" />
+        <video muted loop playsinline preload="none">
+          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+        </video>`;
+
+      for (const frame of document.getElementById('sizes').children) {
+        frame.innerHTML = markup;
+        register(frame.querySelector('video'), { observe: frame });
+      }
+    </script>
+  </body>
+</html>

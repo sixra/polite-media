@@ -1,0 +1,64 @@
+/*
+ * polite-video -- optional stylesheet.
+ *
+ * Timing only. This file sets no size, position or aspect ratio, because the
+ * library owns *when* media appears and the host owns *where*. That separation
+ * is why it works at any video size, and it would be undone by a single width
+ * declaration here.
+ *
+ * `data-polite-media` goes on the container in your markup, not from script.
+ * It has to be authored: a <video preload="none"> paints an empty box, and if
+ * the base "hidden" state only arrived once JS ran, a page whose bundle failed
+ * would show that empty box stacked over the poster. Authored, the safe state is
+ * the default and the library only ever has to reveal.
+ *
+ * Expected shape -- poster first, video second, sharing one box:
+ *
+ *   <div class="whatever-you-like" data-polite-media>
+ *     <img src="poster.avif" alt="">
+ *     <video muted loop playsinline preload="none">
+ *       <source src="hero.mp4" type="video/mp4">
+ *     </video>
+ *   </div>
+ *
+ * Attributes the library sets on that container:
+ *   data-polite-ready   a frame has actually painted
+ *   data-polite-failed  no source could be decoded; the poster is now permanent
+ * And on <html>:
+ *   data-polite-paused  the user stopped playback via a [data-polite-pause] control
+ */
+
+[data-polite-media] > video {
+  opacity: 0;
+  transition: opacity var(--polite-fade, 400ms) ease;
+}
+
+[data-polite-media][data-polite-ready] > video {
+  opacity: 1;
+}
+
+/*
+ * The poster is hidden only after the crossfade finishes. Removing it up front
+ * would expose whatever sits behind mid-dissolve; `visibility` rather than
+ * `display` so nothing reflows, and the delay must track --polite-fade.
+ */
+[data-polite-media][data-polite-ready] > :is(img, picture) {
+  visibility: hidden;
+  transition: visibility 0s linear var(--polite-fade, 400ms);
+}
+
+/*
+ * A failed video is never revealed, so this is belt and braces -- but a
+ * half-decoded frame stuck at opacity 1 is exactly the state a viewer would
+ * report as broken.
+ */
+[data-polite-media][data-polite-failed] > video {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-polite-media] > video,
+  [data-polite-media] > :is(img, picture) {
+    transition: none;
+  }
+}

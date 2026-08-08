@@ -1,0 +1,122 @@
+/*
+ * Demo-only layout. Deliberately separate from polite-video.css to make the
+ * boundary visible: everything here is size and position, which the library
+ * never touches, and none of it is needed for the library to work.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, sans-serif;
+  background: #101014;
+  color: #e8e8ea;
+}
+
+header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #26262c;
+}
+
+h1 {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+}
+
+p.note {
+  margin: 0;
+  color: #9a9aa4;
+  font-size: 0.85rem;
+}
+
+nav a {
+  color: #7fb5ff;
+  margin-right: 1rem;
+}
+
+main {
+  padding: 1.5rem;
+}
+
+/* The host owns the box. The library only decides when what is inside it shows. */
+.frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #1c1c22;
+}
+
+.frame > img,
+.frame > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.grid .frame {
+  aspect-ratio: 3 / 4;
+}
+
+.spacer {
+  height: 90vh;
+  display: grid;
+  place-items: center;
+  color: #55555f;
+}
+
+.hero {
+  height: 70vh;
+}
+
+.controls {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10;
+}
+
+.controls button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #3a3a44;
+  background: #1c1c22;
+  color: #e8e8ea;
+  cursor: pointer;
+}
+
+/* Four deliberately different boxes, one identical video, to prove the library
+   imposes no geometry of its own. */
+.sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.sizes .frame.wide {
+  width: 480px;
+  aspect-ratio: 16 / 9;
+}
+.sizes .frame.tall {
+  width: 220px;
+  aspect-ratio: 3 / 4;
+}
+.sizes .frame.square {
+  width: 140px;
+  aspect-ratio: 1;
+}
+.sizes .frame.strip {
+  width: 640px;
+  height: 90px;
+}
