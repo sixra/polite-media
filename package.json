@@ -15,6 +15,7 @@
     "lcp"
   ],
   "license": "MIT",
+  "packageManager": "pnpm@11.18.0",
   "author": "sixra",
   "repository": "github:sixra/polite-media",
   "type": "module",

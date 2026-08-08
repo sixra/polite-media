@@ -7,6 +7,18 @@
 # is provably a different picture from any later frame.
 set -eu
 
+# Preflight, because the failure otherwise arrives as an ffmpeg error that names
+# a codec rather than the missing package. libsvtav1 in particular is a separate
+# build option, so a distro ffmpeg may well lack it, and the AV1 fixture is what
+# the source-fallback tests are built on.
+for encoder in libx264 libsvtav1; do
+  if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q " $encoder "; then
+    echo "error: this ffmpeg has no $encoder encoder." >&2
+    echo "       Install a build that includes it, or the fixtures cannot be generated." >&2
+    exit 1
+  fi
+done
+
 out="$(dirname "$0")/../demo/assets"
 mkdir -p "$out"
 
