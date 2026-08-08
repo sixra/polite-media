@@ -78,11 +78,11 @@ export function configure(patch: Partial<Config>): void {
 
 /**
  * Checked here rather than left to the platform, because of *where* the platform
- * complains. An out-of-range fraction or a malformed `rootMargin` does throw --
- * verified in Chromium, a RangeError and a SyntaxError respectively -- but only
- * inside the IntersectionObserver constructor, which this library builds at the
- * first `register()`. That puts a stack trace on library code, arbitrarily far
- * from the `configure()` call that actually caused it.
+ * complains, not whether. An out-of-range fraction and a malformed `rootMargin`
+ * both do throw -- verified in Chromium, a RangeError and a SyntaxError
+ * respectively -- but only inside the IntersectionObserver constructor, which
+ * this library builds at the first `register()`. That puts a stack trace on
+ * library code, arbitrarily far from the `configure()` call that caused it.
  *
  * `smallViewport` is the one that cannot be checked. An invalid media query does
  * not throw and does not normalise to something recognisable: Chromium echoes
@@ -110,6 +110,18 @@ function validate(patch: Partial<Config>): void {
 
   if (patch.smallViewport !== undefined && patch.smallViewport.trim() === '') {
     throw new SyntaxError('polite-media: smallViewport must be a media query, got an empty string');
+  }
+
+  // rootMargin is handed to the platform to parse rather than checked by hand:
+  // the accepted grammar is CSS margin syntax and reimplementing it here would
+  // be a second, worse parser that drifts. Constructing a throwaway observer
+  // raises the browser's own SyntaxError now, at the configure() call, instead
+  // of at the first register().
+  //
+  // Skipped where IntersectionObserver does not exist, so that importing this
+  // module and configuring it under SSR or in a Node test still works.
+  if (patch.rootMargin !== undefined && typeof IntersectionObserver === 'function') {
+    new IntersectionObserver(() => {}, { rootMargin: patch.rootMargin }).disconnect();
   }
 }
 

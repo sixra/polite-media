@@ -759,3 +759,36 @@ describe('configure validation', () => {
     expect(typeof threshold === 'number' ? [threshold] : [...threshold]).toContain(0.3);
   });
 });
+
+describe('rootMargin validation', () => {
+  // Delegated to the platform rather than hand-parsed: the grammar is CSS margin
+  // syntax, and a second parser here would drift from the browser's.
+  class ThrowingObserver {
+    constructor(_cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+      if (options?.rootMargin && !/^-?[\d.]+(px|%)( |$)/.test(options.rootMargin)) {
+        throw new SyntaxError('rootMargin must be specified in pixels or percent.');
+      }
+    }
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+
+  it('rejects a malformed rootMargin at configure time', () => {
+    vi.stubGlobal('IntersectionObserver', ThrowingObserver);
+    // Without units, which is the mistake the browser rejects.
+    expect(() => configure({ rootMargin: '50' })).toThrow(SyntaxError);
+  });
+
+  it('accepts a valid one', () => {
+    vi.stubGlobal('IntersectionObserver', ThrowingObserver);
+    expect(() => configure({ rootMargin: '50px' })).not.toThrow();
+    expect(() => configure({ rootMargin: '10%' })).not.toThrow();
+  });
+
+  it('skips the check when there is no IntersectionObserver to ask', () => {
+    // Importing and configuring under SSR or in a Node test must not explode.
+    vi.stubGlobal('IntersectionObserver', undefined);
+    expect(() => configure({ rootMargin: 'anything at all' })).not.toThrow();
+  });
+});

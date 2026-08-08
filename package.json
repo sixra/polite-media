@@ -40,19 +40,30 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "node scripts/clean.js && tsc -p tsconfig.build.json && cp src/video.css src/image.css dist/",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "build": "node scripts/clean.js && tsc -p tsconfig.build.json && esbuild src/video.css src/image.css --minify --outdir=dist",
+    "clean": "node scripts/clean.js",
     "fixtures": "sh scripts/make-fixtures.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "size": "node scripts/size-check.js",
+    "test": "vitest run",
     "test:e2e": "playwright test",
-    "clean": "node scripts/clean.js"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.9.0",
     "happy-dom": "^20.11.2",
-    "typescript": "^7.0.2",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.66.0",
     "vitest": "^4.1.10"
   }
 }

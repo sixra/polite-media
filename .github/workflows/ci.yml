@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # pnpm/setup, not pnpm/action-setup: action-setup's own README names this as
+      # its successor for pnpm v11 and newer, and it installs the runtime in the
+      # same step, replacing actions/setup-node.
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      # After build: the gate measures src/, but a failed build means those
+      # numbers describe something that does not exist.
+      - run: pnpm size
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # Fixtures are generated, not committed. Keyed on the generator so a changed
+      # encode invalidates the cache rather than testing stale media.
+      - uses: actions/cache@v4
+        id: fixtures
+        with:
+          path: demo/assets
+          key: fixtures-${{ hashFiles('scripts/make-fixtures.sh') }}
+
+      - name: Install ffmpeg
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Generate fixtures
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: pnpm fixtures
+
+      - run: pnpm build
+
+      # All three engines. Chromium alone would leave the Save-Data gate untested
+      # on the two browsers that lack navigator.connection, which is exactly the
+      # blind spot the polarity of that gate exists to survive.
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
