@@ -11,20 +11,15 @@
     <header>
       <h1>Above-the-fold hero</h1>
       <p class="note">
-        The poster is the LCP candidate, so it is preloaded and never starts hidden. Only the
-        video layer fades in, once a frame has actually painted.
+        The poster is the LCP candidate, so it is preloaded and never starts hidden. Only the video
+        layer fades in, once a frame has actually painted.
       </p>
       <nav><a href="/demo/">all demos</a></nav>
     </header>
 
     <main>
       <div class="frame hero" data-polite-media id="hero">
-        <img
-          src="/demo/assets/sample-poster.avif"
-          alt=""
-          fetchpriority="high"
-          decoding="async"
-        />
+        <img src="/demo/assets/sample-poster.avif" alt="" fetchpriority="high" decoding="async" />
         <video muted loop playsinline preload="none">
           <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
         </video>

@@ -30,7 +30,8 @@ register(box.querySelector('video'), { observe: box });
 Images are the other half, and a separate import:
 
 ```html
-<div class="card"><!-- needs its own background-color -->
+<div class="card">
+  <!-- needs its own background-color -->
   <img src="photo.avif" alt="" loading="lazy" data-polite-reveal />
 </div>
 ```
@@ -49,7 +50,7 @@ Every bug it fixes is one you can't see in development.
 **`playing` is not when the picture appears.** The usual advice is to swap the
 poster for the video on the `playing` event. Measured on one machine in one run,
 H.264 presented its first frame **1.6 ms before** `playing` fired, while AV1
-presented **0.8 ms after**. It isn't early — it's *unordered*. Reveal on it and
+presented **0.8 ms after**. It isn't early — it's _unordered_. Reveal on it and
 you either flash (poster gone, nothing painted) or linger (poster held over a
 frame that already painted), depending on the codec, so no delay tunes it away.
 `requestVideoFrameCallback` is specified in terms of a frame reaching the
@@ -60,7 +61,7 @@ compositor, so it's right by definition.
 documented behaviour, not a quirk: MDN says it "cannot guarantee that a media
 file will actually play, even when it returns probably". It's the same shape as
 Safari on Apple hardware without an AV1 decoder, which reports AV1 support the
-device can't deliver — so codec checks only *order* the candidates here, and the
+device can't deliver — so codec checks only _order_ the candidates here, and the
 `error` event decides.
 
 **Absence of `navigator.connection` means allow, not block.** Safari and Firefox
@@ -87,8 +88,8 @@ Measurements and citations: [`docs/findings.md`](docs/findings.md).
 
 ## What it deliberately doesn't do
 
-**It never sets a width, height or aspect ratio.** It owns *when* media appears;
-your CSS owns *where*. That's the whole reason it drops into an existing design
+**It never sets a width, height or aspect ratio.** It owns _when_ media appears;
+your CSS owns _where_. That's the whole reason it drops into an existing design
 at any video size — and it would be undone by one dimension declaration.
 
 It's also not an image pipeline (no srcset or poster generation — that's a build
@@ -118,14 +119,14 @@ configure({ ... });                   // call once, before the first register
 pauseAll(); resumeAll();              // WCAG 2.2.2 control
 ```
 
-| option | default | |
-| --- | --- | --- |
-| `rootMargin` | `'50px'` | how far outside the viewport to start preparing |
-| `pauseGraceMs` | `400` | anti-flicker debounce at the viewport edge |
-| `smallViewport` | `'(max-width: 767px)'` | which viewports are "small" |
-| `mobile` | `'arbitrate'` | `'arbitrate'` (one at a time) or `'poster'` (never play) |
-| `hysteresis` | `0.15` | how much more visible a rival must be to take the slot |
-| `pauseBelow` | `0` | visible fraction at or below which a video stops |
+| option          | default                |                                                          |
+| --------------- | ---------------------- | -------------------------------------------------------- |
+| `rootMargin`    | `'50px'`               | how far outside the viewport to start preparing          |
+| `pauseGraceMs`  | `400`                  | anti-flicker debounce at the viewport edge               |
+| `smallViewport` | `'(max-width: 767px)'` | which viewports are "small"                              |
+| `mobile`        | `'arbitrate'`          | `'arbitrate'` (one at a time) or `'poster'` (never play) |
+| `hysteresis`    | `0.15`                 | how much more visible a rival must be to take the slot   |
+| `pauseBelow`    | `0`                    | visible fraction at or below which a video stops         |
 
 `register(video, { until: promise })` holds a video back until the promise
 settles — for a splash screen or a consent dialog. A hero at scroll-top is

@@ -11,10 +11,10 @@
     <header>
       <h1>Error-driven source fallback</h1>
       <p class="note">
-        Left: a truncated AV1 first, a good H.264 second — the browser answers "probably" for
-        the AV1, then fails at decode, and the next source takes over. This is the same shape
-        as Safari on Apple hardware without an AV1 decoder. Right: nothing decodable at all,
-        so the poster stays for good.
+        Left: a truncated AV1 first, a good H.264 second — the browser answers "probably" for the
+        AV1, then fails at decode, and the next source takes over. This is the same shape as Safari
+        on Apple hardware without an AV1 decoder. Right: nothing decodable at all, so the poster
+        stays for good.
       </p>
       <nav><a href="/demo/">all demos</a></nav>
     </header>
@@ -26,7 +26,7 @@
           <video muted loop playsinline preload="none">
             <source
               src="/demo/assets/sample-truncated-av1.mp4"
-              type="video/mp4; codecs=&quot;av01.0.08M.08&quot;"
+              type='video/mp4; codecs="av01.0.08M.08"'
             />
             <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
           </video>
@@ -37,7 +37,7 @@
           <video muted loop playsinline preload="none">
             <source
               src="/demo/assets/sample-truncated-av1.mp4"
-              type="video/mp4; codecs=&quot;av01.0.08M.08&quot;"
+              type='video/mp4; codecs="av01.0.08M.08"'
             />
           </video>
         </div>

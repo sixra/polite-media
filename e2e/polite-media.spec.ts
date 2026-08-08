@@ -15,11 +15,15 @@ import { expect, test, type Page } from '@playwright/test';
 const settle = (page: Page, ms = 800): Promise<void> => page.waitForTimeout(ms);
 
 test.describe('hero', () => {
-  test('reveals only once a frame has painted, and hides the poster behind it', async ({ page }) => {
+  test('reveals only once a frame has painted, and hides the poster behind it', async ({
+    page,
+  }) => {
     await page.goto('/demo/hero.html');
 
     await expect
-      .poll(() => page.evaluate(() => document.getElementById('hero')!.hasAttribute('data-polite-ready')))
+      .poll(() =>
+        page.evaluate(() => document.getElementById('hero')!.hasAttribute('data-polite-ready'))
+      )
       .toBe(true);
 
     expect(
@@ -60,9 +64,9 @@ test.describe('source fallback', () => {
   test('falls through a source the browser claimed it could play', async ({ page }) => {
     await page.goto('/demo/fallback.html');
 
-    await expect.poll(() => page.evaluate(() => window.__state().recoversSrc)).toBe(
-      'sample-h264.mp4'
-    );
+    await expect
+      .poll(() => page.evaluate(() => window.__state().recoversSrc))
+      .toBe('sample-h264.mp4');
     await expect.poll(() => page.evaluate(() => window.__state().recoversReady)).toBe(true);
   });
 

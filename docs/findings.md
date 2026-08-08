@@ -9,10 +9,10 @@ Measured 2026-08-08, headless Chromium via Playwright, local server, `preload="n
 `play()` called immediately. Fixtures are `scripts/make-fixtures.sh` output
 (`testsrc2`, 1280x720, 30fps, 4s).
 
-| codec | `playing` | first rVFC | delta |
-| ----- | --------- | ---------- | ----- |
-| H.264 | 104.3 ms  | 102.7 ms   | **-1.6 ms** (frame presented *first*) |
-| AV1   | 23.0 ms   | 23.8 ms    | **+0.8 ms** (`playing` *first*) |
+| codec | `playing` | first rVFC | delta                                 |
+| ----- | --------- | ---------- | ------------------------------------- |
+| H.264 | 104.3 ms  | 102.7 ms   | **-1.6 ms** (frame presented _first_) |
+| AV1   | 23.0 ms   | 23.8 ms    | **+0.8 ms** (`playing` _first_)       |
 
 Same machine, same page, same run. The ordering flips with the codec.
 
@@ -49,11 +49,11 @@ can rely on it and needs neither headed CI, `--use-gl=swiftshader`, nor a canvas
 
 Measured 2026-08-08, headless Chromium, same fixtures.
 
-| source | outcome | `MediaError.code` |
-| ------ | ------- | ----------------- |
-| `sample-truncated-av1.mp4` | `error` after 17 ms | **3** `MEDIA_ERR_DECODE` — `PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22` |
-| `sample-av1.mp4` (intact)  | `loadeddata`, readyState 4 | — |
-| a URL that does not exist  | `error` after 2 ms | **4** `MEDIA_ERR_SRC_NOT_SUPPORTED` |
+| source                     | outcome                    | `MediaError.code`                                                                           |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `sample-truncated-av1.mp4` | `error` after 17 ms        | **3** `MEDIA_ERR_DECODE` — `PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22` |
+| `sample-av1.mp4` (intact)  | `loadeddata`, readyState 4 | —                                                                                           |
+| a URL that does not exist  | `error` after 2 ms         | **4** `MEDIA_ERR_SRC_NOT_SUPPORTED`                                                         |
 
 In the same run, `canPlayType('video/mp4; codecs="av01.0.08M.08"')` returned
 **`"probably"`** — for the very file that then failed at decode.
@@ -65,7 +65,7 @@ declarations, fail to actually decode". It is the same shape as Safari on Apple
 hardware without an AV1 decoder, which reports AV1 support the device cannot
 deliver.
 
-Hence the codec check only *orders* candidates and the `error` event *decides*.
+Hence the codec check only _orders_ candidates and the `error` event _decides_.
 And hence the fallback triggers on codes 3 and 4 only: code 1
 (`MEDIA_ERR_ABORTED`) is what the element reports when its `src` is reassigned,
 which this library does itself, so treating it as fatal would cascade through

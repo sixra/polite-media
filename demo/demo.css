@@ -10,7 +10,9 @@
 
 body {
   margin: 0;
-  font: 15px/1.5 system-ui, sans-serif;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
   background: #101014;
   color: #e8e8ea;
 }
