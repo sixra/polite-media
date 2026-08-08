@@ -939,3 +939,65 @@ describe('configure() after the first register', () => {
     expect(() => configure({ pauseBelow: 0.4 })).not.toThrow();
   });
 });
+
+describe('lifecycle listeners', () => {
+  // These had no coverage at all: every one could be deleted with the suite
+  // green. They exist because scripts do not re-run on a bfcache restore and
+  // mobile browsers leave video paused after the tab is hidden, so without them
+  // a video comes back frozen.
+  const setVisibility = (state: DocumentVisibilityState): void => {
+    Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
+  };
+
+  it('re-runs the arbiter on a bfcache restore', () => {
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    // A browser can restore the page with the element paused, and no observer
+    // batch follows, so nothing else would notice.
+    video.pause();
+    play.mockClear();
+    window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('ignores a pageshow that is not a bfcache restore', () => {
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    video.pause();
+    play.mockClear();
+    window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: false }));
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('re-runs the arbiter when the tab becomes visible again', () => {
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    video.pause();
+    play.mockClear();
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(play).toHaveBeenCalled();
+
+    setVisibility('visible');
+  });
+
+  it('does nothing when the tab is going away rather than returning', () => {
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    video.pause();
+    play.mockClear();
+    setVisibility('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(play).not.toHaveBeenCalled();
+
+    setVisibility('visible');
+  });
+});
