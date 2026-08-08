@@ -33,8 +33,13 @@ p.note {
   font-size: 0.85rem;
 }
 
-nav a {
+/* Every link, not just nav: demo/index.html's list links were left at the UA
+   default #0000ee, which is 2.01:1 on this background. */
+a {
   color: #7fb5ff;
+}
+
+nav a {
   margin-right: 1rem;
 }
 
@@ -73,7 +78,8 @@ main {
   height: 90vh;
   display: grid;
   place-items: center;
-  color: #55555f;
+  /* Was #55555f: 2.57:1 against the page, below the 4.5:1 AA threshold. */
+  color: #9a9aa4;
 }
 
 .hero {

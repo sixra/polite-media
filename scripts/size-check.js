@@ -17,7 +17,7 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought. Every size quoted in README.md must match this table.
  */
 const budgets = {
-  'src/video.ts': 2500,
+  'src/video.ts': 2600,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

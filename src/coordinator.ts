@@ -579,6 +579,27 @@ function detachLifecycle(): void {
 }
 
 /**
+ * Keeps `aria-pressed` current on any pause control that already declares it.
+ *
+ * Maintained rather than added, because MDN describes two valid patterns and
+ * setting it unconditionally would break one of them: `aria-pressed` is for a
+ * control whose label stays constant, while a control that swaps its label
+ * between "Pause" and "Play" should not carry it at all -- a screen reader would
+ * announce "Play, pressed". Declaring the attribute in markup is the author
+ * saying which pattern they are in.
+ *
+ * Restricted to a button role because that is the only role `aria-pressed` is
+ * valid on, so this cannot emit ARIA that a validator would reject.
+ */
+function reflectPaused(): void {
+  for (const control of document.querySelectorAll('[data-polite-pause][aria-pressed]')) {
+    if (control.matches('button, [role="button"]')) {
+      control.setAttribute('aria-pressed', String(userPaused));
+    }
+  }
+}
+
+/**
  * Starts managing a video: reveals it on its first genuinely painted frame,
  * plays it only while it is visible, falls through its `<source>` list when one
  * cannot be decoded, and stops it when a gate closes.
@@ -664,11 +685,16 @@ export function unregister(video: HTMLVideoElement): void {
  * mechanism the user can actually operate has to exist.
  *
  * The host supplies the button and its styling; the library ships no markup and
- * no CSS for it. Any element carrying `data-polite-pause` toggles this.
+ * no CSS for it. A `<button>` carrying `data-polite-pause` toggles this.
+ *
+ * It has to be a real `<button>`. The binding is a delegated `click`, and a
+ * browser only synthesises that from Enter and Space for a native button, so a
+ * `div[role="button"][tabindex="0"]` responds to a mouse and not to a keyboard.
  */
 export function pauseAll(): void {
   userPaused = true;
   document.documentElement.setAttribute('data-polite-paused', '');
+  reflectPaused();
   reconcile();
 }
 
@@ -676,6 +702,7 @@ export function pauseAll(): void {
 export function resumeAll(): void {
   userPaused = false;
   document.documentElement.removeAttribute('data-polite-paused');
+  reflectPaused();
   reconcile();
 }
 

@@ -1,89 +1,107 @@
 <!doctype html>
-<meta charset="utf-8" />
-<title>rVFC spike</title>
-<style>
-  body {
-    font:
-      14px/1.5 system-ui,
-      sans-serif;
-    margin: 2rem;
-  }
-  video {
-    width: 480px;
-    background: #222;
-  }
-  pre {
-    background: #f4f4f4;
-    padding: 1rem;
-  }
-</style>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>rVFC spike</title>
+    <style>
+      body {
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        margin: 2rem;
+      }
+      video {
+        width: 480px;
+        background: #222;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>requestVideoFrameCallback spike</h1>
+      <p><a href="/demo/">all demos</a></p>
+      <video id="v" muted loop playsinline preload="none">
+        <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+      </video>
+      <pre id="out">running...</pre>
 
-<h1>requestVideoFrameCallback spike</h1>
-<video id="v" muted loop playsinline preload="none">
-  <source src="/assets/sample-h264.mp4" type="video/mp4" />
-</video>
-<pre id="out">running...</pre>
+      <script>
+        // Two questions at once:
+        //  1. Does rVFC fire at all in this browser/headless config? If it silently
+        //     never fires, every test built on it is vacuously green.
+        //  2. How long after the `playing` event does a frame actually reach the
+        //     compositor? That gap is the entire reason this library exists, so it
+        //     should be measured rather than taken on faith from the spec.
+        const v = document.getElementById('v');
+        const out = document.getElementById('out');
+        const t0 = performance.now();
+        const marks = {};
+        const at = (name) => {
+          if (marks[name] === undefined) marks[name] = +(performance.now() - t0).toFixed(1);
+        };
 
-<script>
-  // Two questions at once:
-  //  1. Does rVFC fire at all in this browser/headless config? If it silently
-  //     never fires, every test built on it is vacuously green.
-  //  2. How long after the `playing` event does a frame actually reach the
-  //     compositor? That gap is the entire reason this library exists, so it
-  //     should be measured rather than taken on faith from the spec.
-  const v = document.getElementById('v');
-  const out = document.getElementById('out');
-  const t0 = performance.now();
-  const marks = {};
-  const at = (name) => {
-    if (marks[name] === undefined) marks[name] = +(performance.now() - t0).toFixed(1);
-  };
+        for (const evt of [
+          'loadstart',
+          'loadedmetadata',
+          'loadeddata',
+          'canplay',
+          'play',
+          'playing',
+        ]) {
+          v.addEventListener(evt, () => at(evt), { once: true });
+        }
 
-  for (const evt of ['loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'play', 'playing']) {
-    v.addEventListener(evt, () => at(evt), { once: true });
-  }
+        const hasRvfc = typeof v.requestVideoFrameCallback === 'function';
+        if (hasRvfc) {
+          v.requestVideoFrameCallback((now, meta) => {
+            at('rvfc');
+            marks.rvfcMediaTime = meta.mediaTime;
+            marks.rvfcPresentedFrames = meta.presentedFrames;
+          });
+        }
 
-  const hasRvfc = typeof v.requestVideoFrameCallback === 'function';
-  if (hasRvfc) {
-    v.requestVideoFrameCallback((now, meta) => {
-      at('rvfc');
-      marks.rvfcMediaTime = meta.mediaTime;
-      marks.rvfcPresentedFrames = meta.presentedFrames;
-    });
-  }
+        function report(verdict) {
+          const gap =
+            marks.rvfc !== undefined && marks.playing !== undefined
+              ? +(marks.rvfc - marks.playing).toFixed(1)
+              : null;
+          const result = {
+            verdict,
+            hasRvfc,
+            rvfcFired: marks.rvfc !== undefined,
+            playingToFirstFrameMs: gap,
+            readyStateAtPlaying: marks.readyStateAtPlaying ?? null,
+            marks,
+          };
+          out.textContent = JSON.stringify(result, null, 2);
+          // Console is what the driver reads; the DOM is for a human looking at it.
+          console.log('SPIKE_RESULT ' + JSON.stringify(result));
+          window.__spikeResult = result;
+        }
 
-  function report(verdict) {
-    const gap =
-      marks.rvfc !== undefined && marks.playing !== undefined
-        ? +(marks.rvfc - marks.playing).toFixed(1)
-        : null;
-    const result = {
-      verdict,
-      hasRvfc,
-      rvfcFired: marks.rvfc !== undefined,
-      playingToFirstFrameMs: gap,
-      readyStateAtPlaying: marks.readyStateAtPlaying ?? null,
-      marks,
-    };
-    out.textContent = JSON.stringify(result, null, 2);
-    // Console is what the driver reads; the DOM is for a human looking at it.
-    console.log('SPIKE_RESULT ' + JSON.stringify(result));
-    window.__spikeResult = result;
-  }
+        v.addEventListener('playing', () => {
+          marks.readyStateAtPlaying = v.readyState;
+        });
 
-  v.addEventListener('playing', () => {
-    marks.readyStateAtPlaying = v.readyState;
-  });
-
-  v.play().then(
-    () => {
-      // Give the compositor a generous window; if rVFC has not fired by now it
-      // is not going to, and that is the finding.
-      setTimeout(() => report(marks.rvfc !== undefined ? 'RVFC_OK' : 'RVFC_NEVER_FIRED'), 2000);
-    },
-    (err) => {
-      marks.playError = String(err);
-      setTimeout(() => report('PLAY_REJECTED'), 500);
-    }
-  );
-</script>
+        v.play().then(
+          () => {
+            // Give the compositor a generous window; if rVFC has not fired by now it
+            // is not going to, and that is the finding.
+            setTimeout(
+              () => report(marks.rvfc !== undefined ? 'RVFC_OK' : 'RVFC_NEVER_FIRED'),
+              2000
+            );
+          },
+          (err) => {
+            marks.playError = String(err);
+            setTimeout(() => report('PLAY_REJECTED'), 500);
+          }
+        );
+      </script>
+    </main>
+  </body>
+</html>

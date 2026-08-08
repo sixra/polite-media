@@ -23,7 +23,7 @@
       <div class="sizes">
         <div class="frame wide" data-polite-media id="recovers">
           <img src="/demo/assets/sample-poster.avif" alt="" />
-          <video muted loop playsinline preload="none">
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
             <source
               src="/demo/assets/sample-truncated-av1.mp4"
               type='video/mp4; codecs="av01.0.08M.08"'
@@ -34,7 +34,7 @@
 
         <div class="frame wide" data-polite-media id="exhausts">
           <img src="/demo/assets/sample-poster.avif" alt="" />
-          <video muted loop playsinline preload="none">
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
             <source
               src="/demo/assets/sample-truncated-av1.mp4"
               type='video/mp4; codecs="av01.0.08M.08"'
@@ -43,6 +43,13 @@
         </div>
       </div>
     </main>
+
+    <div class="controls">
+      <!-- A real <button>: the library binds a delegated click, and only a native
+           button has Enter and Space synthesised into one. aria-pressed is
+           declared here, which is how the library knows to keep it current. -->
+      <button data-polite-pause type="button" aria-pressed="false">pause / resume</button>
+    </div>
 
     <script type="module">
       import { register } from '/dist/video.js';

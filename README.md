@@ -155,8 +155,19 @@ time. Note the fraction is measured against the viewport **expanded by
 past the edge. Whatever you set is also added to the observer's threshold list,
 because the browser only reports at crossings it was told about.
 
-Any element with `data-polite-pause` toggles playback. You supply the button and
-its styling; this ships no markup and no CSS for it.
+A `<button>` carrying `data-polite-pause` toggles playback. You supply it and its
+styling; this ships no markup and no CSS for it.
+
+It must be a real `<button>`. The binding is a delegated `click`, and browsers
+only synthesise that from Enter and Space for a native button — a
+`div[role="button"][tabindex="0"]` answers a mouse and ignores a keyboard, which
+is a WCAG 2.1.1 failure.
+
+If you also put `aria-pressed="false"` on it, the library keeps that current so
+the control announces its state. It is maintained rather than added, because
+`aria-pressed` suits a button whose label stays constant; if yours swaps between
+"Pause" and "Play" instead, leave the attribute off and the library won't touch
+it — a screen reader announcing "Play, pressed" is worse than either.
 
 ## Markup contract
 
@@ -168,6 +179,10 @@ its styling; this ships no markup and no CSS for it.
 3. The poster should be the video's **frame 0**, which is what makes the
    dissolve invisible rather than a visible transition between two pictures.
 4. Poster and video are direct children of the box.
+5. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
+   poster's `alt` carries any meaning — and without this it lands in the tab
+   order: measured in Firefox, twelve background videos sat ahead of the pause
+   button, so a keyboard user reached it on the thirteenth Tab.
 
 Attributes set on the box: `data-polite-ready`, `data-polite-failed`. On
 `<html>`: `data-polite-paused`. Those are the public CSS API; override the fade
