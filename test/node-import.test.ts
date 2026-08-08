@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
  * correct inside an Astro component script and fatal in a published package:
  * any SSR render, prerender or Node test that imports it throws
  * "matchMedia is not defined" at import time, before a single function is called.
- * It would also make `"sideEffects": false` untrue.
+ * It would also contradict the `sideEffects` declaration.
  */
 describe('importing in Node without a DOM', () => {
   it('does not throw', async () => {

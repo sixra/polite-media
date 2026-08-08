@@ -127,12 +127,18 @@ export function configure(patch: ConfigureOptions): void {
 }
 
 /**
- * Checked here rather than left to the platform, because of *where* the platform
- * complains, not whether. An out-of-range fraction and a malformed `rootMargin`
- * both do throw -- verified in Chromium, a RangeError and a SyntaxError
- * respectively -- but only inside the IntersectionObserver constructor, which
- * this library builds at the first `register()`. That puts a stack trace on
- * library code, arbitrarily far from the `configure()` call that caused it.
+ * Checked here because for two of the four the platform never complains at all.
+ *
+ * Only `pauseBelow` and `rootMargin` reach a platform API, through the threshold
+ * ladder and the observer options. Chromium rejects both -- a RangeError outside
+ * 0..1, a TypeError for NaN or Infinity, a SyntaxError for a malformed margin --
+ * but not until the IntersectionObserver constructor runs at the first
+ * `register()`, arbitrarily far from the `configure()` call responsible.
+ *
+ * `hysteresis` and `pauseGraceMs` never leave this module: one is arithmetic in
+ * `pickWinners`, the other a `setTimeout` argument. Nothing would reject an
+ * absurd value for either, so these checks are not relocating an error, they are
+ * the only error there is.
  *
  * `smallViewport` is the one that cannot be checked. An invalid media query does
  * not throw and does not normalise to something recognisable: Chromium echoes
@@ -242,7 +248,12 @@ let gestureArmed = false;
  */
 let userPaused = false;
 
-/** Every reason a video may not start. The poster covers all of them. */
+/**
+ * The two environment gates. Not every reason a video may be stopped -- the
+ * `until` gate, `mobile: 'poster'`, `pauseBelow` and a user pause are decided in
+ * reconcile() -- but the two that mean "not on this device, right now", and the
+ * only two that retract an existing reveal back to the poster.
+ */
 function videoAllowed(): boolean {
   return motionAllowed() && connectionAllowsMedia();
 }
@@ -296,11 +307,6 @@ function pauseAfterGrace(entry: Entry): void {
 }
 
 /**
- * Reveal state lives on the container, not the `<video>`, because the poster is
- * an earlier sibling: an attribute on the video cannot style what precedes it,
- * while one on the shared box drives both layers with descendant selectors.
- */
-/**
  * Events, so a host can react without observing attributes or forking. Bubbling
  * because the useful listener is usually on a container, not on each video.
  */
@@ -313,6 +319,11 @@ function emit(entry: Entry, type: 'ready' | 'failed'): void {
   );
 }
 
+/**
+ * Reveal state goes on the container, not the `<video>`, because the poster is an
+ * earlier sibling: an attribute on the video cannot style what precedes it, while
+ * one on the shared box drives both layers with descendant selectors.
+ */
 function markReady(entry: Entry): void {
   entry.host.setAttribute('data-polite-ready', '');
   emit(entry, 'ready');

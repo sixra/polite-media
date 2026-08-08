@@ -6,8 +6,12 @@ import { mediaQuery } from './env.js';
  *
  * Two problems, one mechanism.
  *
- * Safari does not re-evaluate `<source media>` after the element has loaded, so
- * a source list alone cannot respond to a viewport that changed since parse.
+ * `<source media>` is evaluated once, during resource selection, and never
+ * again -- in every engine, not just Safari. Verified in Chromium: after loading
+ * at 1200px, resizing to 500px left `currentSrc` on the wide source even though
+ * the narrow query then matched. The spec has no hook for it, since resource
+ * selection only re-runs when `src` or the `<source>` children change. So a
+ * source list alone cannot respond to a viewport that moved since parse.
  * Resolving the list here and assigning `video.src` directly sidesteps that
  * entirely: one assignment, no negotiation left to go stale.
  *
@@ -16,8 +20,9 @@ import { mediaQuery } from './env.js';
  * probably", which is not theoretical -- in this project's own fixtures
  * (docs/findings.md) Chromium answered "probably" for AV1 and then failed at
  * `dav1d_send_data()`. The same shape bites Apple hardware without an AV1
- * decoder. So the codec check only orders the candidates; the `error` event
- * decides.
+ * decoder. So the codec check only drops the flat "no" answers; among what
+ * survives, document order sets the try order and the `error` event decides the
+ * outcome.
  *
  * Deliberately *not* re-selecting on resize. Reassigning `src` restarts
  * playback from frame 0, so a phone rotating mid-scroll would visibly rewind the

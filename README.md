@@ -2,9 +2,15 @@
 
 Background video and images that behave themselves. No dependencies, no framework.
 
-Two independent halves, imported separately, because they share almost nothing:
-`polite-media/video` is **2.0 KB gz** and `polite-media/image` is **425 B gz**. An
-image-only page never pays for the video coordinator.
+Two independent halves, imported separately, because they share almost nothing.
+Bundled, minified and gzipped, which is what `pnpm size` enforces:
+
+|                      | JavaScript | stylesheet | total      |
+| -------------------- | ---------- | ---------- | ---------- |
+| `polite-media/video` | 2,538 B    | 196 B      | **2.7 KB** |
+| `polite-media/image` | 478 B      | 144 B      | **622 B**  |
+
+An image-only page never pays for the video coordinator.
 
 It doesn't flash, doesn't hog the decoder, doesn't eat data on a metered
 connection, doesn't ignore reduced motion, and doesn't autoplay without giving
@@ -113,11 +119,25 @@ degrades to nothing, so its container must carry a visible `background-color`.
 ## API
 
 ```js
-register(video, { until, observe });  // manage a video
-unregister(video);                    // stop managing it, release everything
-configure({ ... });                   // call once, before the first register
-pauseAll(); resumeAll();              // WCAG 2.2.2 control
+// polite-media/video
+register(video, { until, observe }); // manage a video
+unregister(video); //                   stop managing it, release everything
+unregisterAll(); //                     tear down the whole page
+configure({ ... }); //                  before the first register, or it throws
+pauseAll(); resumeAll(); //             WCAG 2.2.2 control
+
+// polite-media/image
+const stop = revealImages(target, { allowEager }); // reveal on decode
+stop(); //                                            cancel anything pending
 ```
+
+Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `ImageTarget`,
+`PoliteVideoEventDetail`, `PoliteImageEventDetail`. Event names ship as constants
+(`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`, `POLITE_IMAGE_READY`) because a
+mistyped event string still compiles against lib.dom's `type: string` overload.
+
+There is no root import. Use `polite-media/video` or `polite-media/image`; the
+resolution error for the bare package name does not name them.
 
 | option          | default                |                                                          |
 | --------------- | ---------------------- | -------------------------------------------------------- |
@@ -135,6 +155,12 @@ before whatever the page is waiting on has finished.
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
+
+`configure()` throws if `rootMargin`, `pauseBelow` or `smallViewport` is patched
+while videos are registered. Those three are read when the observer and the
+lifecycle listeners are built, so a late change does not merely fail to apply:
+`pauseBelow` half-applies, because eligibility reads it live while the threshold
+ladder does not. The other three take effect on the next pass.
 
 Only `mobile` is constrained by the type system, as a `'arbitrate' | 'poster'`
 union. TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,

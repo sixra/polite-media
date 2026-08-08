@@ -46,6 +46,7 @@ async function measure(entry) {
 
 let failed = false;
 
+/* eslint-disable no-console -- the report is this script's output, not debug logging */
 for (const [entry, budget] of Object.entries(budgets)) {
   const size = await measure(entry);
   const over = size > budget;

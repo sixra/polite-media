@@ -10,7 +10,7 @@ const queries = new Map<string, MediaQueryList>();
  * Memoised `matchMedia`, and the reason every media query in this package goes
  * through one function: a module-scope `matchMedia(...)` throws the moment the
  * package is imported anywhere without a DOM (SSR, prerender, a Node test), and
- * would make the `"sideEffects": false` claim in package.json a lie.
+ * would contradict the `sideEffects` declaration in package.json.
  *
  * Memoising also lets callers attach `change` listeners to the same object the
  * predicates read, so "honour it live" costs no extra plumbing.
@@ -39,8 +39,9 @@ interface NetworkInformation {
  *
  * Absence must mean *allow*. The Network Information API is not Baseline: Safari
  * and Firefox never expose it, and Brave disables it as a fingerprinting surface.
- * Reading absence as "block" would silently disable video for most of the web,
- * and it fails open in the direction nobody would notice in testing.
+ * Reading absence as "block" would fail closed for most of the web, and fail
+ * closed in the one direction nobody would catch: Chrome is the browser that has
+ * the API, so a Chrome-only developer never sees it.
  */
 export function connectionAllowsMedia(): boolean {
   const conn = (navigator as Navigator & { connection?: NetworkInformation }).connection;

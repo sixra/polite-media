@@ -55,6 +55,28 @@ test.describe('hero', () => {
     await page.goto('/demo/hero.html');
     await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
   });
+
+  // Not expressed as "ready came after playing": those two are unordered by codec
+  // (H.264 painted 1.6 ms before, AV1 0.8 ms after, docs/findings.md), so that
+  // comparison would be flaky in exactly the way the measurement warns about.
+  //
+  // Nor on the frame counter, which was tried and does not survive contact with
+  // other engines: at reveal it reads 4 in Chromium, 1 in WebKit and 0 in Firefox,
+  // where frames are demonstrably flowing (2 a moment later). MDN defines
+  // totalVideoFrames as frames the element "would have presented", so the concept
+  // is right and the update timing is not portable.
+  //
+  // What is left is the guarantee that does hold everywhere: the reveal never
+  // lands while the element still has nothing decodable. rVFC is definitionally
+  // the presentation signal, and there is no independent oracle to check it
+  // against -- any proxy is weaker than the thing itself.
+  test('never reveals while the element has nothing decoded', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+    await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
+
+    const marks = await page.evaluate(() => window.__marks);
+    expect(marks.readyStateAtReveal).toBeGreaterThanOrEqual(2);
+  });
 });
 
 test.describe('source fallback', () => {
@@ -197,11 +219,13 @@ test.describe('images', () => {
     await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
   });
 
-  test('reveals eager images immediately instead of fading them', async ({ page }) => {
+  test('reveals eager images on the first tick, without waiting on decode', async ({ page }) => {
     await page.goto('/demo/images.html');
-    // LCP excludes elements at opacity 0 and revealing one does not restore its
-    // candidacy, so an eager image is shown at once rather than faded in.
-    await expect.poll(() => page.evaluate(() => window.__readyCount('#eager'))).toBe(4);
+    // Deliberately not polled. Polling to 4 is satisfied by the lazy path as
+    // well, so it could not tell "immediately" from "eventually" -- which is the
+    // whole claim. LCP excludes elements at opacity 0 and revealing one does not
+    // restore candidacy, so an eager image has to be visible from its first paint.
+    expect(await page.evaluate(() => window.__readyCount('#eager'))).toBe(4);
   });
 
   test('never leaves an eager image invisible', async ({ page }) => {

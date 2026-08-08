@@ -42,12 +42,14 @@
       // Recorded so the e2e suite can assert the reveal never lands before a
       // frame is presented -- the library's central claim, and the one that is
       // vacuous if only asserted against `playing`.
-      const marks = { playing: null, ready: null };
-      video.addEventListener('playing', () => {
-        marks.playing ??= performance.now();
-      });
+      const marks = { ready: null, framesAtReveal: null, readyStateAtReveal: null };
       hero.addEventListener('polite-video:ready', () => {
-        marks.ready ??= performance.now();
+        if (marks.ready !== null) return;
+        marks.ready = performance.now();
+        // The library's central claim, in the only form that is not
+        // codec-dependent: by the time it reveals, a frame exists.
+        marks.framesAtReveal = video.getVideoPlaybackQuality?.().totalVideoFrames ?? null;
+        marks.readyStateAtReveal = video.readyState;
       });
       window.__marks = marks;
 

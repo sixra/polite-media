@@ -28,13 +28,14 @@ const HAVE_CURRENT_DATA = 2;
  * arrives, and a reveal firing afterwards would un-hide a layer whose element is
  * already gone.
  *
- * Cancellation deliberately does two things per branch. The `done` flag is the
- * correctness guarantee, so `cancel()` means "will not fire" no matter which
- * rung was taken or how the underlying mechanism behaves. The platform call
- * beside it (`cancelVideoFrameCallback`, `removeEventListener`) is resource
- * release. They overlap on the `loadeddata` rung, where removing the listener
- * would be enough on its own -- that redundancy is the price of `cancel()`
- * meaning one thing everywhere instead of three subtly different things.
+ * Cancellation does two things on the two rungs that can still be pending. The
+ * `done` flag is the correctness guarantee, so `cancel()` means "will not fire"
+ * however the underlying mechanism behaves; the platform call beside it
+ * (`cancelVideoFrameCallback`, `removeEventListener`) is resource release. They
+ * overlap on the `loadeddata` rung, where removing the listener would be enough
+ * on its own -- the price of `cancel()` meaning one thing rather than three
+ * subtly different things. On the `readyState` rung there is nothing to cancel:
+ * it has already fired synchronously by the time the caller holds the function.
  */
 export function revealWhenPainted(video: HTMLVideoElement, onPainted: () => void): () => void {
   let done = false;

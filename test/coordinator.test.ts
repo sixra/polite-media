@@ -374,7 +374,7 @@ describe('source fallback', () => {
 
 describe('play retry', () => {
   it('retries on canplay when play() is rejected with nothing buffered', async () => {
-    const { video, container } = makeHarness();
+    const { video } = makeHarness();
     let allow = false;
     const play = vi.fn(() => (allow ? Promise.resolve() : Promise.reject(new Error('blocked'))));
     video.play = play as unknown as HTMLVideoElement['play'];
@@ -388,7 +388,6 @@ describe('play retry', () => {
     allow = true;
     video.dispatchEvent(new Event('canplay'));
     await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(2));
-    expect(container).toBeTruthy();
   });
 });
 
@@ -712,9 +711,9 @@ describe('pauseBelow', () => {
 });
 
 describe('configure validation', () => {
-  // The platform does reject these, but only inside the IntersectionObserver
-  // constructor at the first register() -- pointing at library code rather than
-  // at the call that caused it.
+  // Only pauseBelow reaches a platform API among these, and not until the first
+  // register(). hysteresis is library-internal arithmetic, so this check is the
+  // only thing that will ever reject it.
   it.each([
     ['pauseBelow', 1.5],
     ['pauseBelow', -0.1],
@@ -999,5 +998,47 @@ describe('lifecycle listeners', () => {
     expect(play).not.toHaveBeenCalled();
 
     setVisibility('visible');
+  });
+});
+
+describe('aria-pressed on the pause control', () => {
+  const control = (html: string): Element => {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    const el = host.firstElementChild!;
+    document.body.append(el);
+    return el;
+  };
+
+  it('keeps a declared aria-pressed current', () => {
+    const button = control('<button data-polite-pause aria-pressed="false">pause</button>');
+    pauseAll();
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    resumeAll();
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // MDN documents two valid patterns. A control that swaps its label between
+  // "Pause" and "Play" must not carry aria-pressed, or a screen reader announces
+  // "Play, pressed". Not declaring it is how an author selects that pattern, so
+  // the library must not add one.
+  it('does not add aria-pressed to a control that omits it', () => {
+    const button = control('<button data-polite-pause>pause</button>');
+    pauseAll();
+    expect(button.hasAttribute('aria-pressed')).toBe(false);
+  });
+
+  // aria-pressed is valid only on a button role, so writing it anywhere else
+  // would be ARIA a validator rejects.
+  it('leaves a non-button alone even when it declares one', () => {
+    const div = control('<div data-polite-pause aria-pressed="false">pause</div>');
+    pauseAll();
+    expect(div.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('maintains it on an element that takes the button role explicitly', () => {
+    const el = control('<span role="button" data-polite-pause aria-pressed="false">pause</span>');
+    pauseAll();
+    expect(el.getAttribute('aria-pressed')).toBe('true');
   });
 });

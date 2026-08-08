@@ -77,15 +77,27 @@ connection failed, and another file will not fix that.
 - **LCP excludes `opacity: 0`.** "Elements with an opacity of 0, that are invisible to
   the user" are excluded, and "changes to an element's size or position don't generate
   new LCP candidates". <https://web.dev/articles/lcp>
-  Also the reason image fade-in is out of scope: a faded-in image forfeits candidacy.
+  Also why an eager image is revealed instantly rather than faded: a lazy image
+  was never a candidate, so fading it costs nothing, while fading an eager one
+  forfeits the metric. `allowEager` makes that a decision instead of an accident.
 - **Video LCP uses "the poster image load time or first frame presentation time,
   whichever is earlier"** — same page. The poster is the LCP candidate, which is why
   only the video layer may start at `opacity: 0`.
 - **AV1 needs a fallback.** Safari support "is limited to devices that feature a
   hardware decoder, meaning M3 MacBooks and later, iPhone 15 Pro, and iPhone 16 and
-  later", so a current Safari on an older iPhone reports support it cannot deliver.
+  later".
   <https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Video_codecs>
   The library does not encode this as codec knowledge; it falls back on `error`.
+
+  **Untested inference, recorded as such.** An earlier version of this entry added
+  "so a current Safari on an older iPhone reports support it cannot deliver". That
+  does not follow from the quote and is contradicted where it was measurable:
+  Playwright's WebKit on an M2 Pro, which is below the M3 threshold above, answers
+  `""` for `av01.0.08M.08` -- honest about not supporting AV1 rather than claiming
+  it. Safari proper on an iPhone remains untested in both directions. The fallback
+  design does not rest on it: Chromium and Firefox both produce `MEDIA_ERR_DECODE`
+  on the truncated fixture, which is what the tests exercise.
+
 - **Strip audio from muted video.** FFmpeg `-an` "reduces the size of the video file,
   even if the audio stream already present is silent".
   <https://web.dev/learn/performance/video-performance>
@@ -99,3 +111,53 @@ connection failed, and another file will not fix that.
 - **rVFC baseline.** Newly available as of October 2024, so the
   `readyState`/`loadeddata` fallback is load-bearing, not decoration.
   <https://developer.mozilla.org/en-US/docs/Web/API/HTMLVideoElement/requestVideoFrameCallback>
+
+## Cross-browser, measured
+
+Playwright 1.62.1 against Chromium 151, Firefox 153 and WebKit 26.5, on an M2 Pro.
+
+- **`requestVideoFrameCallback` is present in all three.** The `readyState` and
+  `loadeddata` rungs therefore never engage in normal operation on any engine this
+  suite can drive. They remain correct for pre-October-2024 browsers, but their
+  only coverage is the unit tests against a hand-written fake, and that should not
+  be mistaken for end-to-end proof.
+- **Only Chromium has `navigator.connection`.** Firefox and WebKit expose nothing,
+  which makes them the only engines that exercise the Save-Data gate's fail-open
+  polarity -- the exact case a Chromium-only suite passes while broken.
+- **WebKit filters the AV1 fixture before assigning it**, because `canPlayType`
+  answers `""` there, so the source-fallback path is never entered and those two
+  tests pass without exercising it. The library degrades correctly (poster kept,
+  `data-polite-failed` set), but the mechanism is covered by Chromium and Firefox
+  only.
+- **Firefox puts `<video>` in the tab order** even with no `controls`. Measured on
+  the grid demo: Tab reached a link, then twelve videos, and the pause control
+  came thirteenth. Hence `tabindex="-1"` plus `aria-hidden="true"` in the markup
+  contract; afterwards the control is reached on the second Tab.
+- **WebKit puts nothing in the tab order** by default: macOS gates that behind
+  "Press Tab to highlight each item on a webpage". Eight presses leave
+  `activeElement` on `BODY` for every element on the page, so tab-reachability is
+  asserted on the other two engines only.
+
+## `totalVideoFrames` is not a portable oracle for "a frame has painted"
+
+Measured at the moment `polite-video:ready` fires on the hero demo, same run as
+the matrix above.
+
+| engine       | `totalVideoFrames` at reveal | `readyState` | frames shortly after |
+| ------------ | ---------------------------- | ------------ | -------------------- |
+| Chromium 151 | 4                            | 4            | 7                    |
+| WebKit 26.5  | 1                            | 4            | 12                   |
+| Firefox 153  | **0**                        | 4            | 2                    |
+
+Frames are flowing in Firefox -- the counter reads 2 moments later -- so this is
+update timing, not an absent frame. MDN defines the property as "the number of
+frames the element _would have presented_ had no problems occurred", which is the
+right concept; when an engine increments it is not specified tightly enough to
+assert on.
+
+The consequence for testing: there is no independent cross-engine oracle for the
+library's central claim. `requestVideoFrameCallback` _is_ the presentation signal
+by definition, so any check written against it is necessarily weaker than it. The
+e2e suite therefore asserts the weaker guarantee that does hold everywhere -- the
+reveal never lands while `readyState` is below `HAVE_CURRENT_DATA` -- and the
+strong claim rests on the API's contract plus the ordering measurement above.

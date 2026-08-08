@@ -4,7 +4,11 @@ declare global {
   interface Window {
     __playingCount: () => number;
     __readyCount: (scope: string) => number;
-    __marks: { playing: number | null; ready: number | null };
+    __marks: {
+      ready: number | null;
+      framesAtReveal: number | null;
+      readyStateAtReveal: number | null;
+    };
     __events: string[];
     __state: () => {
       recoversSrc: string;
