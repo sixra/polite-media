@@ -15,8 +15,8 @@
     "lcp"
   ],
   "license": "MIT",
-  "packageManager": "pnpm@11.18.0",
   "author": "sixra",
+  "packageManager": "pnpm@11.18.0",
   "repository": "github:sixra/polite-media",
   "type": "module",
   "sideEffects": [
@@ -32,13 +32,19 @@
       "default": "./dist/image.js"
     },
     "./video.css": "./dist/video.css",
-    "./image.css": "./dist/image.css"
+    "./image.css": "./dist/image.css",
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
-  "engines": {
-    "node": ">=24"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24",
+      "onFail": "error"
+    }
   },
   "scripts": {
     "build": "node scripts/clean.js && tsc -p tsconfig.build.json && esbuild src/video.css src/image.css --minify --outdir=dist",

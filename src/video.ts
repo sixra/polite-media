@@ -17,7 +17,7 @@ export {
   unregister,
   unregisterAll,
 } from './coordinator.js';
-export type { Config, PoliteVideoOptions, RegisterOptions } from './coordinator.js';
+export type { ConfigureOptions, RegisterOptions } from './coordinator.js';
 
 // Loaded for its `declare global` block as much as for the constants: the
 // ElementEventMap and DocumentEventMap augmentation only reaches a consumer if

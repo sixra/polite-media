@@ -13,7 +13,16 @@ import { isUnusable, manageSources, type SourceManager } from './sources.js';
  * about internal call discipline instead of its own documentation.
  */
 
-export interface PoliteVideoOptions {
+/**
+ * Options for {@link configure}. Every field is optional; anything left out keeps
+ * its default.
+ *
+ * All-optional deliberately. As a fully required interface this could not be used
+ * for what a consumer naturally reaches for -- `const preset: ConfigureOptions =
+ * { mobile: 'poster' }` -- and only the inline `configure({ ... })` form worked,
+ * via contextual typing.
+ */
+export interface ConfigureOptions {
   /** How far outside the viewport a video may start preparing. */
   rootMargin?: string;
   /**
@@ -63,17 +72,9 @@ export interface PoliteVideoOptions {
 
 /**
  * Every field resolved. Internal: a caller never has to supply all six, which is
- * what {@link PoliteVideoOptions} is for.
+ * what {@link ConfigureOptions} is for.
  */
-type ResolvedConfig = Required<PoliteVideoOptions>;
-
-/**
- * The public options type is all-optional, and this is why. As a fully required
- * interface it could not be used for the things a consumer naturally reaches
- * for: `const preset: Config = { mobile: 'poster' }` failed to compile, and only
- * the inline `configure({ ... })` form worked, via contextual typing.
- */
-export type Config = PoliteVideoOptions;
+type ResolvedConfig = Required<ConfigureOptions>;
 
 const defaults: ResolvedConfig = {
   rootMargin: '50px',
@@ -109,7 +110,7 @@ const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'smallViewport'] as 
  * in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while videos
  * are registered. Unregister everything first, or configure earlier.
  */
-export function configure(patch: PoliteVideoOptions): void {
+export function configure(patch: ConfigureOptions): void {
   validate(patch);
 
   if (observer !== null) {
@@ -140,7 +141,7 @@ export function configure(patch: PoliteVideoOptions): void {
  * arbitration silently never engages and phones behave like desktops. Only the
  * obviously empty case is caught; the rest is a documentation problem.
  */
-function validate(patch: PoliteVideoOptions): void {
+function validate(patch: ConfigureOptions): void {
   for (const key of ['pauseBelow', 'hysteresis'] as const) {
     const value = patch[key];
     if (value === undefined) continue;
