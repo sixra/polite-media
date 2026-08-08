@@ -21,7 +21,10 @@ class FakeIntersectionObserver {
   observed = new Set<Element>();
   disconnected = false;
 
-  constructor(private readonly callback: IntersectionObserverCallback) {
+  constructor(
+    private readonly callback: IntersectionObserverCallback,
+    readonly options?: IntersectionObserverInit
+  ) {
     FakeIntersectionObserver.instances.push(this);
   }
 
@@ -594,5 +597,116 @@ describe('events', () => {
     currentObserver().report([[video, 1]]);
     fail(3);
     expect(seen).toEqual(['failed']);
+  });
+});
+
+describe('why a video lost decides how it pauses', () => {
+  // Documenting the branch that a wrong comment previously described backwards.
+  it('stops a replaced video at once, even though it is still on screen', () => {
+    vi.useFakeTimers();
+    smallViewport = true;
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+
+    currentObserver().report([[a.video, 0.9]]);
+    expect(a.play).toHaveBeenCalled();
+
+    // b takes the single slot; a is still 30% visible but has been replaced, and
+    // two videos decoding through the handover is the contention to avoid.
+    currentObserver().report([
+      [a.video, 0.3],
+      [b.video, 0.9],
+    ]);
+    expect(a.pause).toHaveBeenCalled();
+  });
+
+  it('gives a video that simply scrolled away the grace period', () => {
+    vi.useFakeTimers();
+    const { video, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    currentObserver().report([[video, 0]]);
+
+    // Nothing replaced it, so it is the wobble case: stopping instantly would
+    // stutter if the scroll nudges it straight back.
+    expect(pause).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(pause).toHaveBeenCalled();
+  });
+});
+
+describe('pauseBelow', () => {
+  it('keeps playing at any visibility by default', () => {
+    vi.useFakeTimers();
+    const { video, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    currentObserver().report([[video, 0.05]]);
+    vi.advanceTimersByTime(1000);
+
+    // The default is 0: only a video that is entirely gone stops. One still on
+    // screen but frozen reads as broken, not as considerate.
+    expect(pause).not.toHaveBeenCalled();
+  });
+
+  it('stops a video once it falls to the configured fraction', () => {
+    vi.useFakeTimers();
+    configure({ pauseBelow: 0.25 });
+    const { video, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    currentObserver().report([[video, 0.2]]);
+
+    // Nothing replaced it, so this is the wobble case and it takes the grace
+    // period rather than stopping mid-scroll.
+    expect(pause).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(pause).toHaveBeenCalled();
+  });
+
+  it('treats exactly the threshold as below it', () => {
+    vi.useFakeTimers();
+    configure({ pauseBelow: 0.25 });
+    const { video, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    currentObserver().report([[video, 0.25]]);
+    vi.advanceTimersByTime(400);
+    expect(pause).toHaveBeenCalled();
+  });
+
+  // `threshold` is typed `number | number[]`, so it is normalised rather than
+  // spread. This library always passes an array, but the DOM type does not know
+  // that and the test should not pretend otherwise.
+  const observedThresholds = (): number[] => {
+    const threshold = currentObserver().options?.threshold ?? [];
+    return typeof threshold === 'number' ? [threshold] : [...threshold];
+  };
+
+  it('adds the configured fraction to the observer thresholds', () => {
+    // Without this the observer never reports at 0.4, so the pause would
+    // actually fire at 0.25 -- the nearest crossing the browser reports -- and
+    // the setting would silently mean something else.
+    configure({ pauseBelow: 0.4 });
+    const { video } = makeHarness();
+    register(video);
+
+    expect(observedThresholds()).toContain(0.4);
+  });
+
+  it('does not duplicate a fraction already on the ladder, and stays sorted', () => {
+    configure({ pauseBelow: 0.5 });
+    const { video } = makeHarness();
+    register(video);
+
+    const threshold = observedThresholds();
+    expect(threshold.filter((t) => t === 0.5)).toHaveLength(1);
+    expect(threshold).toEqual([...threshold].sort((a, b) => a - b));
   });
 });

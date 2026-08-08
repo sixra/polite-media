@@ -172,3 +172,27 @@ describe('teardown', () => {
     expect(ready(image)).toBe(false);
   });
 });
+
+describe('the loading attribute, across engine disagreement', () => {
+  // Engines report an absent or invalid `loading` differently: MDN documents
+  // only 'eager' and 'lazy', happy-dom returns 'auto'. Comparing against 'lazy'
+  // is the only test that answers the same way everywhere.
+  it.each([
+    ['absent', null],
+    ['invalid', 'banana'],
+    ['eager', 'eager'],
+  ])('treats %s as not-lazy and reveals immediately', (_label, value) => {
+    const { image } = build();
+    if (value === null) image.removeAttribute('loading');
+    else image.setAttribute('loading', value);
+
+    revealImages([image]);
+    expect(ready(image)).toBe(true);
+  });
+
+  it('still defers a lazy image to its decode', () => {
+    const { image } = build({ loading: 'lazy' });
+    revealImages([image]);
+    expect(ready(image)).toBe(false);
+  });
+});

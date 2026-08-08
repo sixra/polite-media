@@ -39,6 +39,20 @@ export interface Config {
    * Without it, a carousel's peeking neighbour flaps the slot back and forth.
    */
   hysteresis: number;
+  /**
+   * Visible fraction, 0 to 1, at or below which a video stops.
+   *
+   * The default 0 means "only once it is entirely gone", which is the least
+   * surprising rule: a video still on screen but frozen reads as broken, not as
+   * considerate. Raise it to buy back decode time on a long page, at the cost of
+   * stopping things the viewer can still see.
+   *
+   * Measured against the root *expanded by `rootMargin`*, verified in Chromium:
+   * a 100px element 20px below the fold reports 0.30 at a 50px margin, not 0. So
+   * with the defaults a video keeps playing until it is fully 50px past the
+   * viewport edge.
+   */
+  pauseBelow: number;
 }
 
 const defaults: Config = {
@@ -47,6 +61,7 @@ const defaults: Config = {
   smallViewport: '(max-width: 767px)',
   mobile: 'arbitrate',
   hysteresis: 0.15,
+  pauseBelow: 0,
 };
 
 let config: Config = { ...defaults };
@@ -128,11 +143,23 @@ function getObserver(): IntersectionObserver {
       }
       reconcile();
     },
-    // Ratio thresholds rather than only the 0 boundary, so a turn can be handed
-    // from one video to the next as they cross, not just when one fully leaves.
-    { rootMargin: config.rootMargin, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
+    { rootMargin: config.rootMargin, threshold: thresholds() }
   );
   return observer;
+}
+
+/**
+ * Ratio thresholds rather than only the 0 boundary, so a turn can be handed from
+ * one video to the next as they cross, not just when one fully leaves.
+ *
+ * `pauseBelow` has to be in this list. The observer reports *only* at threshold
+ * crossings, so a pauseBelow of 0.4 with a fixed ladder would actually take
+ * effect at 0.25, the nearest crossing the browser bothers to report, and the
+ * setting would silently mean something other than what it says.
+ */
+function thresholds(): number[] {
+  const ladder = [0, 0.1, 0.25, 0.5, 0.75, 1, config.pauseBelow];
+  return [...new Set(ladder)].sort((a, b) => a - b);
 }
 
 function cancelPause(entry: Entry): void {
@@ -296,8 +323,11 @@ export function reconcile(): void {
     return;
   }
 
-  const visible = [...entries.values()].filter((e) => !e.gated && e.ratio > 0);
-  const winners = pickWinners(visible);
+  // Eligible to play at all. Anything at or below pauseBelow is out of the
+  // running before arbitration even looks at it.
+  const eligible = [...entries.values()].filter((e) => !e.gated && e.ratio > config.pauseBelow);
+  const winners = pickWinners(eligible);
+  const wasEligible = new Set(eligible);
 
   // Snapshot: start() can fail and unregister mid-loop, and mutating the map
   // being iterated is a trap even where the language permits it.
@@ -307,10 +337,17 @@ export function reconcile(): void {
       if (!entry.started) start(entry);
       else if (entry.video.paused) tryPlay(entry);
     } else if (entry.started) {
-      // The grace period is only for a video wobbling at the viewport edge. One
-      // that has genuinely left stops at once: letting it decode on is the exact
-      // contention this exists to avoid.
-      if (entry.ratio > 0) pauseNow(entry);
+      // Which pause it gets turns on *why* it lost, not on how visible it is.
+      //
+      // Still eligible but not a winner means arbitration handed its turn to
+      // another video, so it stops immediately: two videos decoding through a
+      // handover is the exact contention arbitration exists to prevent.
+      //
+      // No longer eligible means it simply fell out of view, or below
+      // pauseBelow, with nothing taking its place. That gets the grace period,
+      // because it is the wobble case: a scroll nudges a video past the
+      // boundary and straight back, and stopping instantly would stutter.
+      if (wasEligible.has(entry)) pauseNow(entry);
       else pauseAfterGrace(entry);
     }
   }

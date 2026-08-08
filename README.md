@@ -125,6 +125,7 @@ pauseAll(); resumeAll();              // WCAG 2.2.2 control
 | `smallViewport` | `'(max-width: 767px)'` | which viewports are "small" |
 | `mobile` | `'arbitrate'` | `'arbitrate'` (one at a time) or `'poster'` (never play) |
 | `hysteresis` | `0.15` | how much more visible a rival must be to take the slot |
+| `pauseBelow` | `0` | visible fraction at or below which a video stops |
 
 `register(video, { until: promise })` holds a video back until the promise
 settles — for a splash screen or a consent dialog. A hero at scroll-top is
@@ -133,6 +134,14 @@ before whatever the page is waiting on has finished.
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
+
+`pauseBelow` defaults to `0`, meaning a video plays while any part of it is on
+screen and stops only once it is entirely gone. A video still visible but frozen
+reads as broken rather than considerate, so raising it trades that for decode
+time. Note the fraction is measured against the viewport **expanded by
+`rootMargin`**: with the defaults, a video keeps playing until it is fully 50px
+past the edge. Whatever you set is also added to the observer's threshold list,
+because the browser only reports at crossings it was told about.
 
 Any element with `data-polite-pause` toggles playback. You supply the button and
 its styling; this ships no markup and no CSS for it.

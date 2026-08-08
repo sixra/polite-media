@@ -65,6 +65,12 @@ export function revealImages(
     // manage it leaves it invisible permanently instead of merely unfaded.
     // Revealing immediately keeps the LCP candidate visible from its first
     // paint, which is the whole reason eager images are treated differently.
+    //
+    // Tested against 'lazy' rather than for 'eager' deliberately. Engines
+    // disagree on what an absent or invalid attribute reports: MDN documents
+    // only 'eager' and 'lazy', while happy-dom returns 'auto'. Only "lazy" has
+    // one agreed spelling, so asking whether it is lazy is answerable
+    // everywhere, and everything else correctly falls into the eager branch.
     if (!options.allowEager && image.loading !== 'lazy') {
       markReady(image);
       continue;
