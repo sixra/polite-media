@@ -710,3 +710,52 @@ describe('pauseBelow', () => {
     expect(threshold).toEqual([...threshold].sort((a, b) => a - b));
   });
 });
+
+describe('configure validation', () => {
+  // The platform does reject these, but only inside the IntersectionObserver
+  // constructor at the first register() -- pointing at library code rather than
+  // at the call that caused it.
+  it.each([
+    ['pauseBelow', 1.5],
+    ['pauseBelow', -0.1],
+    ['hysteresis', 2],
+    ['pauseBelow', Number.NaN],
+    ['hysteresis', Number.POSITIVE_INFINITY],
+  ])('rejects %s: %s at the point of configuring', (key, value) => {
+    expect(() => configure({ [key]: value })).toThrow(RangeError);
+  });
+
+  it.each([0, 0.5, 1])('accepts the fraction %s', (value) => {
+    expect(() => configure({ pauseBelow: value })).not.toThrow();
+  });
+
+  it('rejects a negative grace period', () => {
+    expect(() => configure({ pauseGraceMs: -1 })).toThrow(RangeError);
+  });
+
+  it('accepts a zero grace period, which just means stop immediately', () => {
+    expect(() => configure({ pauseGraceMs: 0 })).not.toThrow();
+  });
+
+  it('rejects an empty smallViewport', () => {
+    expect(() => configure({ smallViewport: '  ' })).toThrow(SyntaxError);
+  });
+
+  // Deliberately not asserted as throwing: a malformed media query cannot be
+  // detected. Chromium echoes it back through MediaQueryList.media and never
+  // matches, so this documents the known gap rather than pretending it is caught.
+  it('cannot detect a malformed media query, and does not pretend to', () => {
+    expect(() => configure({ smallViewport: '(max-width: 767)' })).not.toThrow();
+  });
+
+  it('leaves config untouched when a patch is rejected', () => {
+    configure({ pauseBelow: 0.3 });
+    expect(() => configure({ pauseBelow: 5 })).toThrow();
+
+    // A partially applied patch would be worse than a rejected one.
+    const { video } = makeHarness();
+    register(video);
+    const threshold = currentObserver().options?.threshold ?? [];
+    expect(typeof threshold === 'number' ? [threshold] : [...threshold]).toContain(0.3);
+  });
+});

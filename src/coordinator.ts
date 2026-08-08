@@ -72,7 +72,45 @@ let config: Config = { ...defaults };
  * changing it afterwards has no effect until every video is unregistered.
  */
 export function configure(patch: Partial<Config>): void {
+  validate(patch);
   config = { ...config, ...patch };
+}
+
+/**
+ * Checked here rather than left to the platform, because of *where* the platform
+ * complains. An out-of-range fraction or a malformed `rootMargin` does throw --
+ * verified in Chromium, a RangeError and a SyntaxError respectively -- but only
+ * inside the IntersectionObserver constructor, which this library builds at the
+ * first `register()`. That puts a stack trace on library code, arbitrarily far
+ * from the `configure()` call that actually caused it.
+ *
+ * `smallViewport` is the one that cannot be checked. An invalid media query does
+ * not throw and does not normalise to something recognisable: Chromium echoes
+ * the malformed text straight back through `MediaQueryList.media` and simply
+ * never matches. So `smallViewport: '(max-width: 767)'`, one missing unit, means
+ * arbitration silently never engages and phones behave like desktops. Only the
+ * obviously empty case is caught; the rest is a documentation problem.
+ */
+function validate(patch: Partial<Config>): void {
+  for (const key of ['pauseBelow', 'hysteresis'] as const) {
+    const value = patch[key];
+    if (value === undefined) continue;
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      throw new RangeError(`polite-media: ${key} must be a fraction between 0 and 1, got ${value}`);
+    }
+  }
+
+  if (patch.pauseGraceMs !== undefined) {
+    if (!Number.isFinite(patch.pauseGraceMs) || patch.pauseGraceMs < 0) {
+      throw new RangeError(
+        `polite-media: pauseGraceMs must be a non-negative number of milliseconds, got ${patch.pauseGraceMs}`
+      );
+    }
+  }
+
+  if (patch.smallViewport !== undefined && patch.smallViewport.trim() === '') {
+    throw new SyntaxError('polite-media: smallViewport must be a media query, got an empty string');
+  }
 }
 
 export interface RegisterOptions {

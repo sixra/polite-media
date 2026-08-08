@@ -135,6 +135,17 @@ before whatever the page is waiting on has finished.
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
 
+Only `mobile` is constrained by the type system, as a `'arbitrate' | 'poster'`
+union. TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
+`hysteresis` and `pauseGraceMs` are range-checked by `configure()` instead, which
+throws at the call that caused the mistake rather than later inside the observer.
+
+One gap worth knowing about: **a malformed `smallViewport` cannot be detected.**
+An invalid media query does not throw and does not normalise to anything
+recognisable -- Chromium echoes the text straight back and simply never matches.
+So `smallViewport: '(max-width: 767)'`, missing its unit, means arbitration
+silently never engages and phones behave like desktops. Check that value by eye.
+
 `pauseBelow` defaults to `0`, meaning a video plays while any part of it is on
 screen and stops only once it is entirely gone. A video still visible but frozen
 reads as broken rather than considerate, so raising it trades that for decode
