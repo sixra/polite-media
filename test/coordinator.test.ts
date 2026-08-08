@@ -792,3 +792,150 @@ describe('rootMargin validation', () => {
     expect(() => configure({ rootMargin: 'anything at all' })).not.toThrow();
   });
 });
+
+describe('recovering from a persistently blocked play()', () => {
+  // iOS Low Power Mode and a blocked-autoplay policy both reject play() every
+  // time, not once. Measured in Chromium: once readyState is 4, neither `canplay`
+  // nor `loadeddata` fires again (0 of each across 3 rejections), so the only
+  // signal that can still arrive is a user gesture.
+  const blockedHarness = (): { video: HTMLVideoElement; play: ReturnType<typeof vi.fn> } => {
+    const { video } = makeHarness();
+    const play = vi.fn(() => Promise.reject(new DOMException('blocked', 'NotAllowedError')));
+    video.play = play as unknown as HTMLVideoElement['play'];
+    return { video, play };
+  };
+
+  const tap = (): void => {
+    document.dispatchEvent(new Event('pointerdown'));
+  };
+
+  it('retries on every gesture, not just the first', async () => {
+    const { video, play } = blockedHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+
+    play.mockClear();
+    tap();
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+
+    // The bug: the gesture hatch was `{ once: true }`, so it was spent by the
+    // first tap anywhere on the document and the video could never recover.
+    play.mockClear();
+    tap();
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps retrying after many gestures', async () => {
+    const { video, play } = blockedHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+
+    for (let i = 0; i < 4; i += 1) {
+      play.mockClear();
+      tap();
+      await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    }
+  });
+});
+
+describe('a gate closing and reopening', () => {
+  // reconcile() sets started = false when motion or the connection gate closes,
+  // and the winners branch then calls start() again when it reopens. start()
+  // built a fresh SourceManager every time, so each cycle rewound the candidate
+  // list and re-attached an error listener.
+  const cycleMotionGate = (video: HTMLVideoElement): void => {
+    reduceMotion = true;
+    resetEnv();
+    currentObserver().report([[video, 1]]);
+    reduceMotion = false;
+    resetEnv();
+    currentObserver().report([[video, 1]]);
+  };
+
+  it('does not rewind to a source that already failed', () => {
+    const { video, fail } = makeHarness({
+      src: null,
+      sources: [{ src: '/av1.mp4' }, { src: '/h264.mp4' }],
+    });
+    register(video);
+    currentObserver().report([[video, 1]]);
+    expect(video.src).toContain('/av1.mp4');
+
+    fail(3);
+    expect(video.src).toContain('/h264.mp4');
+
+    cycleMotionGate(video);
+
+    // Rewinding re-attempts a source already known to be undecodable, and
+    // restarts playback from frame 0. sources.ts states the invariant plainly:
+    // the first choice sticks for the page's lifetime.
+    expect(video.src).toContain('/h264.mp4');
+  });
+
+  it('does not re-run source selection at all', () => {
+    const { video } = makeHarness({ src: null, sources: [{ src: '/only.mp4' }] });
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    const loadCalls = (video.load as unknown as ReturnType<typeof vi.fn>).mock.calls.length;
+    cycleMotionGate(video);
+    expect((video.load as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(loadCalls);
+  });
+
+  it('still resumes playback when the gate reopens', () => {
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    play.mockClear();
+    cycleMotionGate(video);
+    expect(play).toHaveBeenCalled();
+  });
+});
+
+describe('configure() after the first register', () => {
+  // Three settings are captured when the observer and the lifecycle listeners are
+  // built, which happens at the first register(). Patching them later does not
+  // merely fail to apply: pauseBelow half-applies, because eligibility reads it
+  // live while the threshold ladder does not, so it silently takes effect at the
+  // nearest stale crossing. That is precisely what thresholds() exists to stop.
+  it.each(['rootMargin', 'pauseBelow', 'smallViewport'])(
+    'rejects a late %s rather than half-applying it',
+    (key) => {
+      const patches: Record<string, unknown> = {
+        rootMargin: '10px',
+        pauseBelow: 0.4,
+        smallViewport: '(max-width: 900px)',
+      };
+      const { video } = makeHarness();
+      register(video);
+
+      expect(() => configure({ [key]: patches[key] })).toThrow(/before the first register/);
+    }
+  );
+
+  it.each(['pauseGraceMs', 'mobile', 'hysteresis'])('still accepts a late %s', (key) => {
+    const patches: Record<string, unknown> = {
+      pauseGraceMs: 900,
+      mobile: 'poster',
+      hysteresis: 0.3,
+    };
+    const { video } = makeHarness();
+    register(video);
+
+    // These are read on every reconcile, so changing them mid-flight is
+    // meaningful rather than half-applied.
+    expect(() => configure({ [key]: patches[key] })).not.toThrow();
+  });
+
+  it('accepts them again once everything is unregistered', () => {
+    const { video } = makeHarness();
+    register(video);
+    expect(() => configure({ pauseBelow: 0.4 })).toThrow();
+
+    unregister(video);
+    expect(() => configure({ pauseBelow: 0.4 })).not.toThrow();
+  });
+});

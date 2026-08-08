@@ -67,12 +67,41 @@ const defaults: Config = {
 let config: Config = { ...defaults };
 
 /**
- * Call before the first `register`. `rootMargin` is read when the single
- * IntersectionObserver is constructed, which happens on first registration, so
- * changing it afterwards has no effect until every video is unregistered.
+ * Settings captured when the observer and the lifecycle listeners are built, at
+ * the first `register()`. Patching one later is rejected rather than ignored,
+ * because "ignored" is not what actually happened:
+ *
+ * - `pauseBelow` half-applies. Eligibility reads it live while the threshold
+ *   ladder was fixed at construction, so a late 0.4 takes effect at 0.25, the
+ *   nearest crossing the observer still reports. That is the exact silent lie
+ *   `thresholds()` exists to prevent, reached through a second door.
+ * - `smallViewport` used to strand a listener. `mediaQuery` memoises by string,
+ *   so detaching would resolve a different MediaQueryList than attaching did.
+ * - `rootMargin` is genuinely inert, and is grouped here so the rule is one rule.
+ */
+const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'smallViewport'] as const;
+
+/**
+ * Call before the first `register`.
+ *
+ * Anything read on every reconcile -- `pauseGraceMs`, `mobile`, `hysteresis` --
+ * can be changed at any time and takes effect on the next pass. The three keys
+ * in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while videos
+ * are registered. Unregister everything first, or configure earlier.
  */
 export function configure(patch: Partial<Config>): void {
   validate(patch);
+
+  if (observer !== null) {
+    const late = CONSTRUCTION_TIME_KEYS.filter((key) => patch[key] !== undefined);
+    if (late.length > 0) {
+      throw new Error(
+        `polite-media: ${late.join(', ')} must be configured before the first register(); ` +
+          'they are read when the observer is built. Unregister everything first.'
+      );
+    }
+  }
+
   config = { ...config, ...patch };
 }
 
@@ -149,7 +178,17 @@ interface Entry {
   ratio: number;
   /** Held out of arbitration until `until` settles. */
   gated: boolean;
-  /** Playback has been set up at least once; distinguishes "start" from "resume". */
+  /**
+   * The one-time machinery -- source list and error listener -- has been built.
+   *
+   * Separate from `started` because the gates flip that one back and forth: a
+   * reduced-motion or Save-Data close sets `started = false`, and reopening calls
+   * `start()` again. Conflating the two rebuilt the candidate list on every
+   * cycle, rewinding to a source already known to be undecodable and attaching a
+   * second error listener each time.
+   */
+  prepared: boolean;
+  /** Currently running. Flips whenever a gate opens or closes. */
   started: boolean;
   /** One pending play retry at a time, rather than a listener per rejection. */
   retryArmed: boolean;
@@ -170,7 +209,10 @@ const entries = new Map<HTMLVideoElement, Entry>();
 const byTarget = new Map<Element, Entry>();
 
 let observer: IntersectionObserver | null = null;
-let lifecycleAttached = false;
+/** Owns every page-level listener, so teardown is one abort rather than six removes. */
+let lifecycle: AbortController | null = null;
+/** True while a pending gesture listener is waiting to re-attempt a blocked play. */
+let gestureArmed = false;
 
 /**
  * Sticky, and checked on every reconcile rather than applied once. An
@@ -273,19 +315,53 @@ function markFailed(entry: Entry): void {
 }
 
 /**
+ * Waits for the next user gesture, then re-runs the arbiter.
+ *
+ * This is the only rung that survives a *persistent* refusal. Measured in
+ * Chromium: once `readyState` is 4, neither `canplay` nor `loadeddata` fires
+ * again -- 0 of each across three rejections -- so a video sitting saturated and
+ * stationary in view has no media event left to wake it, and produces no further
+ * observer batches either.
+ *
+ * Re-armed per failure rather than bound once at startup. A single
+ * `{ once: true }` listener is spent by the first tap anywhere on the document,
+ * which is usually long before the video that needs it ever became eligible.
+ */
+function armGestureRetry(): void {
+  if (gestureArmed || !lifecycle) return;
+  gestureArmed = true;
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      gestureArmed = false;
+      reconcile();
+    },
+    { once: true, passive: true, signal: lifecycle.signal }
+  );
+}
+
+/**
  * `play()` rejects for reasons that are recoverable rather than final: autoplay
  * blocked until a gesture, iOS Low Power Mode, or nothing buffered yet under
- * `preload="none"`. reconcile() re-attempts on every observer batch and on the
- * first pointerdown, which covers the first two. It cannot cover the third -- a
- * video sitting still in view produces no further batches -- so `canplay` is
- * the one listener that has to exist.
+ * `preload="none"`.
+ *
+ * Two rungs, because they cover different failures. `canplay` covers the
+ * not-yet-buffered case, where the element is below `HAVE_FUTURE_DATA` and will
+ * announce reaching it. The gesture covers a blocked autoplay policy, where the
+ * element is already saturated and will announce nothing further.
+ *
+ * `loadeddata` is deliberately absent: it was measured as dead in the same state
+ * as `canplay`, so adding it would only look like defence in depth.
  */
 function tryPlay(entry: Entry): void {
-  // Autoplay is only ever permitted for muted media, and this library exists for
-  // decorative background video. Setting it rather than trusting the attribute
-  // also covers markup where the property was changed after parse.
+  // Autoplay is permitted for muted media without any prior user engagement; the
+  // other routes MDN lists all require engagement this library cannot assume. So
+  // muted is the only condition it can rely on. Set rather than trusted, which
+  // also covers markup whose property was changed after parse.
   entry.video.muted = true;
   void entry.video.play().catch(() => {
+    armGestureRetry();
+
     if (entry.retryArmed) return;
     entry.retryArmed = true;
     entry.video.addEventListener(
@@ -314,17 +390,23 @@ function onMediaError(entry: Entry): void {
 
 function start(entry: Entry): void {
   entry.started = true;
-  // Built here rather than at registration so `<source media>` is evaluated
-  // against the viewport as it is when the video actually starts, which for a
-  // lazy video can be long after the page loaded.
-  entry.sources = manageSources(entry.video);
-  entry.video.addEventListener('error', () => onMediaError(entry), {
-    signal: entry.listeners.signal,
-  });
 
-  if (!entry.sources.select()) {
-    markFailed(entry);
-    return;
+  if (!entry.prepared) {
+    entry.prepared = true;
+    // Built here rather than at registration so `<source media>` is evaluated
+    // against the viewport as it is when the video actually starts, which for a
+    // lazy video can be long after the page loaded. Built once, because
+    // reassigning `src` restarts playback from frame 0 and `sources.ts` states
+    // the invariant that the first choice sticks for the page's lifetime.
+    entry.sources = manageSources(entry.video);
+    entry.video.addEventListener('error', () => onMediaError(entry), {
+      signal: entry.listeners.signal,
+    });
+
+    if (!entry.sources.select()) {
+      markFailed(entry);
+      return;
+    }
   }
 
   armReveal(entry);
@@ -439,28 +521,35 @@ function onPauseControlClick(event: Event): void {
   else pauseAll();
 }
 
+/**
+ * One controller for every page-level listener, rather than six hand-mirrored
+ * add/remove pairs.
+ *
+ * This is not only tidier, it removes a leak. `detachLifecycle` used to call
+ * `mediaQuery(config.smallViewport)` a second time, and `mediaQuery` memoises by
+ * query string -- so a `configure({ smallViewport })` between register and
+ * unregister meant detaching from a *different* MediaQueryList and stranding the
+ * listener on the original. Aborting cannot re-resolve the config, so the whole
+ * failure mode stops existing rather than being remembered about.
+ */
 function attachLifecycle(): void {
-  if (lifecycleAttached) return;
-  lifecycleAttached = true;
-  window.addEventListener('pageshow', onPageShow);
-  document.addEventListener('visibilitychange', onVisibilityChange);
-  document.addEventListener('pointerdown', onReconcileEvent, { once: true, passive: true });
-  document.addEventListener('click', onPauseControlClick);
-  motionQuery().addEventListener('change', onReconcileEvent);
+  if (lifecycle) return;
+  lifecycle = new AbortController();
+  const { signal } = lifecycle;
+
+  window.addEventListener('pageshow', onPageShow, { signal });
+  document.addEventListener('visibilitychange', onVisibilityChange, { signal });
+  document.addEventListener('click', onPauseControlClick, { signal });
+  motionQuery().addEventListener('change', onReconcileEvent, { signal });
   // A viewport crossing the small/large boundary changes who is allowed to
   // play, so it has to re-run the arbiter just as scrolling does.
-  mediaQuery(config.smallViewport).addEventListener('change', onReconcileEvent);
+  mediaQuery(config.smallViewport).addEventListener('change', onReconcileEvent, { signal });
 }
 
 function detachLifecycle(): void {
-  if (!lifecycleAttached) return;
-  lifecycleAttached = false;
-  window.removeEventListener('pageshow', onPageShow);
-  document.removeEventListener('visibilitychange', onVisibilityChange);
-  document.removeEventListener('pointerdown', onReconcileEvent);
-  document.removeEventListener('click', onPauseControlClick);
-  motionQuery().removeEventListener('change', onReconcileEvent);
-  mediaQuery(config.smallViewport).removeEventListener('change', onReconcileEvent);
+  lifecycle?.abort();
+  lifecycle = null;
+  gestureArmed = false;
 }
 
 export function register(video: HTMLVideoElement, options: RegisterOptions = {}): void {
@@ -473,6 +562,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     host: video.parentElement ?? video,
     ratio: 0,
     gated: options.until !== undefined,
+    prepared: false,
     started: false,
     retryArmed: false,
     listeners: new AbortController(),
@@ -555,5 +645,5 @@ export function unregisterAll(): void {
 
 /** Internal view for tests. Not exported from the package entry point. */
 export function inspect(): { tracked: number; observing: boolean; lifecycle: boolean } {
-  return { tracked: entries.size, observing: observer !== null, lifecycle: lifecycleAttached };
+  return { tracked: entries.size, observing: observer !== null, lifecycle: lifecycle !== null };
 }
