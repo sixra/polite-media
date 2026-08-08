@@ -1,31 +1,37 @@
 {
-  "name": "polite-video",
+  "name": "polite-media",
   "version": "0.0.0",
-  "description": "Background video that behaves itself: reveals on the frame that actually painted, plays only when visible, and respects data, motion and battery.",
+  "description": "Background video and images that behave themselves: reveal on the frame that actually painted, play only when visible, respect data, motion and battery.",
   "keywords": [
     "video",
     "background-video",
-    "autoplay",
-    "poster",
+    "image",
     "lazy",
+    "poster",
+    "autoplay",
     "intersection-observer",
     "requestVideoFrameCallback",
     "performance",
-    "web-components"
+    "lcp"
   ],
   "license": "MIT",
   "author": "sixra",
-  "repository": "github:sixra/polite-video",
+  "repository": "github:sixra/polite-media",
   "type": "module",
   "sideEffects": [
     "*.css"
   ],
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./video": {
+      "types": "./dist/video.d.ts",
+      "default": "./dist/video.js"
     },
-    "./styles": "./dist/polite-video.css"
+    "./image": {
+      "types": "./dist/image.d.ts",
+      "default": "./dist/image.js"
+    },
+    "./video.css": "./dist/video.css",
+    "./image.css": "./dist/image.css"
   },
   "files": [
     "dist"
@@ -34,12 +40,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp src/polite-video.css dist/",
+    "build": "node scripts/clean.js && tsc -p tsconfig.build.json && cp src/video.css src/image.css dist/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "fixtures": "sh scripts/make-fixtures.sh",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "clean": "node scripts/clean.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

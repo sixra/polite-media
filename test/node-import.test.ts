@@ -16,11 +16,11 @@ import { describe, expect, it } from 'vitest';
 describe('importing in Node without a DOM', () => {
   it('does not throw', async () => {
     expect(typeof window).toBe('undefined');
-    await expect(import('../src/index.js')).resolves.toBeDefined();
+    await expect(import('../src/video.js')).resolves.toBeDefined();
   });
 
   it('exposes its API without having evaluated any browser global', async () => {
-    const mod = await import('../src/index.js');
+    const mod = await import('../src/video.js');
     expect(typeof mod.revealWhenPainted).toBe('function');
     expect(typeof mod.motionAllowed).toBe('function');
   });

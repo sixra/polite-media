@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — images</title>
+    <link rel="stylesheet" href="/dist/image.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      /* The backdrop is the host's job and is REQUIRED: an image has no poster
+         behind it, so without a visible container a hidden image shows nothing
+         at all. This is what makes starting hidden safe. */
+      .card {
+        background-color: #2a2a33;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Image reveal</h1>
+      <p class="note">
+        Top row is lazy and managed by default. Bottom row is eager, so it is revealed instantly rather than faded unless
+        <code>allowEager</code> says otherwise — an eager image may be the LCP element, and LCP
+        excludes anything at <code>opacity: 0</code>.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <h2>lazy (managed)</h2>
+      <div class="grid" id="lazy"></div>
+
+      <h2>eager (skipped by default)</h2>
+      <div class="grid" id="eager"></div>
+    </main>
+
+    <script type="module">
+      import { revealImages } from '/dist/image.js';
+
+      const card = (loading, i) => `
+        <div class="frame card" data-polite-media>
+          <img src="/demo/assets/sample-poster.avif?v=${loading}${i}" alt="" loading="${loading}" data-polite-reveal />
+        </div>`;
+
+      document.getElementById('lazy').innerHTML = [0, 1, 2, 3].map((i) => card('lazy', i)).join('');
+      document.getElementById('eager').innerHTML = [0, 1, 2, 3]
+        .map((i) => card('eager', i))
+        .join('');
+
+      revealImages('#lazy img');
+      // No allowEager: the bottom row is revealed at once rather than faded.
+      // Not skipped -- skipping would leave images that image.css already hid
+      // invisible for good.
+      revealImages('#eager img');
+
+      window.__readyCount = (scope) =>
+        document.querySelectorAll(`${scope} img[data-polite-ready]`).length;
+    </script>
+  </body>
+</html>

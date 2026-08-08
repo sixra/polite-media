@@ -186,3 +186,28 @@ test.describe('contracts', () => {
     expect(boxes.every((b) => !b.startsWith('0x'))).toBe(true);
   });
 });
+
+test.describe('images', () => {
+  test('reveals lazy images once decoded', async ({ page }) => {
+    await page.goto('/demo/images.html');
+    await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
+  });
+
+  test('reveals eager images immediately instead of fading them', async ({ page }) => {
+    await page.goto('/demo/images.html');
+    // LCP excludes elements at opacity 0 and revealing one does not restore its
+    // candidacy, so an eager image is shown at once rather than faded in.
+    await expect.poll(() => page.evaluate(() => window.__readyCount('#eager'))).toBe(4);
+  });
+
+  test('never leaves an eager image invisible', async ({ page }) => {
+    await page.goto('/demo/images.html');
+    await settle(page);
+    // The bug this replaced: the guard skipped images that image.css had
+    // already hidden, leaving them blank for good rather than merely unfaded.
+    const opacity = await page.evaluate(
+      () => getComputedStyle(document.querySelector('#eager img')!).opacity
+    );
+    expect(opacity).toBe('1');
+  });
+});

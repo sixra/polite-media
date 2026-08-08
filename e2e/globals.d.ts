@@ -3,6 +3,7 @@
 declare global {
   interface Window {
     __playingCount: () => number;
+    __readyCount: (scope: string) => number;
     __marks: { playing: number | null; ready: number | null };
     __events: string[];
     __state: () => {

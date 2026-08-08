@@ -1,5 +1,5 @@
 /*
- * Demo-only layout. Deliberately separate from polite-video.css to make the
+ * Demo-only layout. Deliberately separate from the library stylesheets to make the
  * boundary visible: everything here is size and position, which the library
  * never touches, and none of it is needed for the library to work.
  */

@@ -1,6 +1,10 @@
-# polite-video
+# polite-media
 
-Background video that behaves itself. ~2 KB, no dependencies, no framework.
+Background video and images that behave themselves. No dependencies, no framework.
+
+Two independent halves, imported separately, because they share almost nothing:
+`polite-media/video` is **2.0 KB gz** and `polite-media/image` is **425 B gz**. An
+image-only page never pays for the video coordinator.
 
 It doesn't flash, doesn't hog the decoder, doesn't eat data on a metered
 connection, doesn't ignore reduced motion, and doesn't autoplay without giving
@@ -16,11 +20,26 @@ anyone a way to stop it.
 ```
 
 ```js
-import { register } from 'polite-video';
-import 'polite-video/styles';
+import { register } from 'polite-media/video';
+import 'polite-media/video.css';
 
 const box = document.querySelector('[data-polite-media]');
 register(box.querySelector('video'), { observe: box });
+```
+
+Images are the other half, and a separate import:
+
+```html
+<div class="card"><!-- needs its own background-color -->
+  <img src="photo.avif" alt="" loading="lazy" data-polite-reveal />
+</div>
+```
+
+```js
+import { revealImages } from 'polite-media/image';
+import 'polite-media/image.css';
+
+revealImages('.card img');
 ```
 
 ## Why it exists
@@ -76,9 +95,19 @@ It's also not an image pipeline (no srcset or poster generation — that's a bui
 step), not a lazy-loader for images (`loading="lazy"` is native), not a player,
 not a lightbox, and not a scroll-animation library.
 
-**No image fade-in, on purpose.** LCP excludes elements at `opacity: 0`, and
-revealing one doesn't restore its candidacy, so fading images in trades a real
-metric for a barely perceptible effect.
+**Images are opt-in per image, not per container.** `data-polite-reveal` goes on
+the `<img>`. That placement is load-bearing: a container-wide rule hides every
+image inside it, including ones the library then declines to fade, leaving them
+invisible rather than merely unfaded.
+
+**Eager images are revealed instantly rather than faded.** LCP excludes elements
+at `opacity: 0` and revealing one doesn't restore its candidacy, so an
+above-the-fold image is shown at its first paint. Pass `{ allowEager: true }` to
+fade it anyway, which is a legitimate choice when a grid would otherwise cut from
+its backdrop to the photo on whatever frame the decode lands.
+
+**An image needs a backdrop.** Video degrades to its poster; a lone image
+degrades to nothing, so its container must carry a visible `background-color`.
 
 ## API
 

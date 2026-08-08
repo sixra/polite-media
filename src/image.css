@@ -1,0 +1,43 @@
+/*
+ * polite-media/image.css -- optional stylesheet.
+ *
+ * Timing only, like the video half: no size, no position, no aspect ratio.
+ *
+ * The opt-in is `data-polite-reveal`, ON THE IMAGE, not on its container.
+ * That placement is load-bearing. A container-wide rule hides every image
+ * inside it, including ones the library then declines to manage -- which leaves
+ * them invisible forever rather than merely unfaded. Per image, an image is
+ * hidden only if something is going to reveal it.
+ *
+ * A REQUIREMENT rather than a suggestion: the container needs its own visible
+ * backdrop, usually a background-color. Unlike video, an image has no poster
+ * behind it, so a hidden image over a transparent container shows nothing.
+ *
+ *   <div class="card" style-hook>          <-- background-color lives here
+ *     <img src="photo.avif" alt="" loading="lazy" data-polite-reveal>
+ *   </div>
+ *
+ * Marking an image here creates a real dependency on the script running. That
+ * is the trade: without the fade, an image cuts from the backdrop to the photo
+ * on whatever frame the async decode lands, which reads as a flicker rather
+ * than a load. Do not mark an image you cannot afford to have hidden.
+ */
+
+img[data-polite-reveal] {
+  opacity: 0;
+  transition: opacity var(--polite-fade, 350ms) ease;
+}
+
+img[data-polite-reveal][data-polite-ready] {
+  opacity: 1;
+}
+
+/*
+ * The image still reveals under reduced motion, it just arrives instead of
+ * fading. Suppressing the reveal entirely would leave a blank card.
+ */
+@media (prefers-reduced-motion: reduce) {
+  img[data-polite-reveal] {
+    transition: none;
+  }
+}

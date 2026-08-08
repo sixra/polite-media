@@ -1,6 +1,5 @@
-// The public surface. Internals that tests reach for -- `mediaQuery`, `resetEnv`,
-// `reconcile`, `inspect` -- are deliberately absent: tests import the modules
-// directly, and anything exported here is permanent.
+// Everything for background video. Imported on its own so an image-only page
+// never pays for the IntersectionObserver, source selection or arbitration.
 export { connectionAllowsMedia, motionAllowed } from './env.js';
 export { revealWhenPainted } from './reveal.js';
 export {
