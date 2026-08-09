@@ -51,6 +51,61 @@ test.describe('hero', () => {
       .toBe('hidden');
   });
 
+  /**
+   * The shipped default is a cut, and this is what that has to mean: something
+   * on screen on every single frame of the handoff.
+   *
+   * Safe for a reason specific to this library. The reveal fires from
+   * requestVideoFrameCallback, so a frame has already reached the compositor
+   * when the swap happens, and MDN defines a 0s transition-duration as "no
+   * transition will happen, that is the switch between the two states will be
+   * instantaneous". A library revealing on `playing` cannot make this trade,
+   * because at that point it has nothing painted to cut to.
+   *
+   * Nothing is overridden here on purpose: the point is that a consumer who sets
+   * no CSS at all gets this. The sibling test above polls to the end state, so
+   * this is the only assertion about what happens *during* the swap.
+   */
+  test('the default swap leaves neither a gap nor a ghost', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+
+    const trace = await page.evaluate(async () => {
+      const box = document.getElementById('hero')!;
+      const video = box.querySelector('video')!;
+      const poster = box.querySelector('img')!;
+      const frames: { opacity: number; posterVisible: boolean }[] = [];
+
+      // Frame-capped rather than open-ended, so a reveal that never arrives
+      // fails the assertions below instead of hanging the run.
+      let afterReady = 0;
+      for (let i = 0; i < 900 && afterReady < 5; i += 1) {
+        frames.push({
+          opacity: Number(getComputedStyle(video).opacity),
+          posterVisible: getComputedStyle(poster).visibility !== 'hidden',
+        });
+        if (box.hasAttribute('data-polite-ready')) afterReady += 1;
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+
+      return {
+        frames,
+        duration: getComputedStyle(video).transitionDuration,
+        revealed: afterReady > 0,
+      };
+    });
+
+    // Guards the test itself, and pins the default: raise it and this fails here
+    // rather than silently downgrading the two assertions below to nothing.
+    expect(trace.duration).toBe('0s');
+    expect(trace.revealed).toBe(true);
+
+    // Never a gap: the poster is up, or the video is fully opaque over it.
+    expect(trace.frames.filter((f) => !f.posterVisible && f.opacity !== 1)).toEqual([]);
+    // Never a ghost: no frame catches the video part-way, which is the doubled
+    // image that a fade between two different pictures produces.
+    expect(trace.frames.filter((f) => f.opacity !== 0 && f.opacity !== 1)).toEqual([]);
+  });
+
   test('emits a bubbling ready event a host can listen for', async ({ page }) => {
     await page.goto('/demo/hero.html');
     await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
@@ -192,6 +247,37 @@ test.describe('contracts', () => {
       expect(await page.locator('[style]').count()).toBe(0);
     });
   }
+
+  /**
+   * The two defaults differ on purpose: video cuts because playback advances
+   * past a frozen poster, an image has no second moving picture and fades to
+   * cover its decode. Both read one property, so this also proves the knob is
+   * wired -- no other test overrides it now that the default is the cut.
+   */
+  test('defaults to a 0s video fade and a 350ms image fade, both overridable', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.querySelector('#hero video')!).transitionDuration
+      )
+    ).toBe('0s');
+
+    await page.goto('/demo/images.html');
+    const image = '[data-polite-reveal]';
+    expect(
+      await page.evaluate(
+        (sel) => getComputedStyle(document.querySelector(sel)!).transitionDuration,
+        image
+      )
+    ).toBe('0.35s');
+
+    expect(
+      await page.evaluate((sel) => {
+        document.documentElement.style.setProperty('--polite-fade', '250ms');
+        return getComputedStyle(document.querySelector(sel)!).transitionDuration;
+      }, image)
+    ).toBe('0.25s');
+  });
 
   test('imposes no geometry: identical markup renders at four different sizes', async ({
     page,

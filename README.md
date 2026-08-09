@@ -202,8 +202,10 @@ it — a screen reader announcing "Play, pressed" is worse than either.
    `<video preload="none">` paints an empty box, so if the hidden state only
    arrived once JS ran, a page whose bundle failed would stack that over the
    poster. Authored, the safe state is the default.
-3. The poster should be the video's **frame 0**, which is what makes the
-   dissolve invisible rather than a visible transition between two pictures.
+3. The poster is ideally the video's **frame 0**, which is what makes the
+   handoff invisible. It buys less than it seems to on its own, though: what
+   makes it invisible is frame 0 _plus_ cutting rather than fading, because the
+   video advances while the poster does not. See [The fade](#the-fade).
 4. Poster and video are direct children of the box.
 5. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
    poster's `alt` carries any meaning — and without this it lands in the tab
@@ -211,8 +213,68 @@ it — a screen reader announcing "Play, pressed" is worse than either.
    button, so a keyboard user reached it on the thirteenth Tab.
 
 Attributes set on the box: `data-polite-ready`, `data-polite-failed`. On
-`<html>`: `data-polite-paused`. Those are the public CSS API; override the fade
-with `--polite-fade`.
+`<html>`: `data-polite-paused`. Those are the public CSS API, along with
+`--polite-fade`.
+
+## The fade
+
+One custom property controls it, read by both stylesheets: `--polite-fade`.
+**Video defaults to `0s`, a cut. Images default to `350ms`.**
+
+They differ because they are solving different problems. An image fades in over
+a backdrop with nothing else moving, so the fade only ever covers the flicker of
+an async decode landing. A video is a second picture that keeps changing, and
+that is where a fade turns against you.
+
+The trap is assuming a frame-0 poster makes a video fade free. It does not,
+because the video does not wait for the fade. Playback starts at the reveal, so
+the poster stays frozen on frame 0 while the video underneath advances, and the
+crossfade blends a still against a frame that has moved on. The longer the fade,
+the further apart the two pictures are.
+
+Measured on a real hero, SSIM against the video's own frame 0:
+
+| elapsed | similarity to frame 0 |
+| ------- | --------------------- |
+| 250ms   | 0.72                  |
+| 400ms   | 0.69                  |
+| 1s      | 0.64                  |
+
+Its poster matched frame 0 at 0.994, so the poster was never the problem. At the
+old `400ms` default the layers were already ~31% apart, and at 1s you see a clear
+double exposure of a moving scene. That reads as a rendering bug rather than a
+styling choice, and lengthening the fade to smooth it makes it worse. Shipping
+`0s` is why the default is now correct for a moving video instead of subtly wrong.
+
+So the poster question decides something narrower, what the **cut** looks like,
+not whether a fade is safe:
+
+| poster                          | at `0s`                               |
+| ------------------------------- | ------------------------------------- |
+| the video's frame 0             | seamless, nothing visibly happens     |
+| a different, art-directed image | a visible jump, still beating a ghost |
+
+A still video is the one case where the fade is genuinely free.
+
+**A hard cut is safe here**, which is not true of background-video code in
+general. The reveal fires from `requestVideoFrameCallback`, so a frame has
+already reached the compositor before the swap: there is always a real picture
+to cut to. MDN puts the CSS half plainly, a `0s` duration means "no transition
+will happen, that is the switch between the two states will be instantaneous".
+Code that reveals on `playing` needs a fade to cover the window where nothing has
+painted yet. This doesn't.
+
+Two things that surprise people:
+
+- **Both halves share the token.** Setting it on `:root` changes video and
+  images together. Scope it to a selector to split them.
+- **An invalid value computes to `0s`, not to the stylesheet's default.**
+  `--polite-fade: 0` is invalid, since CSS `<time>` requires a unit, and so is
+  any typo. Measured in Chromium: both give an instant swap, because a
+  substitution that is invalid at computed-value time falls back to the
+  property's initial value, and the `var()` fallback only applies when the
+  property is undefined. Harmless on video, which cuts anyway; on images it
+  silently removes the 350ms fade. A mistake here always fails toward a cut.
 
 ## Status
 

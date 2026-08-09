@@ -21,6 +21,10 @@
  * is the trade: without the fade, an image cuts from the backdrop to the photo
  * on whatever frame the async decode lands, which reads as a flicker rather
  * than a load. Do not mark an image you cannot afford to have hidden.
+ *
+ * That flicker is why this keeps a 350ms default where video.css cuts at 0s: an
+ * image has no second moving picture to ghost against. Both read --polite-fade,
+ * so setting it overrides both.
  */
 
 img[data-polite-reveal] {

@@ -26,11 +26,21 @@
  *   data-polite-failed  no source could be decoded; the poster is now permanent
  * And on <html>:
  *   data-polite-paused  the user stopped playback via a [data-polite-pause] control
+ *
+ * --polite-fade defaults to 0s here, meaning a cut. A frame-0 poster does not
+ * make a fade free: playback starts at the reveal, so the poster stays frozen
+ * while the video advances and the crossfade blends a still against a frame that
+ * has moved on, which reads as a double exposure. Cutting is safe because the
+ * reveal waits for a presented frame, so there is always something to cut to.
+ *
+ * image.css reads the same property but defaults to 350ms, because a lone image
+ * has no second moving picture to ghost against and its fade covers the flicker
+ * of an async decode landing. Set the property to override both at once.
  */
 
 [data-polite-media] > video {
   opacity: 0;
-  transition: opacity var(--polite-fade, 400ms) ease;
+  transition: opacity var(--polite-fade, 0s) ease;
 }
 
 [data-polite-media][data-polite-ready] > video {
@@ -44,7 +54,7 @@
  */
 [data-polite-media][data-polite-ready] > :is(img, picture) {
   visibility: hidden;
-  transition: visibility 0s linear var(--polite-fade, 400ms);
+  transition: visibility 0s linear var(--polite-fade, 0s);
 }
 
 /*

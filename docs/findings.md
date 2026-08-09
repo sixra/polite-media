@@ -161,3 +161,42 @@ by definition, so any check written against it is necessarily weaker than it. Th
 e2e suite therefore asserts the weaker guarantee that does hold everywhere -- the
 reveal never lands while `readyState` is below `HAVE_CURRENT_DATA` -- and the
 strong claim rests on the API's contract plus the ordering measurement above.
+
+## A frame-0 poster does not make the crossfade free
+
+The obvious rule -- "match the poster to frame 0 and the dissolve is invisible"
+-- is wrong on its own, and the way it fails looks like a rendering bug.
+
+Playback begins at the reveal, so during the fade the poster is frozen on frame
+0 while the video underneath keeps advancing. The crossfade therefore blends a
+still against a frame that has moved on, and the two diverge as the fade runs.
+
+Measured on a production hero (`intro-desktop.mp4`, 1920x1080, a moving camera
+shot), SSIM of each frame against the video's own frame 0, greyscale:
+
+| elapsed | SSIM vs frame 0 |
+| ------- | --------------- |
+| 250ms   | 0.72            |
+| 400ms   | 0.69            |
+| 1s      | 0.64            |
+
+That poster matched frame 0 at **0.994** SSIM, so the poster was not the
+problem. At the shipped 1s fade the layers were ~36% apart at the midpoint,
+producing a visible double exposure that a viewer described as everything
+"kinda moving blurry". At the 400ms default the library shipped at the time they
+were still ~31%
+apart.
+
+Two consequences:
+
+- `--polite-fade: 0s` is the right choice for any video with motion, not just for
+  art-directed posters. A still video is the only case where fade duration is
+  genuinely free. This measurement is why `video.css` now ships `0s` as its
+  default; `image.css` keeps `350ms`, because a lone image has no second moving
+  picture to diverge from.
+- What a frame-0 poster actually buys is a seamless _cut_. Without it, `0s`
+  shows a visible jump; with it, nothing visibly happens at all.
+
+Counter-example from the same project: `first-visit-poster.jpeg` scored **0.235**
+against `first-visit-desktop.mp4`'s frame 0 despite the matching filenames, so
+name-matching is not evidence that a poster is frame 0. Verify with SSIM.
