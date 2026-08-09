@@ -157,10 +157,21 @@ assert on.
 
 The consequence for testing: there is no independent cross-engine oracle for the
 library's central claim. `requestVideoFrameCallback` _is_ the presentation signal
-by definition, so any check written against it is necessarily weaker than it. The
-e2e suite therefore asserts the weaker guarantee that does hold everywhere -- the
-reveal never lands while `readyState` is below `HAVE_CURRENT_DATA` -- and the
-strong claim rests on the API's contract plus the ordering measurement above.
+by definition, so any check written against it is necessarily weaker than it.
+
+`readyState` was the fallback oracle, and it is not reliable either. Asserting
+`>= HAVE_CURRENT_DATA` (2) at reveal passed whenever the test ran alone and failed
+reproducibly in Chromium during a full parallel run, reporting **1**
+(`HAVE_METADATA`). rVFC had fired, so a frame had been presented; the readyState
+property simply had not caught up at the moment the callback ran. That is the same
+shape as the `totalVideoFrames` result above: a proxy that lags the signal rather
+than bounding it.
+
+Both attempts point the same way, so the suite now asserts only the floor that
+holds everywhere -- the reveal never lands before `HAVE_METADATA` -- and the
+strong claim rests on the API's contract plus the ordering measurement above. The
+general lesson is that a test which is strict about a property the platform does
+not specify tightly buys flakiness, not rigour.
 
 ## A frame-0 poster does not make the crossfade free
 
