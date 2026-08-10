@@ -49,8 +49,9 @@
       });
 
       // Arbitration off, because this page is about geometry: every box should
-      // be running at once so the sizes can be compared.
-      configure({ mobile: 'arbitrate', smallViewport: '(max-width: 1px)' });
+      // be running at once so the sizes can be compared. Everywhere, not just on
+      // desktop, so the demo does not change shape on a phone.
+      configure({ atOnce: 'all' });
 
       const markup = `
         <img src="/demo/assets/sample-poster.avif" alt="" />

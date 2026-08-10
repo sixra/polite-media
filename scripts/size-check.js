@@ -27,7 +27,12 @@ const budgets = {
   // Raised again for five correctness fixes (~105 B), most of it the warning
   // refusing a second video on an already-observed target; the re-entrancy guard
   // in reconcile and clearing `started` on a scroll-away are a line each.
-  'src/video.ts': 3550,
+  // Then +253 B for the feed: a second IntersectionObserver so rootMargin can
+  // buffer ahead without dilating the root that every threshold is measured
+  // against, atOnce replacing the mobile-only switch, pausing an outgoing video
+  // at once when another takes its slot, and holding the prefetch behind page
+  // load so a margin cannot defeat startWhen.
+  'src/video.ts': 3780,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

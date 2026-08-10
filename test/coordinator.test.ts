@@ -58,10 +58,26 @@ class FakeIntersectionObserver {
   }
 }
 
+/**
+ * The observer that decides playback, identified by its threshold ladder rather
+ * than by construction order. Two others can exist: the prefetch observer, and
+ * the throwaway `configure()` builds to make the platform parse a rootMargin.
+ */
 function currentObserver(): FakeIntersectionObserver {
-  const last = FakeIntersectionObserver.instances.at(-1);
-  if (!last) throw new Error('no IntersectionObserver was constructed');
+  const last = newest((o) => Array.isArray(o.options?.threshold));
+  if (!last) throw new Error('no playback IntersectionObserver was constructed');
   return last;
+}
+
+/** The prefetch observer, which exists only when a rootMargin asked for one. */
+function prefetchObserver(): FakeIntersectionObserver | undefined {
+  return newest((o) => o.options?.threshold === 0 && o.options.rootMargin !== undefined);
+}
+
+function newest(
+  match: (observer: FakeIntersectionObserver) => boolean
+): FakeIntersectionObserver | undefined {
+  return [...FakeIntersectionObserver.instances].reverse().find(match);
 }
 
 interface Harness {
@@ -95,6 +111,10 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   container.setAttribute('data-polite-media', '');
   const poster = document.createElement('img');
   const video = document.createElement('video');
+  // As the documented markup has it, and as every demo does. Without it the
+  // element reports preload 'auto' from the start, and any assertion about the
+  // promotion that starts buffering would hold before the promotion happened.
+  video.setAttribute('preload', 'none');
   if (src !== null) video.setAttribute('src', src);
   for (const spec of sources) {
     const source = document.createElement('source');
@@ -148,13 +168,16 @@ beforeEach(() => {
   smallViewport = false;
   FakeIntersectionObserver.instances = [];
   vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+  // A getter, not a value: MediaQueryList.matches is live, and `mediaQuery`
+  // memoises one list per query string -- so a frozen value would report
+  // whatever was true at the first call and never change, which is the opposite
+  // of the platform and would make a resize untestable.
   vi.stubGlobal('matchMedia', (query: string) => ({
     media: query,
-    matches: query.includes('prefers-reduced-motion')
-      ? reduceMotion
-      : query.includes('max-width')
-        ? smallViewport
-        : false,
+    get matches(): boolean {
+      if (query.includes('prefers-reduced-motion')) return reduceMotion;
+      return query.includes('max-width') ? smallViewport : false;
+    },
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }));
@@ -437,7 +460,7 @@ describe('teardown', () => {
   });
 });
 
-describe('mobile arbitration', () => {
+describe('arbitration', () => {
   it('plays every visible video on a large viewport', () => {
     const a = makeHarness();
     const b = makeHarness();
@@ -500,8 +523,10 @@ describe('mobile arbitration', () => {
     register(b.video);
 
     currentObserver().report([[a.video, 0.9]]);
+    // Still eligible on its own, so this is arbitration handing the slot over
+    // rather than a scroll taking it away, which is a different pause.
     currentObserver().report([
-      [a.video, 0.3],
+      [a.video, 0.6],
       [b.video, 0.9],
     ]);
 
@@ -509,9 +534,9 @@ describe('mobile arbitration', () => {
     expect(a.pause).toHaveBeenCalled();
   });
 
-  it('never starts a video on a small viewport in poster mode', () => {
+  it('never starts a video where atOnce is 0', () => {
     smallViewport = true;
-    configure({ mobile: 'poster' });
+    configure({ atOnce: { small: 0, large: 'all' } });
     const { video, play, container } = makeHarness();
     register(video);
 
@@ -618,10 +643,10 @@ describe('why a video lost decides how it pauses', () => {
     currentObserver().report([[a.video, 0.9]]);
     expect(a.play).toHaveBeenCalled();
 
-    // b takes the single slot; a is still 30% visible but has been replaced, and
+    // b takes the single slot; a is still 60% visible but has been replaced, and
     // two videos decoding through the handover is the contention to avoid.
     currentObserver().report([
-      [a.video, 0.3],
+      [a.video, 0.6],
       [b.video, 0.9],
     ]);
     expect(a.pause).toHaveBeenCalled();
@@ -644,21 +669,21 @@ describe('why a video lost decides how it pauses', () => {
 });
 
 describe('pauseBelow', () => {
-  it('stops at a quarter visible by default, and keeps going above it', () => {
+  it('stops at half visible by default, and keeps going above it', () => {
     vi.useFakeTimers();
     const { video, pause } = makeHarness();
     register(video);
 
-    // Comfortably above the default 0.25: still mostly on screen, still running.
+    // Comfortably above the default 0.5: still mostly on screen, still running.
     currentObserver().report([[video, 0.9]]);
-    currentObserver().report([[video, 0.4]]);
+    currentObserver().report([[video, 0.6]]);
     vi.advanceTimersByTime(1000);
     expect(pause).not.toHaveBeenCalled();
 
-    // Down to a sliver. The old default of 0 kept this playing until the video
-    // was entirely gone, which in practice meant it never stopped while any part
-    // of it hung on screen.
-    currentObserver().report([[video, 0.1]]);
+    // Mostly gone. The old default of 0 kept this playing until the video was
+    // entirely gone, which in practice meant it never stopped while any part of
+    // it hung on screen.
+    currentObserver().report([[video, 0.4]]);
     vi.advanceTimersByTime(1000);
     expect(pause).toHaveBeenCalled();
   });
@@ -926,10 +951,10 @@ describe('configure() after the first register', () => {
     }
   );
 
-  it.each(['pauseGraceMs', 'mobile', 'hysteresis'])('still accepts a late %s', (key) => {
+  it.each(['pauseGraceMs', 'atOnce', 'hysteresis'])('still accepts a late %s', (key) => {
     const patches: Record<string, unknown> = {
       pauseGraceMs: 900,
-      mobile: 'poster',
+      atOnce: 0,
       hysteresis: 0.3,
     };
     const { video } = makeHarness();
@@ -1602,15 +1627,29 @@ describe('the unreachable-start warning', () => {
   it('warns when the box is too tall to ever clear the start threshold', () => {
     const warn = warnings();
     const { video } = makeHarness();
-    // Ten viewports tall: the ceiling is about 0.1, under the default 0.25. At
-    // three viewports it would still reach ~0.38 and be fine, which is why the
-    // 0.25 default is far safer than a high one.
+    // Ten viewports tall, so the ceiling is 0.1 against the default pauseBelow of
+    // 0.5. With no margin on this observer the ceiling is exactly
+    // viewport / height, which puts the cutoff at twice the viewport.
     withHeight(video, window.innerHeight * 10);
     register(video);
 
     currentObserver().report([[video, 0.05]]);
 
     expect(warn).toHaveBeenCalledTimes(1);
+    // Names whichever threshold is actually doing the blocking, so the fix the
+    // message asks for is the one that helps.
+    expect(warn.mock.calls[0]?.[0]).toContain('pauseBelow');
+  });
+
+  it('names playAbove when that is the threshold out of reach', () => {
+    const warn = warnings();
+    configure({ playAbove: 0.9, pauseBelow: 0.2 });
+    const { video } = makeHarness();
+    withHeight(video, window.innerHeight * 2);
+    register(video);
+
+    currentObserver().report([[video, 0.4]]);
+
     expect(warn.mock.calls[0]?.[0]).toContain('playAbove');
   });
 
@@ -1682,7 +1721,7 @@ describe('startWhen', () => {
     expect(play).toHaveBeenCalled();
   });
 
-  it('is rejected as a typo, the way mobile is', () => {
+  it('is rejected as a typo, the way atOnce is', () => {
     // @ts-expect-error -- the union is the point: a typo must not compile.
     expect(() => configure({ startWhen: 'page-load' })).not.toThrow();
   });
@@ -1804,5 +1843,185 @@ describe('register guards', () => {
 
     currentObserver().report([[shared, 0.9]]);
     expect(first.play).toHaveBeenCalled();
+  });
+});
+
+describe('atOnce', () => {
+  // The gap this option exists to close: one-at-a-time used to be reachable only
+  // through a media query engineered to always match, because the old `mobile`
+  // option asked "what happens on small screens" rather than "how many at once".
+  it('gives one video the screen on a large viewport too', () => {
+    smallViewport = false;
+    configure({ atOnce: 1 });
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+
+    currentObserver().report([
+      [a.video, 0.6],
+      [b.video, 0.9],
+    ]);
+
+    expect(b.play).toHaveBeenCalled();
+    expect(a.play).not.toHaveBeenCalled();
+  });
+
+  it('lets a small viewport play everything when asked', () => {
+    smallViewport = true;
+    configure({ atOnce: 'all' });
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+
+    currentObserver().report([
+      [a.video, 0.6],
+      [b.video, 0.9],
+    ]);
+
+    expect(a.play).toHaveBeenCalled();
+    expect(b.play).toHaveBeenCalled();
+  });
+
+  it('reads the viewport live, so a resize changes the answer', () => {
+    configure({ atOnce: { small: 1, large: 'all' } });
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+
+    smallViewport = true;
+    currentObserver().report([
+      [a.video, 0.6],
+      [b.video, 0.9],
+    ]);
+    expect(a.play).not.toHaveBeenCalled();
+
+    smallViewport = false;
+    currentObserver().report([[a.video, 0.6]]);
+    expect(a.play).toHaveBeenCalled();
+  });
+
+  it.each([2, 0.5, 'one'])('rejects %p rather than quietly meaning 1', (value) => {
+    // @ts-expect-error -- the runtime check is for JS callers the union cannot reach.
+    expect(() => configure({ atOnce: value })).toThrow(RangeError);
+  });
+});
+
+describe('rootMargin drives a second observer', () => {
+  it('leaves the playback observer with no margin, so a ratio means what it says', () => {
+    configure({ rootMargin: '200px' });
+    const { video } = makeHarness();
+    register(video);
+
+    // The bug this splits apart: one observer measured intersectionRatio against
+    // the root *including* the margin, so pauseBelow silently meant less than it
+    // said, by an amount that varied with element height.
+    expect(currentObserver().options?.rootMargin).toBeUndefined();
+    expect(prefetchObserver()?.options?.rootMargin).toBe('200px');
+  });
+
+  it('builds no second observer by default, so nothing prefetches unasked', () => {
+    const { video } = makeHarness();
+    register(video);
+
+    expect(prefetchObserver()).toBeUndefined();
+  });
+
+  it('buffers a video that is near but not yet eligible to play', () => {
+    configure({ rootMargin: '200px' });
+    const { video, play } = makeHarness();
+    register(video);
+
+    prefetchObserver()?.report([[video, 0.01]]);
+
+    // Fetching, but not playing: preload="none" means choosing a source alone
+    // downloads nothing, so the promotion is what actually starts the bytes.
+    expect(video.preload).toBe('auto');
+    expect(video.getAttribute('src')).toBe('/authored.mp4');
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('does not prefetch a video still held by its until gate', () => {
+    configure({ rootMargin: '200px' });
+    const { video } = makeHarness();
+    register(video, { until: new Promise(() => {}) });
+
+    prefetchObserver()?.report([[video, 0.01]]);
+
+    expect(video.preload).not.toBe('auto');
+  });
+
+  it('releases the target from both observers on unregister', () => {
+    configure({ rootMargin: '200px' });
+    const first = makeHarness();
+    const second = makeHarness();
+    register(first.video);
+    register(second.video);
+    const [play, prefetch] = [currentObserver(), prefetchObserver()];
+
+    // Two videos, so one survives: unregistering the last disconnects both
+    // observers and clears their sets anyway, which would hide a missing
+    // unobserve behind teardown that happens to be correct.
+    unregister(first.video);
+
+    expect(play.observed.has(first.video)).toBe(false);
+    expect(prefetch?.observed.has(first.video)).toBe(false);
+    expect(prefetch?.observed.has(second.video)).toBe(true);
+  });
+
+  it('disconnects the prefetch observer once the last video goes', () => {
+    configure({ rootMargin: '200px' });
+    const { video } = makeHarness();
+    register(video);
+    const prefetch = prefetchObserver();
+
+    unregister(video);
+
+    expect(prefetch?.disconnected).toBe(true);
+  });
+});
+
+describe('a handover under a single slot', () => {
+  // Measured on demo/feed.html before this: an outgoing card kept decoding for
+  // the full pauseGraceMs while the incoming one played, so a stepped scroll
+  // found two running at once in all three engines.
+  it('stops the outgoing video at once when it fell below the threshold as the next rose', () => {
+    vi.useFakeTimers();
+    configure({ atOnce: 1 });
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+
+    currentObserver().report([[a.video, 0.9]]);
+    expect(a.play).toHaveBeenCalled();
+
+    // a is now below pauseBelow, so it is not merely outranked, it is out of the
+    // band entirely -- and b takes the slot in the same pass.
+    currentObserver().report([
+      [a.video, 0.4],
+      [b.video, 0.9],
+    ]);
+
+    expect(a.pause).toHaveBeenCalled();
+    expect(b.play).toHaveBeenCalled();
+  });
+
+  // The grace period still has to exist, or a video nudged past the boundary and
+  // straight back stutters.
+  it('still waits out the grace period when nothing replaced it', () => {
+    vi.useFakeTimers();
+    configure({ atOnce: 1 });
+    const { video, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    currentObserver().report([[video, 0.4]]);
+
+    expect(pause).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(pause).toHaveBeenCalled();
   });
 });

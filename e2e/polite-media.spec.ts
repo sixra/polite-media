@@ -198,6 +198,77 @@ test.describe('arbitration', () => {
   });
 });
 
+test.describe('feed', () => {
+  // A desktop viewport on purpose: one-at-a-time used to be reachable only by
+  // declaring the viewport small, so a 1440px window is where the old option
+  // could not express this at all.
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/demo/feed.html');
+  });
+
+  test('never plays two videos, however far it is scrolled', async ({ page }) => {
+    // Stepped rather than card-by-card. Centring a card lands outside the zone
+    // where two are both past half visible, so it leaves arbitration untested:
+    // measured, a mutant with arbitration disabled still passed in two of three
+    // engines when each card was centred.
+    const counts: number[] = [];
+    for (let step = 0; step < 24; step += 1) {
+      await page.evaluate(() => window.scrollBy(0, 200));
+      await page.waitForTimeout(120);
+      counts.push(await page.evaluate(() => window.__playingCount()));
+    }
+
+    // Never two, and at some point one: a feed that quietly played nothing would
+    // satisfy the first half on its own.
+    expect(Math.max(...counts)).toBe(1);
+  });
+
+  test('buffers the next card before it is eligible to play', async ({ page }) => {
+    await page.evaluate(() => {
+      document.querySelector('[data-card="0"]')!.scrollIntoView({ block: 'center' });
+    });
+    await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(1);
+
+    // More promoted than playing: the card below has been told to fetch while it
+    // is still 200px out, which is the difference between arriving ready and
+    // arriving as a poster.
+    await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(1);
+  });
+
+  test('still waits for page load before fetching, margin or not', async ({ page }) => {
+    // rootMargin nearly defeated startWhen: prefetch fired on the observer's
+    // first batch, so the fetch it triggers landed inside page load -- exactly
+    // the contention the 'page-loaded' default was measured to avoid.
+    //
+    // Asserted as state while load is held open, not as request ordering. The
+    // ordering version passed alone and failed in the parallel run, because all
+    // three engines share one single-threaded server and the race is decided by
+    // whoever gets served first.
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // A poster, not the stylesheet: a render-blocking <link> in <head> also
+    // blocks the module script that builds the feed, so nothing would exist to
+    // observe. An image delays `load` and nothing else.
+    await page.route('**/sample-poster.avif', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.goto('/demo/feed.html', { waitUntil: 'commit' });
+    // The observer has certainly reported by now, which is the moment the
+    // unfixed version promoted preload and started fetching.
+    await page.waitForFunction(() => document.querySelectorAll('#feed video').length === 6);
+    expect(await page.evaluate(() => document.readyState)).not.toBe('complete');
+    expect(await page.evaluate(() => window.__preloadCount())).toBe(0);
+
+    release();
+    await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(0);
+  });
+});
+
 test.describe('pause control (WCAG 2.2.2)', () => {
   test('stops playback and stays stopped across arbitration passes', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });

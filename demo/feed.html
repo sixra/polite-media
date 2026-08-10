@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — feed</title>
+    <link rel="stylesheet" href="/dist/video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      /* Full-viewport cards, so exactly one can ever be past half visible and the
+         handover happens at a single point rather than a fuzzy band. */
+      .feed {
+        display: grid;
+        gap: 1rem;
+        max-width: 30rem;
+        margin-inline: auto;
+      }
+
+      .feed .frame {
+        height: 85vh;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Feed</h1>
+      <p class="note">
+        One video at a time on every viewport, not just small ones, and the slot changes hands as a
+        card passes half visible. <code>rootMargin</code> buffers the next card 200px out, so it
+        plays as it lands instead of showing its poster and catching up.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="spacer">scroll — one video plays, never two</div>
+      <div class="feed" id="feed"></div>
+      <div class="spacer">everything above should now be paused</div>
+    </main>
+
+    <div class="controls">
+      <button data-polite-pause type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { configure, register } from '/dist/video.js';
+
+      // The whole recipe. atOnce: 1 rather than the default { small: 1, large:
+      // 'all' } because a feed is a feed on a desktop too, and rootMargin is the
+      // opt-in that makes the handover smooth instead of merely correct.
+      configure({ atOnce: 1, pauseBelow: 0.5, rootMargin: '200px' });
+
+      const feed = document.getElementById('feed');
+      for (let i = 0; i < 6; i += 1) {
+        const frame = document.createElement('div');
+        frame.className = 'frame';
+        frame.setAttribute('data-polite-media', '');
+        frame.dataset.card = String(i);
+        frame.innerHTML = `
+          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+            <source src="/demo/assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
+            <source src="/demo/assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
+          </video>`;
+        feed.append(frame);
+      }
+
+      for (const frame of feed.children) {
+        // Observe the frame, not the video: the video is inset:0 and has no
+        // layout box of its own.
+        register(frame.querySelector('video'), { observe: frame });
+      }
+
+      window.__playingCount = () =>
+        [...document.querySelectorAll('#feed video')].filter((v) => !v.paused).length;
+
+      window.__preloadCount = () =>
+        [...document.querySelectorAll('#feed video')].filter((v) => v.preload === 'auto').length;
+    </script>
+  </body>
+</html>

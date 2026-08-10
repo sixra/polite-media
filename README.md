@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,490 B    | 194 B      | **3.6 KB** |
+| `polite-media/video` | 3,743 B    | 194 B      | **3.8 KB** |
 | `polite-media/image` | 473 B      | 157 B      | **630 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -178,16 +178,28 @@ than about one video, so it is dispatched on `document` with
 There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
 
-| option          | default                |                                                          |
-| --------------- | ---------------------- | -------------------------------------------------------- |
-| `rootMargin`    | `'0px'`                | how far outside the viewport to start preparing          |
-| `pauseGraceMs`  | `400`                  | anti-flicker debounce at the viewport edge               |
-| `smallViewport` | `'(max-width: 767px)'` | which viewports are "small"                              |
-| `mobile`        | `'arbitrate'`          | `'arbitrate'` (one at a time) or `'poster'` (never play) |
-| `hysteresis`    | `0.15`                 | how much more visible a rival must be to take the slot   |
-| `pauseBelow`    | `0.25`                 | visible fraction at or below which a video stops         |
-| `startWhen`     | `'page-loaded'`        | how patient a video is about starting                    |
-| `playAbove`     | `0`                    | visible fraction a video must clear before it starts     |
+| option          | default                      |                                                        |
+| --------------- | ---------------------------- | ------------------------------------------------------ |
+| `rootMargin`    | `'0px'`                      | how far outside the viewport to start buffering        |
+| `pauseGraceMs`  | `400`                        | anti-flicker debounce at the viewport edge             |
+| `smallViewport` | `'(max-width: 767px)'`       | which viewports are "small"                            |
+| `atOnce`        | `{ small: 1, large: 'all' }` | how many videos may run at once: `0`, `1` or `'all'`   |
+| `hysteresis`    | `0.15`                       | how much more visible a rival must be to take the slot |
+| `pauseBelow`    | `0.5`                        | visible fraction at or below which a video stops       |
+| `startWhen`     | `'page-loaded'`              | how patient a video is about starting                  |
+| `playAbove`     | `0`                          | visible fraction a video must clear before it starts   |
+
+A feed is `atOnce: 1` plus a margin to buffer the next card:
+
+```js
+configure({ atOnce: 1, pauseBelow: 0.5, rootMargin: '200px' });
+```
+
+`atOnce` is about count, not about phones, so one-at-a-time is available on a
+desktop without pretending the viewport is small. `rootMargin` drives an observer
+of its own and no longer touches the thresholds: `intersectionRatio` is measured
+against the root _including_ the margin, so a single observer made every
+threshold mean less than it said. See [`docs/findings.md`](docs/findings.md).
 
 `register(video, { until: promise })` holds a video back until the promise
 settles — for a splash screen, a consent dialog, or protecting your LCP. A hero
@@ -213,8 +225,8 @@ when the video is `inset: 0` inside the element that carries the layout.
 
 `registerAll(target)` takes the same shapes `revealImages` does — a selector, an
 element, or any collection — and registers each. It does not accept `observe`:
-each observed element maps to exactly one video, so sharing a wrapper between
-several would silently discard all but the last. Reach for `register` when a
+each observed element maps to exactly one video, and `register` refuses a second
+video on a target it already watches, with a warning. Reach for `register` when a
 video needs its own gate or wrapper.
 
 `configure()` throws if `rootMargin`, `pauseBelow` or `smallViewport` is patched
@@ -223,10 +235,12 @@ lifecycle listeners are built, so a late change does not merely fail to apply:
 `pauseBelow` half-applies, because eligibility reads it live while the threshold
 ladder does not. The other three take effect on the next pass.
 
-Only `mobile` is constrained by the type system, as a `'arbitrate' | 'poster'`
-union. TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
+Only `atOnce` and `startWhen` are constrained by the type system, as unions.
+TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
 `hysteresis` and `pauseGraceMs` are range-checked by `configure()` instead, which
 throws at the call that caused the mistake rather than later inside the observer.
+`atOnce` is checked at runtime too, for JavaScript callers: a `2` would otherwise
+fall through to the single-slot branch and quietly mean `1`.
 
 One gap worth knowing about: **a malformed `smallViewport` cannot be detected.**
 An invalid media query does not throw and does not normalise to anything

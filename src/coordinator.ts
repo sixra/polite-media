@@ -21,27 +21,39 @@ import { resolveTargets, type Target } from './targets.js';
  */
 
 /**
+ * Deliberately three cases rather than a number. These are the ones that exist,
+ * the type system does the checking a bare `number` would invite (`0.5`), and it
+ * avoids inventing an answer to which of several incumbents a rival displaces --
+ * {@link ConfigureOptions.hysteresis} has clean semantics only for a single slot.
+ */
+export type AtOnce = 0 | 1 | 'all';
+
+/**
  * Options for {@link configure}. Every field is optional; anything left out keeps
  * its default.
  *
  * All-optional deliberately. As a fully required interface this could not be used
  * for what a consumer naturally reaches for -- `const preset: ConfigureOptions =
- * { mobile: 'poster' }` -- and only the inline `configure({ ... })` form worked,
- * via contextual typing.
+ * { atOnce: 0 }` -- and only the inline `configure({ ... })` form worked, via
+ * contextual typing.
  */
 export interface ConfigureOptions {
   /**
-   * How far outside the viewport a video may start preparing.
+   * How far outside the viewport a video starts buffering, so it is ready by the
+   * time it arrives. `'200px'` on a feed is the difference between a card that
+   * plays as it lands and one that shows its poster first.
    *
-   * Defaults to `'0px'`, which is what makes every other threshold here honest:
-   * `intersectionRatio` is measured against the root *including* this margin, so
-   * any non-zero value inflates it. Measured on a 368px card with the old 50px
-   * default, 25% on screen reported 0.39 and `pauseBelow: 0.25` actually stopped
-   * the video at about 10% visible. The error also scales with element height,
-   * so the same setting meant different things per video.
+   * Defaults to `'0px'`: buffering video a visitor may never scroll to is the
+   * opposite of what this package is for, and on a twelve-card grid it would
+   * fetch twelve files.
    *
-   * Set it if you would rather a video be loading before it arrives, and read
-   * the other thresholds as fractions of the expanded box when you do.
+   * This drives a second observer of its own, and deliberately does not touch
+   * the thresholds. `intersectionRatio` is measured against the root *including*
+   * the margin, so a single observer made every threshold mean less than it
+   * said: measured on a 368px card at a 50px margin, 25% on screen reported 0.39
+   * and `pauseBelow: 0.25` actually stopped the video at about 10% visible, with
+   * the error scaling by element height. The observer that decides playback
+   * keeps no margin, so a fraction is always the true visible fraction.
    */
   rootMargin?: string;
   /**
@@ -56,18 +68,25 @@ export interface ConfigureOptions {
    */
   smallViewport?: string;
   /**
-   * What a small viewport is allowed to do.
+   * How many videos may run at once.
    *
-   * `arbitrate` lets one video play at a time. Phones have far less decode
-   * headroom than desktops -- three concurrent H.264 streams while compositing
-   * drops frames badly on real hardware -- but a grid of cards whose content
-   * *is* the video still needs to move.
+   * - `'all'` lets every visible video play. A bento grid of cards whose content
+   *   *is* the video is meant to move.
+   * - `1` gives one video the screen at a time, the rest holding their posters.
+   *   A feed wants this: the eye has one subject, and the handover happens as
+   *   the next card takes the slot.
+   * - `0` never starts a video, spending nothing on data or battery.
    *
-   * `poster` never starts a video there at all, spending nothing on data or
-   * battery. No standards or platform source recommends either; the default is
-   * `arbitrate` only because that is the one with device testing behind it.
+   * Pass an object to split the answer by viewport, which is the default:
+   * `{ small: 1, large: 'all' }`. Phones have far less decode headroom than
+   * desktops -- three concurrent H.264 streams while compositing drops frames
+   * badly on real hardware -- so they arbitrate while a desktop does not.
+   * {@link ConfigureOptions.smallViewport} decides which side a viewport is on.
+   *
+   * No standards or platform source recommends any of these; the default is the
+   * one with device testing behind it.
    */
-  mobile?: 'arbitrate' | 'poster';
+  atOnce?: AtOnce | { small: AtOnce; large: AtOnce };
   /**
    * How much more visible a rival must be before it takes the single slot.
    * Without it, a carousel's peeking neighbour flaps the slot back and forth.
@@ -76,15 +95,16 @@ export interface ConfigureOptions {
   /**
    * Visible fraction, 0 to 1, at or below which a video stops.
    *
-   * The default 0 means "only once it is entirely gone", which is the least
-   * surprising rule: a video still on screen but frozen reads as broken, not as
-   * considerate. Raise it to buy back decode time on a long page, at the cost of
-   * stopping things the viewer can still see.
+   * Defaults to `0.5`: a video runs while it is the thing you are looking at and
+   * stops once it is mostly gone. At `0` it stopped only when entirely off
+   * screen, so one hanging on by a sliver effectively never stopped.
    *
-   * Measured against the root *expanded by `rootMargin`*, verified in Chromium:
-   * a 100px element 20px below the fold reports 0.30 at a 50px margin, not 0. So
-   * with the defaults a video keeps playing until it is fully 50px past the
-   * viewport edge.
+   * **This caps how tall a managed video can be.** `intersectionRatio` is a
+   * fraction of the *element*, and with no margin on the playback observer its
+   * ceiling is `viewport / height` -- so anything taller than twice the viewport
+   * can never reach `0.5` and would never play. Measured at a 953px viewport:
+   * 1.5x viewport height peaks at 0.667 and 3x at 0.333. Lower it for a tall
+   * video, or shorten the box.
    */
   pauseBelow?: number;
   /**
@@ -102,10 +122,10 @@ export interface ConfigureOptions {
    *
    * **A tall video may never reach a high value.** `intersectionRatio` is a
    * fraction of the *element*, so a box taller than the viewport cannot be fully
-   * intersecting. Measured in Chromium at a 953px viewport with the default
-   * 50px margin: 1.5x viewport height peaks at 0.736 and 3x at 0.368, so a
-   * `playAbove` of 0.75 would leave both of those permanently stopped. Keep it
-   * comfortably under `(viewport + 2 x rootMargin) / tallest video`.
+   * intersecting. Measured in Chromium at a 953px viewport: 1.5x viewport height
+   * peaks at 0.667 and 3x at 0.333, so a `playAbove` of 0.75 would leave both of
+   * those permanently stopped. Keep it comfortably under
+   * `viewport / tallest video`.
    */
   playAbove?: number;
   /**
@@ -139,9 +159,9 @@ const defaults: ResolvedConfig = {
   rootMargin: '0px',
   pauseGraceMs: 400,
   smallViewport: '(max-width: 767px)',
-  mobile: 'arbitrate',
+  atOnce: { small: 1, large: 'all' },
   hysteresis: 0.15,
-  pauseBelow: 0.25,
+  pauseBelow: 0.5,
   playAbove: 0,
   startWhen: 'page-loaded',
 };
@@ -185,7 +205,7 @@ const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'playAbove', 'smallV
 /**
  * Call before the first `register`.
  *
- * Anything read on every reconcile -- `pauseGraceMs`, `mobile`, `hysteresis` --
+ * Anything read on every reconcile -- `pauseGraceMs`, `atOnce`, `hysteresis` --
  * can be changed at any time and takes effect on the next pass. The three keys
  * in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while videos
  * are registered. Unregister everything first, or configure earlier.
@@ -244,6 +264,17 @@ function validate(patch: ConfigureOptions): void {
     }
   }
 
+  // A `2` would otherwise behave as 1: it is neither 'all' nor 0, so it falls
+  // through to the single-slot branch and silently means something else.
+  if (patch.atOnce !== undefined) {
+    const values = typeof patch.atOnce === 'object' ? Object.values(patch.atOnce) : [patch.atOnce];
+    for (const value of values) {
+      if (value !== 0 && value !== 1 && value !== 'all') {
+        throw new RangeError(`polite-media: atOnce must be 0, 1 or 'all', got ${String(value)}`);
+      }
+    }
+  }
+
   if (patch.smallViewport !== undefined && patch.smallViewport.trim() === '') {
     throw new SyntaxError('polite-media: smallViewport must be a media query, got an empty string');
   }
@@ -296,6 +327,14 @@ interface Entry {
    */
   seenConnected: boolean;
   /**
+   * Within `rootMargin` of the viewport, per the prefetch observer.
+   *
+   * Kept because prefetching can be refused for a reason that later goes away --
+   * the page still loading, most often -- and the observer does not report a
+   * target again just because it is still where it was.
+   */
+  nearby?: boolean;
+  /**
    * The one-time machinery -- source list and error listener -- has been built.
    *
    * Separate from `started` because the gates flip that one back and forth: a
@@ -327,7 +366,15 @@ const entries = new Map<HTMLVideoElement, Entry>();
 /** Reverse index for the observer callback, which reports targets, not videos. */
 const byTarget = new Map<Element, Entry>();
 
+/** Decides playback. Never carries a margin, so a ratio is the true visible fraction. */
 let observer: IntersectionObserver | null = null;
+/**
+ * Decides when to start buffering, and exists only when `rootMargin` asks for it.
+ * Separate because one observer cannot serve both jobs: its margin dilates the
+ * root that every ratio is measured against, so a margin big enough to be useful
+ * for prefetch would quietly rescale `pauseBelow` and `playAbove`.
+ */
+let prefetchObserver: IntersectionObserver | null = null;
 /** Owns every page-level listener, so teardown is one abort rather than six removes. */
 let lifecycle: AbortController | null = null;
 /** True while a pending gesture listener is waiting to re-attempt a blocked play. */
@@ -345,7 +392,7 @@ let generation = 0;
 
 /**
  * The two environment gates. Not every reason a video may be stopped -- the
- * `until` gate, `mobile: 'poster'`, `pauseBelow` and a user pause are decided in
+ * `until` gate, `atOnce`, `pauseBelow` and a user pause are decided in
  * reconcile() -- but the two that mean "not on this device, right now", and the
  * only two that retract an existing reveal back to the poster.
  */
@@ -362,9 +409,43 @@ function getObserver(): IntersectionObserver {
       }
       reconcile();
     },
-    { rootMargin: config.rootMargin, threshold: thresholds() }
+    { threshold: thresholds() }
   );
   return observer;
+}
+
+/** Null when no margin was asked for, which is the default: nothing prefetches unannounced. */
+function getPrefetchObserver(): IntersectionObserver | null {
+  if (!wantsPrefetch()) return null;
+  prefetchObserver ??= new IntersectionObserver(
+    (records) => {
+      for (const record of records) {
+        const entry = byTarget.get(record.target);
+        // Only the source choice and the fetch. Playback stays with the other
+        // observer, which is the whole point of there being two.
+        if (!entry) continue;
+        entry.nearby = record.isIntersecting;
+        if (entry.nearby) prefetch(entry);
+      }
+    },
+    { rootMargin: config.rootMargin, threshold: 0 }
+  );
+  return prefetchObserver;
+}
+
+/**
+ * Any margin at all, so `'0px'` and every other spelling of zero leaves the
+ * second observer unbuilt.
+ *
+ * A digit test rather than a parser: a non-zero length has to contain a non-zero
+ * digit, whatever unit it wears. The spec accepts only absolute length dimension
+ * tokens and percentages here and throws a SyntaxError for anything else, which
+ * `validate()` already surfaces at the configure() call, so no other shape of
+ * string reaches this.
+ * https://w3c.github.io/IntersectionObserver/#parse-a-margin
+ */
+function wantsPrefetch(): boolean {
+  return /[1-9]/.test(config.rootMargin);
 }
 
 /**
@@ -442,10 +523,11 @@ function armReveal(entry: Entry): void {
 
 /**
  * A video taller than the viewport can never be fully intersecting, because
- * `intersectionRatio` is a fraction of the *element*. So a `playAbove` it cannot
- * reach means it never starts, and nothing else would ever say so -- the poster
- * simply stays. Measured in Chromium at a 953px viewport with a 50px margin,
- * 1.5x viewport height peaks at 0.736 and 3x at 0.368 (docs/findings.md).
+ * `intersectionRatio` is a fraction of the *element*. So a start threshold it
+ * cannot reach means it never starts, and nothing else would ever say so -- the
+ * poster simply stays. With no margin on the playback observer the ceiling is
+ * exactly `viewport / height`: measured in Chromium at a 953px viewport, 1.5x
+ * viewport height peaks at 0.667 and 3x at 0.333 (docs/findings.md).
  *
  * Checked against the ceiling rather than the observed ratio, so it fires on the
  * first report instead of waiting for a scroll that can never help.
@@ -459,18 +541,17 @@ function warnIfStartUnreachable(entry: Entry): void {
   const height = entry.target.getBoundingClientRect().height;
   if (height === 0) return;
 
-  // The root is the viewport grown by rootMargin on both edges. Parsed loosely:
-  // a single length covers the shipped default and anything else only makes this
-  // estimate conservative, which is the safe direction for a warning.
-  const margin = Number.parseFloat(config.rootMargin) || 0;
-  const ceiling = Math.min(1, (window.innerHeight + margin * 2) / height);
+  // rootMargin is deliberately absent: it belongs to the prefetch observer now,
+  // and the one that reports these ratios has no margin to grow the root by.
+  const ceiling = Math.min(1, window.innerHeight / height);
   if (ceiling > startAt) return;
 
   warnedUnreachable = true;
+  const name = config.playAbove > config.pauseBelow ? 'playAbove' : 'pauseBelow';
   console.warn(
-    `polite-media: this video is too tall to reach playAbove (${startAt}); its highest ` +
-      `possible visible fraction is about ${ceiling.toFixed(2)}, so it will never start. ` +
-      'Lower playAbove, or make the box shorter than the viewport.',
+    `polite-media: this video is too tall to reach its start threshold, ${name} ` +
+      `(${startAt}); its highest possible visible fraction is about ${ceiling.toFixed(2)}, ` +
+      `so it will never start. Lower ${name}, or make the box shorter than the viewport.`,
     entry.video
   );
 }
@@ -630,36 +711,63 @@ function onMediaError(entry: Entry): void {
   tryPlay(entry);
 }
 
+/**
+ * Chooses the file and wires the error handling. Returns false when nothing was
+ * decodable, in which case the entry has already been failed and unregistered.
+ *
+ * Deferred to here rather than done at registration so `<source media>` is
+ * evaluated against the viewport as it is when the video is first wanted, which
+ * for a lazy video can be long after the page loaded. Done once, because
+ * reassigning `src` restarts playback from frame 0 and `sources.ts` states the
+ * invariant that the first choice sticks for the page's lifetime.
+ */
+function prepare(entry: Entry): boolean {
+  if (entry.prepared) return true;
+  entry.prepared = true;
+
+  entry.sources = manageSources(entry.video);
+  entry.video.addEventListener('error', () => onMediaError(entry), {
+    signal: entry.listeners.signal,
+  });
+
+  if (!entry.sources.select()) {
+    markFailed(entry);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Get the bytes moving before the video is anywhere near playable, so it starts
+ * on the frame it arrives rather than showing its poster and catching up.
+ *
+ * The promotion is what does the work: `preload="none"` keeps the poster alone
+ * on first paint but also means the browser buffers nothing at all, so choosing
+ * a source without it fetches nothing. Measured: all three engines begin
+ * fetching on the promotion alone (docs/findings.md).
+ */
+function prefetch(entry: Entry): void {
+  if (entry.gated || !videoAllowed()) return;
+  // The same page gate reconcile applies. Without it a rootMargin defeats
+  // startWhen entirely, because the fetch this triggers lands inside page load,
+  // which is the contention `'page-loaded'` exists to avoid. Measured on
+  // demo/feed.html: the video request went out before the load event.
+  if (config.startWhen !== 'visible' && !pageLoaded()) return;
+  if (!prepare(entry)) return;
+  if (entry.video.preload !== 'auto') entry.video.preload = 'auto';
+}
+
 function start(entry: Entry): void {
   entry.started = true;
 
-  if (!entry.prepared) {
-    entry.prepared = true;
-    warnIfNothingToReveal(entry);
-    warnIfNoPauseControl(entry.video);
-    // Built here rather than at registration so `<source media>` is evaluated
-    // against the viewport as it is when the video actually starts, which for a
-    // lazy video can be long after the page loaded. Built once, because
-    // reassigning `src` restarts playback from frame 0 and `sources.ts` states
-    // the invariant that the first choice sticks for the page's lifetime.
-    entry.sources = manageSources(entry.video);
-    entry.video.addEventListener('error', () => onMediaError(entry), {
-      signal: entry.listeners.signal,
-    });
-
-    if (!entry.sources.select()) {
-      markFailed(entry);
-      return;
-    }
-  }
+  warnIfNothingToReveal(entry);
+  warnIfNoPauseControl(entry.video);
+  if (!prepare(entry)) return;
 
   armReveal(entry);
 
-  // `preload="none"` is what keeps the poster alone on first paint, but it also
-  // means the browser buffers nothing until playback is asked for -- so waiting
-  // for `canplaythrough` without promoting `preload` first would wait forever.
-  // Measured: all three engines begin fetching on the promotion alone and reach
-  // `canplaythrough` (docs/findings.md).
+  // Waiting for `canplaythrough` without promoting `preload` first would wait
+  // forever, for the reason prefetch() describes.
   if (
     config.startWhen === 'buffered' &&
     !entry.awaitingBuffer &&
@@ -680,15 +788,18 @@ function start(entry: Entry): void {
   tryPlay(entry);
 }
 
-/**
- * Which of the visible videos may actually run.
- *
- * On a large viewport, all of them: a bento grid of video cards is meant to
- * move. The restriction exists because phones have far less decode headroom.
- */
+/** {@link ConfigureOptions.atOnce} resolved for the viewport as it is right now. */
+function slots(): AtOnce {
+  const { atOnce } = config;
+  if (typeof atOnce !== 'object') return atOnce;
+  return mediaQuery(config.smallViewport).matches ? atOnce.small : atOnce.large;
+}
+
+/** Which of the visible videos may actually run. */
 function pickWinners(candidates: Entry[]): Set<Entry> {
-  if (!mediaQuery(config.smallViewport).matches) return new Set(candidates);
-  if (config.mobile === 'poster') return new Set();
+  const limit = slots();
+  if (limit === 'all') return new Set(candidates);
+  if (limit === 0) return new Set();
   if (candidates.length < 2) return new Set(candidates);
 
   const leader = candidates.reduce((best, entry) => (entry.ratio > best.ratio ? entry : best));
@@ -752,6 +863,7 @@ export function reconcile(): void {
   });
   const winners = pickWinners(eligible);
   const wasEligible = new Set(eligible);
+  const limited = slots() !== 'all';
 
   // Snapshot: start() can fail and unregister mid-loop, and mutating the map
   // being iterated is a trap even where the language permits it. The snapshot
@@ -770,17 +882,28 @@ export function reconcile(): void {
     } else if (entry.started) {
       // Which pause it gets turns on *why* it lost, not on how visible it is.
       //
-      // Still eligible but not a winner means arbitration handed its turn to
-      // another video, so it stops immediately: two videos decoding through a
-      // handover is the exact contention arbitration exists to prevent.
+      // Something took its place, so it stops immediately: two videos decoding
+      // through a handover is the exact contention arbitration exists to
+      // prevent. That covers losing the slot while still eligible, and also
+      // dropping below pauseBelow as the next video rose past it -- on a feed
+      // those are one scroll, and measured, the grace period below was letting
+      // the pair overlap for its full duration on every handover.
       //
-      // No longer eligible means it simply fell out of view, or below
-      // pauseBelow, with nothing taking its place. That gets the grace period,
-      // because it is the wobble case: a scroll nudges a video past the
-      // boundary and straight back, and stopping instantly would stutter.
-      if (wasEligible.has(entry)) pauseNow(entry);
+      // Otherwise it simply fell out of view with nothing replacing it, which
+      // gets the grace period: a scroll can nudge a video past the boundary and
+      // straight back, and stopping instantly would stutter.
+      const replaced = wasEligible.has(entry) || (limited && winners.size > 0);
+      if (replaced) pauseNow(entry);
       else pauseAfterGrace(entry);
     }
+  }
+
+  // Retried here because the prefetch observer reports a target once, and a
+  // refusal above may since have been lifted -- page load being the usual one.
+  // Last, so it can never influence the decisions this pass just made.
+  if (waitingForPage) return;
+  for (const entry of [...entries.values()]) {
+    if (entry.nearby && !entry.prepared) prefetch(entry);
   }
 }
 
@@ -921,6 +1044,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   byTarget.set(target, entry);
   attachLifecycle();
   getObserver().observe(target);
+  getPrefetchObserver()?.observe(target);
 
   if (options.until) {
     const release = (): void => {
@@ -974,15 +1098,20 @@ export function unregister(video: HTMLVideoElement): void {
   cancelPause(entry);
   entry.cancelReveal?.();
   entry.listeners.abort();
+  // Both, or the entry leaks into whichever observer was missed -- the same leak
+  // the disconnected sweep exists to prevent, reached through the back door.
   observer?.unobserve(entry.target);
+  prefetchObserver?.unobserve(entry.target);
   entries.delete(video);
   byTarget.delete(entry.target);
 
-  // Releasing the observer and listeners on the last video is what stops a
+  // Releasing the observers and listeners on the last video is what stops a
   // client-router site accumulating one of each per page visited.
   if (entries.size === 0) {
     observer?.disconnect();
     observer = null;
+    prefetchObserver?.disconnect();
+    prefetchObserver = null;
     detachLifecycle();
   }
 }

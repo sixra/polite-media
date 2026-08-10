@@ -5,6 +5,7 @@ declare global {
     __playingCount: () => number;
     __readyCount: (scope: string) => number;
     __eagerReadyAtSetup: number;
+    __preloadCount: () => number;
     __marks: {
       ready: number | null;
       framesAtReveal: number | null;
