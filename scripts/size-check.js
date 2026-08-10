@@ -18,11 +18,12 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought. Every size quoted in README.md must match this table.
  */
 const budgets = {
-  // 2600 until the unstyled-markup warning (~145 B gz), the only report a
-  // consumer gets for a misconfiguration that is otherwise silent; then 2750
-  // until registerAll and the shared target resolution (~59 B gz), which is what
-  // makes re-registering after a client-side navigation a single line.
-  'src/video.ts': 2850,
+  // Raised three times, each for something that was otherwise silent: the
+  // unstyled-markup warning (~145 B), registerAll and shared target resolution
+  // (~59 B), then the missing-pause-control warning (~132 B). The last is the
+  // package's headline claim -- never autoplay without a way to stop it -- which
+  // it cannot keep alone, since the button belongs to the host.
+  'src/video.ts': 3050,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

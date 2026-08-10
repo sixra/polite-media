@@ -1384,3 +1384,74 @@ describe('the pause-state event', () => {
     expect(resumed).toEqual({ event: false, attribute: false, pressed: 'false' });
   });
 });
+
+/**
+ * The claim the library cannot keep on its own: it ships the hook, the host
+ * ships the button, and forgetting it is silent. Deferred by WCAG 2.2.2's own
+ * five-second threshold, so these use fake timers.
+ */
+describe('the missing-pause-control warning', () => {
+  function warnings(): ReturnType<typeof vi.spyOn> {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    spy.mockClear();
+    return spy;
+  }
+
+  function startLooping(): void {
+    const { video } = makeHarness();
+    video.loop = true;
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+  }
+
+  it('warns once a looping video has run five seconds with no control', () => {
+    vi.useFakeTimers();
+    const warn = warnings();
+    startLooping();
+
+    vi.advanceTimersByTime(4999);
+    expect(warn).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('data-polite-pause');
+  });
+
+  it('stays quiet when the page has a control', () => {
+    vi.useFakeTimers();
+    const warn = warnings();
+    const button = document.createElement('button');
+    button.setAttribute('data-polite-pause', '');
+    document.body.append(button);
+
+    startLooping();
+    vi.advanceTimersByTime(5000);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // A clip that ends by itself is outside the criterion, so demanding a control
+  // for it would be noise.
+  it('stays quiet for a video that does not loop', () => {
+    vi.useFakeTimers();
+    const warn = warnings();
+    const { video } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+
+    vi.advanceTimersByTime(5000);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Nothing is moving any more, so there is nothing to demand a control for.
+  it('stays quiet if everything was torn down before the check', () => {
+    vi.useFakeTimers();
+    const warn = warnings();
+    startLooping();
+
+    unregisterAll();
+    vi.advanceTimersByTime(5000);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

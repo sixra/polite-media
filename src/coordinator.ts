@@ -357,6 +357,35 @@ function armReveal(entry: Entry): void {
   entry.cancelReveal = revealWhenPainted(entry.video, () => markReady(entry));
 }
 
+let pauseControlChecked = false;
+
+/**
+ * The package's headline claim is that it never autoplays without a way to stop
+ * it, and that is the one part it cannot deliver alone: the hook ships, the
+ * button is the host's. Forgetting it is otherwise silent, which is how a real
+ * project ended up with seven looping videos and no control.
+ *
+ * Deferred by WCAG 2.2.2's own five seconds -- the criterion only applies to
+ * motion running longer than that -- which doubles as time for a control
+ * rendered by script to arrive. Only looping video is asked about, since a short
+ * clip that ends on its own is outside the criterion.
+ */
+function warnIfNoPauseControl(video: HTMLVideoElement): void {
+  if (pauseControlChecked || !video.loop) return;
+  pauseControlChecked = true;
+
+  setTimeout(() => {
+    // Nothing is moving any more, so there is nothing to demand a control for.
+    if (entries.size === 0) return;
+    if (document.querySelector('[data-polite-pause]')) return;
+
+    console.warn(
+      'polite-media: a looping video is playing with no way to stop it, which WCAG 2.2.2 ' +
+        'requires. Add data-polite-pause to a <button>, or drive pauseAll() from your own control.'
+    );
+  }, 5000);
+}
+
 let warnedNothingToReveal = false;
 
 /**
@@ -482,6 +511,7 @@ function start(entry: Entry): void {
   if (!entry.prepared) {
     entry.prepared = true;
     warnIfNothingToReveal(entry);
+    warnIfNoPauseControl(entry.video);
     // Built here rather than at registration so `<source media>` is evaluated
     // against the viewport as it is when the video actually starts, which for a
     // lazy video can be long after the page loaded. Built once, because
@@ -826,6 +856,7 @@ export function unregisterAll(): void {
   setPaused(false);
   config = { ...defaults };
   warnedNothingToReveal = false;
+  pauseControlChecked = false;
 }
 
 /** Internal view for tests. Not exported from the package entry point. */

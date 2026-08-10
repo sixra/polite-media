@@ -29,6 +29,11 @@ First release.
   only on real transitions, including the reset inside `unregisterAll()`, so a
   host mirroring the state is never left holding a stale button.
 
+- A console warning when a looping video has been playing for five seconds and
+  the page has no `[data-polite-pause]` control. WCAG 2.2.2's own threshold, so a
+  clip that ends by itself is never flagged. The package promises never to
+  autoplay without a way to stop it, and that is the half it cannot keep alone.
+
 ### Notes for the first adopters
 
 - **The video fade defaults to `0s`, a cut.** A crossfade blends a frozen poster
