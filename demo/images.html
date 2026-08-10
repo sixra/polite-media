@@ -54,6 +54,14 @@
       // invisible for good.
       revealImages('#eager img');
 
+      // Read synchronously, because that is the entire claim: an eager image is
+      // ready before any decode or animation frame. Read after navigation
+      // instead and the decode path has usually finished too, so the two are
+      // indistinguishable -- measured, and Firefox was fast enough to hide it.
+      window.__eagerReadyAtSetup = document.querySelectorAll(
+        '#eager img[data-polite-ready]'
+      ).length;
+
       window.__readyCount = (scope) =>
         document.querySelectorAll(`${scope} img[data-polite-ready]`).length;
     </script>

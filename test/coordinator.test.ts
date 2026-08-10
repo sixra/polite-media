@@ -1096,6 +1096,10 @@ describe('the unstyled-markup warning', () => {
     const { video, container } = makeHarness();
     container.removeAttribute('data-polite-media');
     video.style.opacity = '0';
+    // Both, or the test cannot fail: happy-dom computes '' for an unstyled
+    // visibility, which is already not 'visible', so the check would short
+    // circuit there and never reach the opacity half this test is about.
+    video.style.visibility = 'visible';
 
     register(video);
     currentObserver().report([[video, 1]]);

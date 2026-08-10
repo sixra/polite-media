@@ -60,7 +60,7 @@
     "prepack": "pnpm run build",
     "size": "node scripts/size-check.js",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "pnpm run build && playwright test",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },

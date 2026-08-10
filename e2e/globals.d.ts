@@ -4,6 +4,7 @@ declare global {
   interface Window {
     __playingCount: () => number;
     __readyCount: (scope: string) => number;
+    __eagerReadyAtSetup: number;
     __marks: {
       ready: number | null;
       framesAtReveal: number | null;

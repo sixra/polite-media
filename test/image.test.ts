@@ -94,6 +94,35 @@ describe('revealImages', () => {
     expect(ready(image)).toBe(true);
   });
 
+  // The srcset case: `src` swaps mid-flight, decode() rejects on the old bitmap,
+  // and the new one is already decoded by the time the rejection lands. Waiting
+  // for a `load` that has been and gone would leave the image hidden for good.
+  it('reveals at once when decode() rejects on an already-complete image', async () => {
+    const { image, rejectDecode } = build({ complete: true, naturalWidth: 0 });
+    revealImages('img');
+
+    rejectDecode();
+    await afterRejectionHandled();
+
+    expect(ready(image)).toBe(true);
+  });
+
+  // A client-side router tears the page down between the rejection and its
+  // handler, and reviving a detached image would fire ready for a node nobody
+  // is watching.
+  it('reveals nothing after the returned teardown ran', async () => {
+    // naturalWidth 0 so it takes decode() rather than the cached fast path: this
+    // is about the abort guard inside the rejection handler.
+    const { image, rejectDecode } = build({ complete: true, naturalWidth: 0 });
+    const stop = revealImages('img');
+
+    stop();
+    rejectDecode();
+    await afterRejectionHandled();
+
+    expect(ready(image)).toBe(false);
+  });
+
   it('reveals even when the image fails to load entirely', async () => {
     const { image, rejectDecode } = build();
     revealImages('img');

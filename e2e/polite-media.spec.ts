@@ -474,11 +474,12 @@ test.describe('images', () => {
 
   test('reveals eager images on the first tick, without waiting on decode', async ({ page }) => {
     await page.goto('/demo/images.html');
-    // Deliberately not polled. Polling to 4 is satisfied by the lazy path as
-    // well, so it could not tell "immediately" from "eventually" -- which is the
-    // whole claim. LCP excludes elements at opacity 0 and revealing one does not
-    // restore candidacy, so an eager image has to be visible from its first paint.
-    expect(await page.evaluate(() => window.__readyCount('#eager'))).toBe(4);
+    // The count the page took synchronously, not one read after navigation:
+    // by the time a test can evaluate, the decode path has usually finished too,
+    // so a reading here passes whether the reveal was immediate or merely quick.
+    // LCP excludes elements at opacity 0 and revealing one does not restore
+    // candidacy, so an eager image has to be visible from its first paint.
+    expect(await page.evaluate(() => window.__eagerReadyAtSetup)).toBe(4);
   });
 
   test('never leaves an eager image invisible', async ({ page }) => {
