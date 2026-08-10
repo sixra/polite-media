@@ -1125,3 +1125,50 @@ describe('the unstyled-markup warning', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * A client-side router replaces the body and does not re-run module scripts, so
+ * nothing in the page ever calls unregister for the elements it discarded.
+ * Astro's ClientRouter is the case this exists for.
+ */
+describe('elements removed from the document', () => {
+  it('stops tracking a video whose element has been detached', () => {
+    const { video, container } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.6]]);
+    expect(inspect().tracked).toBe(1);
+
+    container.remove();
+    // The removal is itself an observer report in a real browser.
+    currentObserver().report([[video, 0]]);
+
+    expect(inspect().tracked).toBe(0);
+    expect(currentObserver().observed.has(video)).toBe(false);
+  });
+
+  it('releases the page-level listeners once the last video goes with the page', () => {
+    const a = makeHarness();
+    const b = makeHarness();
+    register(a.video);
+    register(b.video);
+    expect(inspect().lifecycle).toBe(true);
+
+    a.container.remove();
+    b.container.remove();
+    currentObserver().report([
+      [a.video, 0],
+      [b.video, 0],
+    ]);
+
+    expect(inspect().tracked).toBe(0);
+    expect(inspect().observing).toBe(false);
+    expect(inspect().lifecycle).toBe(false);
+  });
+
+  it('leaves a video that is merely invisible alone', () => {
+    const { video } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0]]);
+    expect(inspect().tracked).toBe(1);
+  });
+});

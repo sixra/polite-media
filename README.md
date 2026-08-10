@@ -285,12 +285,50 @@ Two things that surprise people:
   property is undefined. Harmless on video, which cuts anyway; on images it
   silently removes the 350ms fade. A mistake here always fails toward a cut.
 
+## Client-side routers
+
+If your pages are replaced without a reload — Astro's `<ClientRouter />`, or any
+SPA router — **registration has to be re-run on every navigation**, and that is
+your job rather than the library's.
+
+Astro's docs are explicit that ["bundled module scripts … are only ever executed
+once. After initial execution they will be ignored, even if the script exists on
+the new page after a transition"][astro-scripts], while the swap "completely
+replaces" the body. So a `register()` call in a normal `<script>` runs on the
+first page and never again, and every video on every later page stays a poster.
+
+Re-register on the lifecycle event, which fires on the initial load too:
+
+```js
+import { register } from 'polite-media/video';
+
+document.addEventListener('astro:page-load', () => {
+  for (const video of document.querySelectorAll('video[data-polite]')) {
+    register(video);
+  }
+});
+```
+
+`register()` is idempotent, so a video that survived the swap is not registered
+twice. Videos that did not survive need no cleanup: the coordinator drops any
+entry whose element has left the document on its next pass, so the discarded
+nodes are released rather than pinned by a strong reference.
+
 ## Status
 
 Framework-agnostic by construction, proven on Astro. It takes no framework
 dependency and uses only standard DOM, but everything so far has been tested
 against Astro projects and headless Chromium — treat other combinations as
 unexercised rather than unsupported.
+
+Two gaps worth naming rather than implying coverage. **Real Safari and iOS have
+never run this**: Playwright's WebKit is not iOS Safari, and Low Power Mode is
+the most common autoplay blocker in the wild, so the gesture-retry path is the
+least exercised code in the package. And **`<ClientRouter />` itself is untested**
+— the disconnected-element cleanup above has unit coverage, but no test drives a
+real Astro view transition.
+
+[astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-behavior-with-view-transitions
 
 ## Development
 

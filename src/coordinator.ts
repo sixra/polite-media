@@ -501,6 +501,15 @@ function pickWinners(candidates: Entry[]): Set<Entry> {
 }
 
 export function reconcile(): void {
+  // A client-side router swaps the whole body and does not re-run module
+  // scripts, so nothing calls unregister for the elements it discarded. Left
+  // alone they sit in a strong Map keeping detached nodes alive, with the
+  // observer still watching elements that can never intersect again. Removing a
+  // target is itself reported, so this runs on the batch that caused it.
+  for (const entry of [...entries.values()]) {
+    if (!entry.video.isConnected) unregister(entry.video);
+  }
+
   // Reduced motion or a metered connection retracts the reveal as well as
   // stopping playback. Pausing alone would leave a frozen frame on screen, which
   // is worse than the poster it replaced.
