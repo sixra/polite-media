@@ -24,7 +24,10 @@ const budgets = {
   // startWhen (~144 B), which keeps the video fetch out of page load and can
   // hold playback until the buffer is ready. The first four bought reports on
   // things that were otherwise silent; this one is the first that is behaviour.
-  'src/video.ts': 3450,
+  // Raised again for five correctness fixes (~105 B), most of it the warning
+  // refusing a second video on an already-observed target; the re-entrancy guard
+  // in reconcile and clearing `started` on a scroll-away are a line each.
+  'src/video.ts': 3550,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

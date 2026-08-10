@@ -8,6 +8,7 @@ import {
   register,
   resumeAll,
   unregister,
+  resetForTests,
   unregisterAll,
 } from '../src/coordinator.js';
 
@@ -161,7 +162,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  unregisterAll();
+  resetForTests();
   resetEnv();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -1467,6 +1468,49 @@ describe('the missing-pause-control warning', () => {
  * crossings in different places, so oscillation stops being possible rather than
  * being smoothed over.
  */
+describe('playAbove after a scroll-away', () => {
+  // `started` means "has ever started", so nothing reset it when a video was
+  // paused for leaving the viewport -- eligibility then fell to `pauseBelow`
+  // permanently and the start threshold applied only once per video.
+  it('applies the start threshold again, not just the first time', () => {
+    vi.useFakeTimers();
+    const { video, play, pause } = makeHarness();
+    configure({ playAbove: 0.75, pauseBelow: 0.25 });
+    register(video);
+
+    currentObserver().report([[video, 0.8]]);
+    expect(play).toHaveBeenCalledTimes(1);
+
+    currentObserver().report([[video, 0]]);
+    vi.advanceTimersByTime(1000);
+    expect(pause).toHaveBeenCalled();
+
+    // Above the stop threshold but below the start threshold: it must stay put.
+    play.mockClear();
+    currentObserver().report([[video, 0.5]]);
+    expect(play).not.toHaveBeenCalled();
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  // The tempting fix -- judging eligibility on `!video.paused` instead -- breaks
+  // this, because a user-paused video is paused and would never be allowed back.
+  it('still lets resumeAll() restart a video below the start threshold', () => {
+    const { video, play } = makeHarness();
+    configure({ playAbove: 0.75, pauseBelow: 0.25 });
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    pauseAll();
+    play.mockClear();
+
+    currentObserver().report([[video, 0.5]]);
+    resumeAll();
+    expect(play).toHaveBeenCalled();
+  });
+});
+
 describe('playAbove', () => {
   it('holds a video back until it clears the start threshold', () => {
     const { video, play } = makeHarness();
@@ -1665,5 +1709,96 @@ describe('startWhen', () => {
       currentObserver().report([[video, 0.9]]);
       expect(play).toHaveBeenCalled();
     });
+  });
+});
+
+/**
+ * The reveal fires its `ready` event synchronously from inside `start()`, which
+ * runs inside `reconcile()`'s loop over a snapshot. A host listener that calls
+ * back in mutates state the loop already read, and the loop then starts the
+ * remaining winners anyway -- leaving a video playing that `pauseAll()` has no
+ * handle on, which is the package's headline claim inverted.
+ */
+describe('a host listener that re-enters during reconcile', () => {
+  function twoVideos(): { first: Harness; second: Harness } {
+    const first = makeHarness();
+    const second = makeHarness();
+    register(first.video);
+    register(second.video);
+    return { first, second };
+  }
+
+  it('does not start the rest of the pass after pauseAll()', () => {
+    const { first, second } = twoVideos();
+    first.container.addEventListener('polite-video:ready', () => pauseAll(), { once: true });
+
+    currentObserver().report([
+      [first.video, 0.9],
+      [second.video, 0.9],
+    ]);
+
+    expect(second.play).not.toHaveBeenCalled();
+  });
+
+  it('does not start a video whose entry the listener already released', () => {
+    const { first, second } = twoVideos();
+    first.container.addEventListener('polite-video:ready', () => unregisterAll(), { once: true });
+
+    currentObserver().report([
+      [first.video, 0.9],
+      [second.video, 0.9],
+    ]);
+
+    expect(inspect().tracked).toBe(0);
+    expect(second.play).not.toHaveBeenCalled();
+  });
+});
+
+describe('unregisterAll', () => {
+  // A client-side router tears down per navigation, and configuration is a
+  // property of the page's setup rather than of the videos currently on it.
+  // Resetting it here silently reverted a host's settings on the first swap.
+  it('keeps the configuration a host set', () => {
+    configure({ pauseBelow: 0.6, playAbove: 0.9 });
+    unregisterAll();
+
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.7]]);
+
+    expect(play).not.toHaveBeenCalled();
+  });
+});
+
+describe('register guards', () => {
+  // `until` is typed as an optional Promise, but a host computing the gate
+  // inline hands over whatever the expression produced. A falsy gate has nothing
+  // to settle, so gating on it left the video on its poster forever.
+  it('does not strand a video on a nullish until', () => {
+    const { video, play } = makeHarness();
+    register(video, { until: null as unknown as Promise<unknown> });
+
+    currentObserver().report([[video, 0.9]]);
+
+    expect(play).toHaveBeenCalled();
+  });
+
+  // Entries are keyed by video but looked up by observed target, so a shared
+  // target overwrote the first entry's slot: the first video stopped receiving
+  // ratios, and unregistering either released the other's observation too.
+  it('refuses a second video on an already-observed target', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const first = makeHarness();
+    const second = makeHarness();
+    const shared = first.container;
+
+    register(first.video, { observe: shared });
+    register(second.video, { observe: shared });
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(inspect().tracked).toBe(1);
+
+    currentObserver().report([[shared, 0.9]]);
+    expect(first.play).toHaveBeenCalled();
   });
 });

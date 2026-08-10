@@ -340,6 +340,9 @@ let gestureArmed = false;
  */
 let userPaused = false;
 
+/** Bumped by every reconcile, so a pass can tell that a newer one has overtaken it. */
+let generation = 0;
+
 /**
  * The two environment gates. Not every reason a video may be stopped -- the
  * `until` gate, `mobile: 'poster'`, `pauseBelow` and a user pause are decided in
@@ -395,6 +398,11 @@ function pauseAfterGrace(entry: Entry): void {
   entry.pauseTimer = setTimeout(() => {
     entry.pauseTimer = undefined;
     pauseNow(entry);
+    // It fell out of view rather than losing the slot or being paused by the
+    // user, so the next start has to clear `playAbove` again. Resetting here
+    // rather than at the eligibility check is what keeps `resumeAll()` working:
+    // a user-paused video is also `paused`, and judging on that would strand it.
+    entry.started = false;
   }, config.pauseGraceMs);
 }
 
@@ -693,6 +701,8 @@ function pickWinners(candidates: Entry[]): Set<Entry> {
 }
 
 export function reconcile(): void {
+  const pass = ++generation;
+
   // A client-side router swaps the whole body and does not re-run module
   // scripts, so nothing calls unregister for the elements it discarded. Left
   // alone they sit in a strong Map keeping detached nodes alive, with the
@@ -744,8 +754,15 @@ export function reconcile(): void {
   const wasEligible = new Set(eligible);
 
   // Snapshot: start() can fail and unregister mid-loop, and mutating the map
-  // being iterated is a trap even where the language permits it.
+  // being iterated is a trap even where the language permits it. The snapshot
+  // alone is not enough, because start() dispatches to host listeners
+  // synchronously and one of those can call back in. Two ways it can, so two
+  // checks: a nested pass supersedes this one and its decisions are the current
+  // ones, and an entry the listener released must not be revived by a loop
+  // still holding it.
   for (const entry of [...entries.values()]) {
+    if (generation !== pass) return;
+    if (entries.get(entry.video) !== entry) continue;
     if (winners.has(entry)) {
       cancelPause(entry);
       if (!entry.started) start(entry);
@@ -875,12 +892,24 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   if (entries.has(video)) return;
 
   const target = options.observe ?? video;
+  // Entries are keyed by video but looked up by observed target, so two videos
+  // sharing one cannot both be tracked. Refused rather than silently overwritten:
+  // the second video would have taken the first's slot, leaving it without
+  // ratios and making either unregister release the other's observation.
+  if (byTarget.has(target)) {
+    console.warn(
+      'polite-media: this target is already observed for another video, so the video ' +
+        'below was not registered. Give each video its own observe target.',
+      video
+    );
+    return;
+  }
   const entry: Entry = {
     video,
     target,
     host: video.parentElement ?? video,
     ratio: 0,
-    gated: options.until !== undefined,
+    gated: Boolean(options.until),
     seenConnected: video.isConnected,
     prepared: false,
     started: false,
@@ -1007,14 +1036,25 @@ export function resumeAll(): void {
   setPaused(false);
 }
 
-/** Drops all state. For tests, and for a host tearing down the whole page. */
+/**
+ * Releases every video, for a host tearing down the whole page. Configuration
+ * survives: it describes the page's setup rather than the videos currently on
+ * it, and a client-side router calling this per navigation would otherwise have
+ * its settings quietly reverted on the first swap. The once-per-page warnings do
+ * reset, because the markup they judge is about to be replaced.
+ */
 export function unregisterAll(): void {
   for (const video of [...entries.keys()]) unregister(video);
   setPaused(false);
-  config = { ...defaults };
   warnedNothingToReveal = false;
   warnedUnreachable = false;
   pauseControlChecked = false;
+}
+
+/** Internal reset for tests. Not exported from the package entry point. */
+export function resetForTests(): void {
+  unregisterAll();
+  config = { ...defaults };
 }
 
 /** Internal view for tests. Not exported from the package entry point. */
