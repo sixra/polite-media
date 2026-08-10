@@ -1,6 +1,6 @@
 {
   "name": "polite-media",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Background video and images that behave themselves: reveal on the frame that actually painted, play only when visible, respect data, motion and battery.",
   "keywords": [
     "video",
@@ -18,6 +18,8 @@
   "author": "sixra",
   "packageManager": "pnpm@11.18.0",
   "repository": "github:sixra/polite-media",
+  "homepage": "https://github.com/sixra/polite-media#readme",
+  "bugs": "https://github.com/sixra/polite-media/issues",
   "type": "module",
   "sideEffects": [
     "*.css"
@@ -37,7 +39,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "devEngines": {
     "runtime": {
