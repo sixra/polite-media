@@ -330,9 +330,8 @@ describe('source fallback', () => {
     currentObserver().report([[video, 1]]);
     expect(video.src).toContain('/av1.mp4');
 
-    // Code 3 is what Chromium reported for the truncated AV1 fixture, and the
-    // shape Apple hardware produces when canPlayType claims AV1 it cannot
-    // decode (docs/findings.md).
+    // Code 3 is what Chromium reported for the truncated AV1 fixture
+    // (docs/findings.md).
     fail(3);
     expect(video.src).toContain('/h264.mp4');
   });

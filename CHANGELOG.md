@@ -13,8 +13,8 @@ First release.
   presented frame via `requestVideoFrameCallback`, plays only what is on screen,
   arbitrates so only as many play at once as `atOnce` allows, falls through the
   `<source>` list when a codec cannot be decoded, honours `prefers-reduced-motion`
-  and Save-Data live, recovers from bfcache restores and blocked autoplay, and
-  ships a pause hook for [WCAG 2.2.2][wcag].
+  live and Save-Data on the next reconcile, recovers from bfcache restores and
+  blocked autoplay, and ships a pause hook for [WCAG 2.2.2][wcag].
 - `polite-media/image` — reveals an image once `decode()` resolves, rather than on
   `load`, which fires before the pixels exist.
 - Optional stylesheets, `polite-media/video.css` and `polite-media/image.css`.
@@ -28,45 +28,39 @@ First release.
   and watching that means a MutationObserver on the root for one boolean. Fires
   only on real transitions, including the reset inside `unregisterAll()`, so a
   host mirroring the state is never left holding a stale button.
-
 - A console warning when a looping video has been playing for five seconds and
   the page has no `[data-polite-pause]` control. WCAG 2.2.2's own threshold, so a
   clip that ends by itself is never flagged. The package promises never to
   autoplay without a way to stop it, and that is the half it cannot keep alone.
-
 - `startWhen`, deciding how patient a video is about starting: `'visible'`,
   `'page-loaded'` (the default) or `'buffered'`. The default closes a window
-  nothing covered — a deferred script's video fetch lands inside page load, and
-  measured against a demo with one resource held back it took a 1.45 second head
-  start on bandwidth the page still needed. `'buffered'` additionally waits for
-  `canplaythrough`, for connections where a video would otherwise play while it
-  is still arriving.
+  nothing else covers: a deferred script's video fetch lands inside page load,
+  and measured against a demo with one resource held back it took a 1.45 second
+  head start on bandwidth the page still needed. `'buffered'` additionally waits
+  for `canplaythrough`, for connections where a video would otherwise play while
+  it is still arriving.
 - `atOnce` decides how many videos may run: `0`, `1`, `'all'`, or an object
   splitting the answer by viewport. Defaults to `{ small: 1, large: 'all' }`,
-  which is the behaviour the old `mobile` option gave. `mobile` is gone: paired
-  with `smallViewport` it encoded "what happens on small screens" in two options
-  and could not express "one at a time everywhere" at all, so a feed on a desktop
-  needed a media query engineered to always match, which made the option name a
-  lie.
-- `rootMargin` drives a second IntersectionObserver of its own and no longer
-  touches the thresholds. It had to, before: `intersectionRatio` is measured
-  against the root including the margin, so a margin big enough to be useful for
-  buffering silently rescaled `pauseBelow` and `playAbove`. On a 368px card at a
-  50px margin, `pauseBelow: 0.25` stopped the video at about 10% visible, and the
-  error scaled with element height. The observer that decides playback now keeps
-  no margin, so a fraction is always the true visible fraction, and `rootMargin`
-  means only "start buffering this far out". Still `'0px'` by default: fetching
-  video nobody scrolls to is the opposite of the point.
-- `pauseBelow` ships at `0.5` rather than `0`: a video runs while it is the thing
-  you are looking at. At `0` it stopped only when entirely gone, so one hanging
-  on by a sliver effectively never stopped. This caps how tall a managed video
-  can be, since the ratio ceiling is `viewport / height`: past twice the viewport
-  it can never reach `0.5`, and the too-tall warning says so.
-- An outgoing video now stops the moment another takes its slot, instead of
-  serving out `pauseGraceMs` first. Measured on `demo/feed.html`: every handover
-  had both videos decoding for the full grace period, in all three engines. The
-  grace period still covers the case it was written for, a video nudged past the
-  boundary with nothing replacing it.
+  because phones have far less decode headroom than desktops: three concurrent
+  H.264 streams while compositing drops frames badly on real hardware. A grid of
+  cards whose content is the video still needs to move, so the answer is one at a
+  time rather than none.
+- `rootMargin` drives its own IntersectionObserver, separate from the one that
+  decides playback. `intersectionRatio` is measured against the root including
+  any margin, so keeping the playback observer free of one means a fraction is
+  always the true visible fraction, and `rootMargin` means only "start buffering
+  this far out". Defaults to `'0px'`: fetching video nobody scrolls to is the
+  opposite of the point.
+- `pauseBelow` defaults to `0.5`: a video runs while it is the thing you are
+  looking at, and stops once less than half of it remains on screen. This caps
+  how tall a managed video can be, since the ratio ceiling is
+  `viewport / height`: past twice the viewport a video can never reach `0.5`,
+  and the too-tall warning says so.
+- An outgoing video stops the moment another video takes its slot, rather than
+  serving out `pauseGraceMs` first: measured on `demo/feed.html`, serving out the
+  grace period left both videos decoding through every handover, in all three
+  engines. The grace period still covers the case it exists for, a video nudged
+  past the boundary with nothing replacing it.
 - `playAbove`, an optional start threshold that pairs with `pauseBelow` to make a
   band: clear the first to start, drop below the second to stop. Defaults to `0`,
   which is a single line at `pauseBelow`. Pull them apart when a video parked near

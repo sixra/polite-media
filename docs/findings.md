@@ -58,12 +58,13 @@ Measured 2026-08-08, headless Chromium, same fixtures.
 In the same run, `canPlayType('video/mp4; codecs="av01.0.08M.08"')` returned
 **`"probably"`** — for the very file that then failed at decode.
 
-That is the documented limitation reproduced locally: MDN states `canPlayType`
-"cannot guarantee that a media file will actually play, even when it returns
-probably", because a browser "may report a codec as supported based on
-declarations, fail to actually decode". It is the same shape as Safari on Apple
-hardware without an AV1 decoder, which reports AV1 support the device cannot
-deliver.
+That is the documented limitation reproduced locally: the HTML Standard says
+`canPlayType` returns `"probably"` only "if the user agent is confident that the
+type represents a media resource that it can render", and encourages
+implementers to "return `maybe` unless the type can be confidently established
+as being supported or not"
+(<https://html.spec.whatwg.org/multipage/media.html>). Confidence is not a
+guarantee, and this measurement is the counter-example.
 
 Hence the codec check only _orders_ candidates and the `error` event _decides_.
 And hence the fallback triggers on codes 3 and 4 only: code 1
@@ -219,7 +220,24 @@ taller than the root cannot report 1 however it is scrolled. That makes a high
 `playAbove` unreachable for tall media, and the failure is silent: the video
 simply never starts.
 
-Measured in Chromium, 953px viewport, `rootMargin: 50px`, scrolled to centre:
+**Shipped configuration**, no margin on the observer that decides playback, so
+the ceiling is exactly `viewport / element height`. Measured in Chromium, 953px
+viewport, scrolled to centre:
+
+| element height | highest ratio |
+| -------------- | ------------- |
+| 0.5x viewport  | 1.0           |
+| 1x viewport    | 1.0           |
+| 1.5x viewport  | 0.667         |
+| 3x viewport    | 0.333         |
+
+This is why `playAbove` ships at `0` rather than at a sensible-looking 0.75: the
+library cannot know how tall a consumer's videos are, and a default that silently
+never starts some of them is worse than one that starts everything early.
+
+**Historical run, before the observer split**, same viewport and element
+heights but with `rootMargin: 50px` feeding the same observer that decided
+playback:
 
 | element height | highest ratio |
 | -------------- | ------------- |
@@ -228,12 +246,9 @@ Measured in Chromium, 953px viewport, `rootMargin: 50px`, scrolled to centre:
 | 1.5x viewport  | 0.736         |
 | 3x viewport    | 0.368         |
 
-The ceiling is roughly `(viewport + 2 x rootMargin) / element height`, so with
-the shipped 50px margin anything past about 1.4x the viewport cannot clear 0.75.
-
-This is why `playAbove` ships at `0` rather than at a sensible-looking 0.75: the
-library cannot know how tall a consumer's videos are, and a default that silently
-never starts some of them is worse than one that starts everything early.
+The ceiling was roughly `(viewport + 2 x rootMargin) / element height`. Splitting
+`rootMargin` onto its own prefetch-only observer is what makes the shipped
+numbers above the true visible fraction.
 
 ## Promoting `preload` at runtime does start a fetch, in all three engines
 
@@ -275,3 +290,27 @@ So the eager setting took a 1.45 second head start on bandwidth the page still
 needed. Without the artificial delay the demo loads in about 45ms and the video
 fetch lands at 49ms, which is _after_ `load` either way -- an e2e written against
 the undelayed page passes whatever the default is, and did.
+
+## An outgoing video kept decoding through every handover
+
+`pauseGraceMs` exists to cover a video nudged past the boundary with nothing
+replacing it, debouncing scroll wobble so it does not stop and restart on every
+frame. Applying that same grace period when another video actually takes the
+slot is a different case, and it was wrong: the outgoing video has somewhere to
+go (paused), so there is nothing to debounce.
+
+Measured on `demo/feed.html`, stepping the scroll in 200px increments: the
+outgoing video kept decoding for the full `pauseGraceMs` while the incoming one
+played, so two videos ran at once through every handover. Reproduced in
+Chromium, Firefox and WebKit.
+
+Fix: treat "another video took the slot" as an immediate pause rather than a
+graceful one. The grace period still applies when nothing replaced the video,
+which is the case it was written for.
+
+**Measurement method matters here.** Centring each card with
+`scrollIntoView({ block: 'center' })` does not reproduce the overlap: it lands
+outside the zone where two cards are both past half visible at once. A mutant
+with arbitration disabled passed in 2 of 3 engines when cards were centred
+instead of stepped, which is why the stepped-scroll method is the one that
+counts.

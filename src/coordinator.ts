@@ -181,6 +181,13 @@ function pageLoaded(): boolean {
 }
 
 /**
+ * `HTMLMediaElement.HAVE_ENOUGH_DATA`. Inlined for the same reason reveal.ts
+ * inlines its own: this module never touches `HTMLMediaElement`, which does not
+ * exist in Node, and `test/node-import.test.ts` holds that line.
+ */
+const HAVE_ENOUGH_DATA = 4;
+
+/**
  * Settings captured when the observer and the lifecycle listeners are built, at
  * the first `register()`. Patching one later is rejected rather than ignored,
  * because "ignored" is not what actually happened:
@@ -189,17 +196,13 @@ function pageLoaded(): boolean {
  *   ladder was fixed at construction, so a late 0.4 takes effect at 0.25, the
  *   nearest crossing the observer still reports. That is the exact silent lie
  *   `thresholds()` exists to prevent, reached through a second door.
+ * - `playAbove` sits in the same threshold ladder as `pauseBelow`, fixed at the
+ *   same moment, so a late patch half-applies the same way.
  * - `smallViewport` used to strand a listener. `mediaQuery` memoises by string,
  *   so detaching would resolve a different MediaQueryList than attaching did.
- * - `rootMargin` is genuinely inert, and is grouped here so the rule is one rule.
+ * - `rootMargin` builds the prefetch observer, at that same first `register()`.
+ *   A late patch would not reach the one already built.
  */
-/**
- * `HTMLMediaElement.HAVE_ENOUGH_DATA`. Inlined for the same reason reveal.ts
- * inlines its own: this module never touches `HTMLMediaElement`, which does not
- * exist in Node, and `test/node-import.test.ts` holds that line.
- */
-const HAVE_ENOUGH_DATA = 4;
-
 const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'playAbove', 'smallViewport'] as const;
 
 /**

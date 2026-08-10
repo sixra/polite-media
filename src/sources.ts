@@ -15,14 +15,13 @@ import { mediaQuery } from './env.js';
  * Resolving the list here and assigning `video.src` directly sidesteps that
  * entirely: one assignment, no negotiation left to go stale.
  *
- * And `canPlayType` is only ever a claim. MDN is explicit that it "cannot
- * guarantee that a media file will actually play, even when it returns
- * probably", which is not theoretical -- in this project's own fixtures
+ * And `canPlayType` is only ever a claim. The HTML Standard sets the bar at the
+ * user agent being "confident that the type represents a media resource that it
+ * can render", and confidence is not a guarantee: in this project's own fixtures
  * (docs/findings.md) Chromium answered "probably" for AV1 and then failed at
- * `dav1d_send_data()`. The same shape bites Apple hardware without an AV1
- * decoder. So the codec check only drops the flat "no" answers; among what
- * survives, document order sets the try order and the `error` event decides the
- * outcome.
+ * `dav1d_send_data()`. So the codec check only drops the flat "no" answers;
+ * among what survives, document order sets the try order and the `error` event
+ * decides the outcome.
  *
  * Deliberately *not* re-selecting on resize. Reassigning `src` restarts
  * playback from frame 0, so a phone rotating mid-scroll would visibly rewind the

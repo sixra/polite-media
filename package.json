@@ -1,7 +1,7 @@
 {
   "name": "polite-media",
   "version": "0.1.0",
-  "description": "Background video and images that behave themselves: reveal on the frame that actually painted, play only when visible, respect data, motion and battery.",
+  "description": "Background video and images that behave themselves: reveal on the frame that actually painted, play only when visible, respect data and motion.",
   "keywords": [
     "video",
     "background-video",

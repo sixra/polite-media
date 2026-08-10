@@ -89,11 +89,14 @@ frame that already painted), depending on the codec, so no delay tunes it away.
 compositor, so it's right by definition.
 
 **`canPlayType` lies.** In this repo's own fixtures, Chromium answered
-`"probably"` for an AV1 file and then failed at `dav1d_send_data()`. That's the
-documented behaviour, not a quirk: MDN says it "cannot guarantee that a media
-file will actually play, even when it returns probably". It's the same shape as
-Safari on Apple hardware without an AV1 decoder, which reports AV1 support the
-device can't deliver — so codec checks only _order_ the candidates here, and the
+`"probably"` for `sample-truncated-av1.mp4` and then failed with
+`PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22`. That's the bar
+the specification sets, not a quirk: the [HTML Standard][html-canplaytype] says
+the method returns `"probably"` only "if the user agent is confident that the type
+represents a media resource that it can render", and encourages implementers to
+"return `maybe` unless the type can be confidently established as being
+supported or not". Confidence is not a guarantee, and this measurement is the
+counter-example, so codec checks only _order_ the candidates here and the
 `error` event decides.
 
 **Absence of `navigator.connection` means allow, not block.** Safari and Firefox
@@ -105,15 +108,17 @@ most of the web — and every test on Chrome still passes.
 bfcache restore, and mobile browsers pause video while the tab is hidden and
 leave it paused on return.
 
-Measurements and citations: [`docs/findings.md`](https://github.com/sixra/polite-media/blob/main/docs/findings.md).
+Measurements and citations: [`docs/findings.md`](docs/findings.md).
+
+[html-canplaytype]: https://html.spec.whatwg.org/multipage/media.html
 
 ## What it does
 
 - Reveals on a genuinely presented frame, never on `playing`.
 - Plays only what's on screen; stops what isn't.
-- One video at a time on small viewports (configurable), or none at all.
+- Caps how many videos run at once, on any viewport, not just small ones.
 - Falls through to the next `<source>` when one can't be decoded.
-- Honours `prefers-reduced-motion` and Save-Data, live.
+- Honours `prefers-reduced-motion` live, and Save-Data on the next reconcile.
 - Recovers from bfcache restores, tab refocus and blocked autoplay.
 - Ships a pause control hook for [WCAG 2.2.2][wcag].
 - Emits `polite-video:ready`, `polite-video:failed` and `polite-video:pausechange`.
@@ -166,7 +171,7 @@ stop(); //                                            cancel anything pending
 ```
 
 Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `VideoTarget`, `ImageTarget`,
-`PoliteVideoEventDetail`, `PoliteImageEventDetail`, `PolitePauseEventDetail`. Event
+`AtOnce`, `PoliteVideoEventDetail`, `PoliteImageEventDetail`, `PolitePauseEventDetail`. Event
 names ship as constants (`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`,
 `POLITE_IMAGE_READY`, `POLITE_PAUSE_CHANGE`) because a mistyped event string still
 compiles against lib.dom's `type: string` overload.
@@ -229,11 +234,12 @@ each observed element maps to exactly one video, and `register` refuses a second
 video on a target it already watches, with a warning. Reach for `register` when a
 video needs its own gate or wrapper.
 
-`configure()` throws if `rootMargin`, `pauseBelow` or `smallViewport` is patched
-while videos are registered. Those three are read when the observer and the
-lifecycle listeners are built, so a late change does not merely fail to apply:
-`pauseBelow` half-applies, because eligibility reads it live while the threshold
-ladder does not. The other three take effect on the next pass.
+`configure()` throws if `rootMargin`, `pauseBelow`, `playAbove` or `smallViewport`
+is patched while videos are registered. Those four are read when the observer and
+the lifecycle listeners are built, so a late change does not merely fail to
+apply: `pauseBelow` and `playAbove` half-apply, because eligibility reads them
+live while the threshold ladder does not. The other four (`pauseGraceMs`,
+`atOnce`, `hysteresis` and `startWhen`) take effect on the next pass.
 
 Only `atOnce` and `startWhen` are constrained by the type system, as unions.
 TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
@@ -269,13 +275,16 @@ plays while it is still arriving. It raises `preload` to `'auto'` when it decide
 to prepare — necessary, because `preload="none"` means the browser buffers
 nothing until playback is requested, so waiting for `canplaythrough` without the
 promotion would wait forever. All three engines honour the promotion
-([`docs/findings.md`](https://github.com/sixra/polite-media/blob/main/docs/findings.md)). If the buffer never fills, the poster
+([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
 stays, which is the same outcome as reduced motion or Save-Data.
 
 Two consequences worth knowing. A page whose `load` never fires never starts its
-videos, and `'buffered'` is the one place the library changes markup you authored.
-`until` composes with all of this: that gates one video on your own promise,
-`startWhen` is the policy for all of them, and a video waits for both.
+videos, and `'buffered'` is not the one place the library changes markup you
+authored: it is one of two. `prefetch()` also promotes `preload` to `'auto'`, for
+any video within a configured `rootMargin`, once the page has loaded and its
+`until` gate has settled. `until` composes with all of this: that gates one video
+on your own promise, `startWhen` is the policy for all of them, and a video waits
+for both.
 
 `playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
 to clear `playAbove` to start; a running one keeps going until it drops to
@@ -283,46 +292,39 @@ to clear `playAbove` to start; a running one keeps going until it drops to
 boundary cannot oscillate — `pauseGraceMs` is left covering scroll wobble instead
 of doing this job.
 
-**`pauseBelow` ships at `0.25`**, and `playAbove` at `0`, which is a single line
-rather than a band: a video runs while more than a quarter of it is on screen and
-stops once less is. The earlier default of `0` meant "stop only when entirely
-gone", which in practice meant a video hanging on by a sliver never stopped at
-all.
+**`pauseBelow` ships at `0.5`**, and `playAbove` at `0`, which is a single line
+rather than a band: a video runs while more than half of it is on screen and
+stops once less is. Set `pauseBelow` to `0` to play while any part shows at all,
+which means "stop only when entirely gone" and in practice means a video hanging
+on by a sliver never stops.
 
 ```js
-configure({ pauseBelow: 0 }); //                  play while any part shows
-configure({ playAbove: 0.75, pauseBelow: 0.25 }); // a band, for extra stability
+configure({ pauseBelow: 0 }); //                 play while any part shows
+configure({ playAbove: 0.75, pauseBelow: 0.5 }); // a band, for extra stability
 ```
 
 A `playAbove` at or below `pauseBelow` is simply no band rather than an error.
 
 **A tall video may never reach a high `playAbove`.** `intersectionRatio` is a
 fraction of the _element_, so a box taller than the viewport can never be fully
-intersecting. Measured in Chromium at a 953px viewport with the default 50px
-margin:
+intersecting. Measured in Chromium at a 953px viewport, with the observer that
+decides playback carrying no margin:
 
 | element height | highest ratio it reaches |
 | -------------- | ------------------------ |
 | 1x viewport    | 1.0                      |
-| 1.5x viewport  | 0.736                    |
-| 3x viewport    | 0.368                    |
+| 1.5x viewport  | 0.667                    |
+| 3x viewport    | 0.333                    |
 
 This is the main reason the start threshold ships at `0` and the stop threshold
-at `0.25` rather than something higher: a quarter is out of reach only past about
-four viewports, where `0.75` fails at one and a half. **The library warns on the
-console when it detects a threshold a box can never reach**, rather than leaving
-you to wonder why a video never plays.
+at `0.5` rather than something higher: the ceiling is `viewport / height`, so
+`0.5` is out of reach only past twice the viewport, where `0.75` already fails at
+one and a half. **The library warns on the console when it detects a threshold a
+box can never reach**, rather than leaving you to wonder why a video never
+plays.
 
-`pauseBelow` defaults to `0.25`: a video keeps running while more than a quarter
-of it is on screen. Set it to `0` to play while any part shows at all, at the
-cost of a video that never stops while a sliver of it hangs on. These fractions are measured against the viewport **plus `rootMargin`**, which is
-why that now defaults to `'0px'`: at the old `'50px'` a 368px card reported 0.39
-when 25% was on screen, so `pauseBelow: 0.25` really stopped it at about 10%, and
-the error scaled with element height. At zero margin the reported fraction is the
-visible fraction. Set a margin if you would rather a video be loading before it
-arrives, and read these numbers as fractions of the expanded box when you do.
-Whatever you set is also added to the observer's threshold list, because the
-browser only reports at crossings it was told about.
+Whatever you set for either is also added to the playback observer's threshold
+list, because the browser only reports at crossings it was told about.
 
 A `<button>` carrying `data-polite-pause` toggles playback. You supply it and its
 styling; this ships no markup and no CSS for it. Put it anywhere on the page --
@@ -515,7 +517,11 @@ least exercised code in the package. And **`<ClientRouter />` itself is untested
 — the disconnected-element cleanup above has unit coverage, but no test drives a
 real Astro view transition.
 
-[astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-behavior-with-view-transitions
+**Unpublished.** `polite-media` is not registered on the npm registry yet
+(`https://registry.npmjs.org/polite-media` 404s), so there is deliberately no
+install line above. Depend on it by path or git until that changes.
+
+[astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-re-execution
 
 ## Development
 

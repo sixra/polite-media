@@ -143,8 +143,7 @@ test.describe('hero', () => {
 
 test.describe('source fallback', () => {
   // The library's reason to exist: canPlayType answers "probably" for the
-  // truncated AV1, the decode then fails, and the next source takes over. Same
-  // shape as Safari on Apple hardware without an AV1 decoder.
+  // truncated AV1, the decode then fails, and the next source takes over.
   test('falls through a source the browser claimed it could play', async ({ page }) => {
     await page.goto('/demo/fallback.html');
 
@@ -265,6 +264,13 @@ test.describe('feed', () => {
     expect(await page.evaluate(() => window.__preloadCount())).toBe(0);
 
     release();
+    // Waiting for `load` separately, so the released poster's download time is
+    // not spent out of the poll's budget. Folded together, the poll's default 5s
+    // had to cover a real image fetch from a server three engines are sharing,
+    // and Firefox lost that race in roughly one full run in five while passing
+    // alone every time. The promotion itself happens in the reconcile that
+    // `load` triggers, so once loaded it is immediate.
+    await page.waitForFunction(() => document.readyState === 'complete');
     await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(0);
   });
 });
