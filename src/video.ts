@@ -23,4 +23,10 @@ export type { ConfigureOptions, RegisterOptions, VideoTarget } from './coordinat
 // Loaded for its `declare global` block as much as for the constants: the
 // ElementEventMap and DocumentEventMap augmentation only reaches a consumer if
 // this module is part of their program.
-export { POLITE_VIDEO_FAILED, POLITE_VIDEO_READY, type PoliteVideoEventDetail } from './events.js';
+export {
+  POLITE_PAUSE_CHANGE,
+  POLITE_VIDEO_FAILED,
+  POLITE_VIDEO_READY,
+  type PolitePauseEventDetail,
+  type PoliteVideoEventDetail,
+} from './events.js';

@@ -22,6 +22,12 @@ First release.
 - A console warning when a video's parent carries no `data-polite-media` and
   nothing else hides the video, because that misconfiguration is otherwise
   completely silent — the library looks installed while doing nothing.
+- `polite-video:pausechange` on `document`, with `detail: { paused: boolean }`.
+  Without it the label-swapping pause control the README offers as an option
+  could not be built: the only other signal is `data-polite-paused` on `<html>`,
+  and watching that means a MutationObserver on the root for one boolean. Fires
+  only on real transitions, including the reset inside `unregisterAll()`, so a
+  host mirroring the state is never left holding a stale button.
 
 ### Notes for the first adopters
 

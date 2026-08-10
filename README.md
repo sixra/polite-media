@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,787 B    | 194 B      | **2.9 KB** |
+| `polite-media/video` | 2,844 B    | 194 B      | **3.0 KB** |
 | `polite-media/image` | 473 B      | 157 B      | **630 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -94,7 +94,7 @@ Measurements and citations: [`docs/findings.md`](docs/findings.md).
 - Honours `prefers-reduced-motion` and Save-Data, live.
 - Recovers from bfcache restores, tab refocus and blocked autoplay.
 - Ships a pause control hook for [WCAG 2.2.2][wcag].
-- Emits `polite-video:ready` and `polite-video:failed`.
+- Emits `polite-video:ready`, `polite-video:failed` and `polite-video:pausechange`.
 
 ## What it deliberately doesn't do
 
@@ -136,7 +136,7 @@ registerAll(target, { until }); //      manage everything a selector names
 unregister(video); //                   stop managing it, release everything
 unregisterAll(); //                     tear down the whole page
 configure({ ... }); //                  before the first register, or it throws
-pauseAll(); resumeAll(); //             WCAG 2.2.2 control
+pauseAll(); resumeAll(); //             WCAG 2.2.2 control, emits pausechange
 
 // polite-media/image
 const stop = revealImages(target, { allowEager }); // reveal on decode
@@ -144,9 +144,14 @@ stop(); //                                            cancel anything pending
 ```
 
 Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `VideoTarget`, `ImageTarget`,
-`PoliteVideoEventDetail`, `PoliteImageEventDetail`. Event names ship as constants
-(`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`, `POLITE_IMAGE_READY`) because a
-mistyped event string still compiles against lib.dom's `type: string` overload.
+`PoliteVideoEventDetail`, `PoliteImageEventDetail`, `PolitePauseEventDetail`. Event
+names ship as constants (`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`,
+`POLITE_IMAGE_READY`, `POLITE_PAUSE_CHANGE`) because a mistyped event string still
+compiles against lib.dom's `type: string` overload.
+
+`polite-video:pausechange` is the odd one out: a user pause is page-wide rather
+than about one video, so it is dispatched on `document` with
+`detail: { paused: boolean }` and does not bubble from any element.
 
 There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
@@ -161,9 +166,23 @@ resolution error for the bare package name does not name them.
 | `pauseBelow`    | `0`                    | visible fraction at or below which a video stops         |
 
 `register(video, { until: promise })` holds a video back until the promise
-settles — for a splash screen or a consent dialog. A hero at scroll-top is
-reported visible in the observer's very first batch, so without this it starts
-before whatever the page is waiting on has finished.
+settles — for a splash screen, a consent dialog, or protecting your LCP. A hero
+at scroll-top is reported visible in the observer's very first batch, so without
+this it starts before whatever the page is waiting on has finished.
+
+The LCP case is the one worth spelling out. If your poster is the LCP element,
+gate the video on the poster having loaded, and its fetch can no longer compete
+with the resource the metric is measuring:
+
+```js
+register(video, {
+  until: new Promise((done) => {
+    const poster = document.querySelector('img.hero-poster');
+    if (!poster || poster.complete) done();
+    else poster.addEventListener('load', () => done(), { once: true });
+  }),
+});
+```
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
@@ -207,11 +226,40 @@ only synthesise that from Enter and Space for a native button — a
 `div[role="button"][tabindex="0"]` answers a mouse and ignores a keyboard, which
 is a WCAG 2.1.1 failure.
 
-If you also put `aria-pressed="false"` on it, the library keeps that current so
-the control announces its state. It is maintained rather than added, because
-`aria-pressed` suits a button whose label stays constant; if yours swaps between
-"Pause" and "Play" instead, leave the attribute off and the library won't touch
-it — a screen reader announcing "Play, pressed" is worse than either.
+There are two ways to convey the state, and you pick one:
+
+**A constant label plus `aria-pressed="false"`.** Declare the attribute and the
+library keeps it current. Maintained rather than added, because `aria-pressed`
+suits a button whose label does not change.
+
+**A label that swaps between "Pause" and "Play".** Leave `aria-pressed` off
+entirely — a screen reader announcing "Play, pressed" is worse than either half —
+and listen for the state instead:
+
+```js
+import { POLITE_PAUSE_CHANGE } from 'polite-media/video';
+
+document.addEventListener(POLITE_PAUSE_CHANGE, (event) => {
+  control.textContent = event.detail.paused ? 'Play' : 'Pause';
+});
+```
+
+For an **icon** rather than a label, you need no JavaScript at all: the state is
+on the root element, so CSS can do it, and the icon cannot drift from what the
+video is actually doing.
+
+```css
+.icon-play,
+[data-polite-paused] .icon-pause {
+  display: none;
+}
+[data-polite-paused] .icon-play {
+  display: inline-block;
+}
+```
+
+That pairs with `aria-pressed` and a constant accessible name, since an icon is
+not a label.
 
 ## Markup contract
 
@@ -233,8 +281,17 @@ it — a screen reader announcing "Play, pressed" is worse than either.
    handoff invisible. It buys less than it seems to on its own, though: what
    makes it invisible is frame 0 _plus_ cutting rather than fading, because the
    video advances while the poster does not. See [The fade](#the-fade).
-4. Poster and video are direct children of the box.
-5. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
+4. Poster and video are direct children of the box. The box may hold anything
+   else it likes -- a scrim, a caption, a pause control -- and those are left
+   alone. But **every** direct-child `img` or `picture` is treated as the poster
+   and hidden on reveal, so a logo or badge belongs deeper, not beside the video.
+5. If you use several `<source>` elements, the **last one carries no `media`
+   attribute**. Narrow queries above it, unconditional fallback at the bottom:
+   pairing `(max-width: 50rem)` with `(min-width: 50.001rem)` looks exhaustive
+   and is not, and a fractional viewport that matches neither leaves the video
+   with nothing to play. The first matching source wins, so ordering does the
+   rest.
+6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
    poster's `alt` carries any meaning — and without this it lands in the tab
    order: measured in Firefox, twelve background videos sat ahead of the pause
    button, so a keyboard user reached it on the thirteenth Tab.

@@ -1267,3 +1267,120 @@ describe('registerAll', () => {
     expect(a.play).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Without this event the label-swapping control the README offers as an option
+ * cannot be built: the only other signal is data-polite-paused on <html>, and
+ * watching that means a MutationObserver on the root, which is the ask this
+ * library exists to spare a host.
+ */
+describe('the pause-state event', () => {
+  function listen(): { calls: boolean[]; stop: () => void } {
+    const calls: boolean[] = [];
+    const onChange = (event: Event): void => {
+      calls.push((event as CustomEvent<{ paused: boolean }>).detail.paused);
+    };
+    document.addEventListener('polite-video:pausechange', onChange);
+    return {
+      calls,
+      stop: () => document.removeEventListener('polite-video:pausechange', onChange),
+    };
+  }
+
+  it('announces a pause and a resume, with the state in the detail', () => {
+    const { video } = makeHarness();
+    register(video);
+    const { calls, stop } = listen();
+
+    pauseAll();
+    resumeAll();
+    stop();
+
+    expect(calls).toEqual([true, false]);
+  });
+
+  // A host mirroring this into its own state would otherwise be told about
+  // transitions that never happened.
+  it('stays silent when the state does not actually change', () => {
+    const { video } = makeHarness();
+    register(video);
+    const { calls, stop } = listen();
+
+    pauseAll();
+    pauseAll();
+    resumeAll();
+    resumeAll();
+    stop();
+
+    expect(calls).toEqual([true, false]);
+  });
+
+  // Teardown resets the flag, and a host left holding a "paused" button for a
+  // page that is no longer paused is exactly the drift this event prevents.
+  it('announces the reset when a paused page is torn down', () => {
+    const { video } = makeHarness();
+    register(video);
+    pauseAll();
+    const { calls, stop } = listen();
+
+    unregisterAll();
+    stop();
+
+    expect(calls).toEqual([false]);
+  });
+
+  // The event has to mean "this has happened", not "this is about to". A host
+  // reading playback state in the handler is the obvious thing to do, and firing
+  // before the arbiter runs would hand it the state the event says just ended.
+  it('announces only after playback has actually changed', () => {
+    const { video } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+    expect(video.paused).toBe(false);
+
+    const seen: Array<{ paused: boolean; videoPaused: boolean }> = [];
+    const onChange = (event: Event): void => {
+      seen.push({
+        paused: (event as CustomEvent<{ paused: boolean }>).detail.paused,
+        videoPaused: video.paused,
+      });
+    };
+    document.addEventListener('polite-video:pausechange', onChange);
+
+    pauseAll();
+    resumeAll();
+    document.removeEventListener('polite-video:pausechange', onChange);
+
+    expect(seen).toEqual([
+      { paused: true, videoPaused: true },
+      { paused: false, videoPaused: false },
+    ]);
+  });
+
+  it('keeps the attribute, aria-pressed and the event in step', () => {
+    const button = document.createElement('button');
+    button.setAttribute('data-polite-pause', '');
+    button.setAttribute('aria-pressed', 'false');
+    document.body.append(button);
+    const { video } = makeHarness();
+    register(video);
+    const { calls, stop } = listen();
+
+    pauseAll();
+    const paused = {
+      event: calls.at(-1),
+      attribute: document.documentElement.hasAttribute('data-polite-paused'),
+      pressed: button.getAttribute('aria-pressed'),
+    };
+    resumeAll();
+    const resumed = {
+      event: calls.at(-1),
+      attribute: document.documentElement.hasAttribute('data-polite-paused'),
+      pressed: button.getAttribute('aria-pressed'),
+    };
+    stop();
+
+    expect(paused).toEqual({ event: true, attribute: true, pressed: 'true' });
+    expect(resumed).toEqual({ event: false, attribute: false, pressed: 'false' });
+  });
+});

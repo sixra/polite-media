@@ -1,5 +1,11 @@
 import { connectionAllowsMedia, mediaQuery, motionAllowed } from './env.js';
-import { POLITE_VIDEO_FAILED, POLITE_VIDEO_READY, type PoliteVideoEventDetail } from './events.js';
+import {
+  POLITE_PAUSE_CHANGE,
+  POLITE_VIDEO_FAILED,
+  POLITE_VIDEO_READY,
+  type PolitePauseEventDetail,
+  type PoliteVideoEventDetail,
+} from './events.js';
 import { revealWhenPainted } from './reveal.js';
 import { isUnusable, manageSources, type SourceManager } from './sources.js';
 import { resolveTargets, type Target } from './targets.js';
@@ -781,28 +787,45 @@ export function unregister(video: HTMLVideoElement): void {
  * browser only synthesises that from Enter and Space for a native button, so a
  * `div[role="button"][tabindex="0"]` responds to a mouse and not to a keyboard.
  */
-export function pauseAll(): void {
-  userPaused = true;
-  document.documentElement.setAttribute('data-polite-paused', '');
+/**
+ * The only place `userPaused` changes, so the attribute, `aria-pressed` and the
+ * event cannot drift apart. Returns early when nothing actually changed: calling
+ * `pauseAll()` twice is idempotent, and announcing a transition that did not
+ * happen would make a host's own state wrong.
+ */
+function setPaused(paused: boolean): void {
+  if (userPaused === paused) return;
+  userPaused = paused;
+
+  if (paused) document.documentElement.setAttribute('data-polite-paused', '');
+  else document.documentElement.removeAttribute('data-polite-paused');
+
   reflectPaused();
   reconcile();
+
+  // Announced last, once the videos have actually stopped or restarted. Firing
+  // before `reconcile()` would hand a listener reading `video.paused` the state
+  // the event says has just ended.
+  document.dispatchEvent(
+    new CustomEvent<PolitePauseEventDetail>(POLITE_PAUSE_CHANGE, { detail: { paused } })
+  );
+}
+
+export function pauseAll(): void {
+  setPaused(true);
 }
 
 /** Lets playback resume, undoing {@link pauseAll}. */
 export function resumeAll(): void {
-  userPaused = false;
-  document.documentElement.removeAttribute('data-polite-paused');
-  reflectPaused();
-  reconcile();
+  setPaused(false);
 }
 
 /** Drops all state. For tests, and for a host tearing down the whole page. */
 export function unregisterAll(): void {
   for (const video of [...entries.keys()]) unregister(video);
+  setPaused(false);
   config = { ...defaults };
-  userPaused = false;
   warnedNothingToReveal = false;
-  document.documentElement.removeAttribute('data-polite-paused');
 }
 
 /** Internal view for tests. Not exported from the package entry point. */

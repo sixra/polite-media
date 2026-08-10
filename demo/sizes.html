@@ -28,14 +28,25 @@
     </main>
 
     <div class="controls">
-      <!-- A real <button>: the library binds a delegated click, and only a native
-           button has Enter and Space synthesised into one. aria-pressed is
-           declared here, which is how the library knows to keep it current. -->
-      <button data-polite-pause type="button" aria-pressed="false">pause / resume</button>
+      <!-- The other valid pattern, deliberately: this label swaps, so it carries
+           NO aria-pressed and the library leaves it alone. "Play, pressed" is
+           worse than either half. The swap is driven by polite-video:pausechange,
+           because a label is not something CSS can rewrite. -->
+      <button data-polite-pause type="button">Pause background video</button>
     </div>
 
     <script type="module">
-      import { configure, register } from '/dist/video.js';
+      import { configure, POLITE_PAUSE_CHANGE, register } from '/dist/video.js';
+
+      // The label-swapping control, which is only buildable because the library
+      // announces the change. Watching data-polite-paused on <html> instead would
+      // mean a MutationObserver on the root for one boolean.
+      const control = document.querySelector('[data-polite-pause]');
+      document.addEventListener(POLITE_PAUSE_CHANGE, (event) => {
+        control.textContent = event.detail.paused
+          ? 'Play background video'
+          : 'Pause background video';
+      });
 
       // Arbitration off, because this page is about geometry: every box should
       // be running at once so the sizes can be compared.

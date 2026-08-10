@@ -30,6 +30,20 @@ export const POLITE_VIDEO_FAILED = 'polite-video:failed';
 /** Dispatched on the image once it has decoded. Bubbles. */
 export const POLITE_IMAGE_READY = 'polite-image:ready';
 
+/**
+ * Dispatched on `document` when the user pauses or resumes everything.
+ *
+ * The odd one out, and deliberately: a user pause is page-wide rather than about
+ * one video, so there is no element to dispatch it at and nothing for it to
+ * bubble through. Only `DocumentEventMap` is augmented for it.
+ *
+ * It exists because the alternative for a host is watching `data-polite-paused`
+ * on `<html>` with a MutationObserver, which is the same unreasonable ask this
+ * library avoids by maintaining `aria-pressed` itself. Without it, the
+ * label-swapping control the README offers as an option cannot be built.
+ */
+export const POLITE_PAUSE_CHANGE = 'polite-video:pausechange';
+
 export interface PoliteVideoEventDetail {
   /**
    * The managed video. Saves casting `event.target`, which is the container
@@ -43,6 +57,11 @@ export interface PoliteImageEventDetail {
   image: HTMLImageElement;
 }
 
+export interface PolitePauseEventDetail {
+  /** True once the user has paused everything, false once they resume. */
+  paused: boolean;
+}
+
 declare global {
   interface ElementEventMap {
     'polite-video:ready': CustomEvent<PoliteVideoEventDetail>;
@@ -54,5 +73,6 @@ declare global {
     'polite-video:ready': CustomEvent<PoliteVideoEventDetail>;
     'polite-video:failed': CustomEvent<PoliteVideoEventDetail>;
     'polite-image:ready': CustomEvent<PoliteImageEventDetail>;
+    'polite-video:pausechange': CustomEvent<PolitePauseEventDetail>;
   }
 }

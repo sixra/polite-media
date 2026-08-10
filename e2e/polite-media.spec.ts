@@ -223,6 +223,40 @@ test.describe('pause control (WCAG 2.2.2)', () => {
   });
 });
 
+test.describe('the pause-state event', () => {
+  /**
+   * The label-swapping control the README offers as an alternative to
+   * aria-pressed. It is only buildable because the library announces the change:
+   * the other signal is an attribute on <html>, and watching that means a
+   * MutationObserver on the root element for one boolean.
+   *
+   * /demo/sizes.html carries no aria-pressed on purpose, so this also proves the
+   * library leaves that pattern's control alone.
+   */
+  test('drives a label swap, and leaves aria-pressed off that control', async ({ page }) => {
+    await page.goto('/demo/sizes.html');
+    const control = page.locator('[data-polite-pause]');
+
+    await expect(control).toHaveText(/pause/i);
+    await expect(control).not.toHaveAttribute('aria-pressed');
+
+    await control.click();
+    await expect(control).toHaveText(/play/i);
+    // Counted here rather than through a demo helper: the label is not the
+    // claim, stopping the videos is, and a label that swaps over still-playing
+    // media would pass every other assertion in this test.
+    await expect
+      .poll(() =>
+        page.evaluate(() => [...document.querySelectorAll('video')].filter((v) => !v.paused).length)
+      )
+      .toBe(0);
+
+    await control.click();
+    await expect(control).toHaveText(/pause/i);
+    await expect(control).not.toHaveAttribute('aria-pressed');
+  });
+});
+
 test.describe('reduced motion', () => {
   test('never starts a video and leaves the poster in place', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
