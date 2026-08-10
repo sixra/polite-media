@@ -108,6 +108,25 @@ export interface ConfigureOptions {
    * comfortably under `(viewport + 2 x rootMargin) / tallest video`.
    */
   playAbove?: number;
+  /**
+   * How patient a video is about starting. Each rung is strictly more patient
+   * than the last.
+   *
+   * - `'visible'` starts fetching the moment the video is on screen. Module
+   *   scripts are deferred, so on a real page that lands inside the tail of the
+   *   page's own loading and competes with it.
+   * - `'page-loaded'` waits for `window`'s `load` event first. The default,
+   *   because the poster is already on screen so nothing is missing while it
+   *   waits, and it costs the page nothing.
+   * - `'buffered'` additionally holds playback until the video can play through
+   *   without stalling. For a thin connection, where the alternative is a video
+   *   that plays while it is still arriving.
+   *
+   * `until` composes with this rather than replacing it: that is a gate for one
+   * video (a splash, a consent dialog), this is a policy for all of them, and a
+   * video waits for both.
+   */
+  startWhen?: 'visible' | 'page-loaded' | 'buffered';
 }
 
 /**
@@ -124,9 +143,22 @@ const defaults: ResolvedConfig = {
   hysteresis: 0.15,
   pauseBelow: 0.25,
   playAbove: 0,
+  startWhen: 'page-loaded',
 };
 
 let config: ResolvedConfig = { ...defaults };
+
+/**
+ * Whether the page has finished loading.
+ *
+ * Read from `readyState` rather than latched by the `load` listener, because a
+ * module imported *after* load -- a late script, or a client-side navigation --
+ * would otherwise wait forever for an event that has already fired. The listener
+ * exists only to re-run the arbiter when the moment arrives.
+ */
+function pageLoaded(): boolean {
+  return document.readyState === 'complete';
+}
 
 /**
  * Settings captured when the observer and the lifecycle listeners are built, at
@@ -141,6 +173,13 @@ let config: ResolvedConfig = { ...defaults };
  *   so detaching would resolve a different MediaQueryList than attaching did.
  * - `rootMargin` is genuinely inert, and is grouped here so the rule is one rule.
  */
+/**
+ * `HTMLMediaElement.HAVE_ENOUGH_DATA`. Inlined for the same reason reveal.ts
+ * inlines its own: this module never touches `HTMLMediaElement`, which does not
+ * exist in Node, and `test/node-import.test.ts` holds that line.
+ */
+const HAVE_ENOUGH_DATA = 4;
+
 const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'playAbove', 'smallViewport'] as const;
 
 /**
@@ -270,6 +309,8 @@ interface Entry {
   started: boolean;
   /** One pending play retry at a time, rather than a listener per rejection. */
   retryArmed: boolean;
+  /** Holding for `canplaythrough` under `startWhen: 'buffered'`. */
+  awaitingBuffer?: boolean;
   sources?: SourceManager;
   pauseTimer?: ReturnType<typeof setTimeout>;
   cancelReveal?: () => void;
@@ -542,6 +583,11 @@ function armGestureRetry(): void {
  * as `canplay`, so adding it would only look like defence in depth.
  */
 function tryPlay(entry: Entry): void {
+  // Held while the buffer fills under `startWhen: 'buffered'`. Guarded here
+  // rather than at the call sites, because reconcile()'s resume path and both
+  // retry rungs would otherwise start playback while it is still arriving.
+  if (entry.awaitingBuffer) return;
+
   // Autoplay is permitted for muted media without any prior user engagement; the
   // other routes MDN lists all require engagement this library cannot assume. So
   // muted is the only condition it can rely on. Set rather than trusted, which
@@ -600,6 +646,29 @@ function start(entry: Entry): void {
   }
 
   armReveal(entry);
+
+  // `preload="none"` is what keeps the poster alone on first paint, but it also
+  // means the browser buffers nothing until playback is asked for -- so waiting
+  // for `canplaythrough` without promoting `preload` first would wait forever.
+  // Measured: all three engines begin fetching on the promotion alone and reach
+  // `canplaythrough` (docs/findings.md).
+  if (
+    config.startWhen === 'buffered' &&
+    !entry.awaitingBuffer &&
+    entry.video.readyState < HAVE_ENOUGH_DATA
+  ) {
+    entry.awaitingBuffer = true;
+    entry.video.preload = 'auto';
+    entry.video.addEventListener(
+      'canplaythrough',
+      () => {
+        entry.awaitingBuffer = false;
+        reconcile();
+      },
+      { once: true, signal: entry.listeners.signal }
+    );
+  }
+
   tryPlay(entry);
 }
 
@@ -661,8 +730,13 @@ export function reconcile(): void {
   // exactly as before; pull them apart and a video near the boundary can no
   // longer oscillate, because the two crossings are in different places.
   const startAt = Math.max(config.playAbove, config.pauseBelow);
+  // Nothing may start before the page has finished loading unless the host has
+  // asked for the eager rung. Checked here rather than at registration because
+  // `load` arrives later and has to re-run the arbiter.
+  const waitingForPage = config.startWhen !== 'visible' && !pageLoaded();
+
   const eligible = [...entries.values()].filter((e) => {
-    if (e.gated) return false;
+    if (e.gated || waitingForPage) return false;
     if (!e.started && e.ratio > 0) warnIfStartUnreachable(e);
     return e.ratio > (e.started ? config.pauseBelow : startAt);
   });
@@ -744,6 +818,10 @@ function attachLifecycle(): void {
   if (lifecycle) return;
   lifecycle = new AbortController();
   const { signal } = lifecycle;
+
+  if (!pageLoaded()) {
+    window.addEventListener('load', () => reconcile(), { once: true, signal });
+  }
 
   window.addEventListener('pageshow', onPageShow, { signal });
   document.addEventListener('visibilitychange', onVisibilityChange, { signal });

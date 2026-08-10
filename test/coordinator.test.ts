@@ -1588,3 +1588,82 @@ describe('the unreachable-start warning', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * `startWhen` is a ladder of patience. The whole suite otherwise runs with
+ * happy-dom reporting `readyState: 'complete'`, so the gate is never exercised
+ * unless a test says the page is still loading -- which is why these stub it
+ * rather than trusting the environment.
+ */
+describe('startWhen', () => {
+  function setReadyState(value: DocumentReadyState): void {
+    Object.defineProperty(document, 'readyState', { value, configurable: true });
+  }
+
+  afterEach(() => setReadyState('complete'));
+
+  it('holds a visible video until the page has loaded', () => {
+    setReadyState('loading');
+    const { video, play } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).not.toHaveBeenCalled();
+
+    setReadyState('complete');
+    window.dispatchEvent(new Event('load'));
+    expect(play).toHaveBeenCalled();
+  });
+
+  // A module imported after load must not wait for an event that already fired.
+  it('starts at once when the page is already loaded', () => {
+    const { video, play } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('ignores the page entirely under visible', () => {
+    setReadyState('loading');
+    configure({ startWhen: 'visible' });
+    const { video, play } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('is rejected as a typo, the way mobile is', () => {
+    // @ts-expect-error -- the union is the point: a typo must not compile.
+    expect(() => configure({ startWhen: 'page-load' })).not.toThrow();
+  });
+
+  describe('buffered', () => {
+    it('promotes preload and waits for canplaythrough before playing', () => {
+      configure({ startWhen: 'buffered' });
+      const { video, play } = makeHarness();
+      Object.defineProperty(video, 'readyState', { get: () => 1, configurable: true });
+      register(video);
+
+      currentObserver().report([[video, 0.9]]);
+      // Nothing buffers under preload="none", so the promotion is what makes the
+      // wait possible rather than a deadlock.
+      expect(video.preload).toBe('auto');
+      expect(play).not.toHaveBeenCalled();
+
+      video.dispatchEvent(new Event('canplaythrough'));
+      expect(play).toHaveBeenCalled();
+    });
+
+    it('does not wait when the data is already there', () => {
+      configure({ startWhen: 'buffered' });
+      const { video, play } = makeHarness();
+      Object.defineProperty(video, 'readyState', { get: () => 4, configurable: true });
+      register(video);
+
+      currentObserver().report([[video, 0.9]]);
+      expect(play).toHaveBeenCalled();
+    });
+  });
+});

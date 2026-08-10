@@ -34,6 +34,13 @@ First release.
   clip that ends by itself is never flagged. The package promises never to
   autoplay without a way to stop it, and that is the half it cannot keep alone.
 
+- `startWhen`, deciding how patient a video is about starting: `'visible'`,
+  `'page-loaded'` (the default) or `'buffered'`. The default closes a window
+  nothing covered — a deferred script's video fetch lands inside page load, and
+  measured against a demo with one resource held back it took a 1.45 second head
+  start on bandwidth the page still needed. `'buffered'` additionally waits for
+  `canplaythrough`, for connections where a video would otherwise play while it
+  is still arriving.
 - `rootMargin` ships at `'0px'` rather than `'50px'`. `intersectionRatio` is
   measured against the root including the margin, so a non-zero default made
   every threshold mean less than it said: on a 368px card, `pauseBelow: 0.25`

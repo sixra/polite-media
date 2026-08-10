@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,241 B    | 194 B      | **3.4 KB** |
+| `polite-media/video` | 3,385 B    | 194 B      | **3.5 KB** |
 | `polite-media/image` | 473 B      | 157 B      | **630 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -186,6 +186,7 @@ resolution error for the bare package name does not name them.
 | `mobile`        | `'arbitrate'`          | `'arbitrate'` (one at a time) or `'poster'` (never play) |
 | `hysteresis`    | `0.15`                 | how much more visible a rival must be to take the slot   |
 | `pauseBelow`    | `0.25`                 | visible fraction at or below which a video stops         |
+| `startWhen`     | `'page-loaded'`        | how patient a video is about starting                    |
 | `playAbove`     | `0`                    | visible fraction a video must clear before it starts     |
 
 `register(video, { until: promise })` holds a video back until the promise
@@ -232,6 +233,35 @@ An invalid media query does not throw and does not normalise to anything
 recognisable -- Chromium echoes the text straight back and simply never matches.
 So `smallViewport: '(max-width: 767)'`, missing its unit, means arbitration
 silently never engages and phones behave like desktops. Check that value by eye.
+
+`startWhen` decides how patient a video is, as a ladder rather than a set of
+switches. Each rung is strictly more patient than the last.
+
+| value           | fetch begins               | playback begins                           |
+| --------------- | -------------------------- | ----------------------------------------- |
+| `'visible'`     | as soon as it is on screen | as soon as the browser allows             |
+| `'page-loaded'` | after `window` `load`      | as soon as the browser allows             |
+| `'buffered'`    | after `window` `load`      | once it can play through without stalling |
+
+**`'page-loaded'` is the default.** A deferred module script starts fetching
+shortly after the DOM is parsed, which on a real page is inside the tail of page
+load: measured on a demo with one resource held back, the eager setting began
+the video at 106ms against a `load` at 1560ms, taking 1.45 seconds of bandwidth
+the page still needed. The poster is already on screen, so waiting costs nothing
+visible.
+
+**`'buffered'` is for thin connections**, where the alternative is a video that
+plays while it is still arriving. It raises `preload` to `'auto'` when it decides
+to prepare — necessary, because `preload="none"` means the browser buffers
+nothing until playback is requested, so waiting for `canplaythrough` without the
+promotion would wait forever. All three engines honour the promotion
+([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
+stays, which is the same outcome as reduced motion or Save-Data.
+
+Two consequences worth knowing. A page whose `load` never fires never starts its
+videos, and `'buffered'` is the one place the library changes markup you authored.
+`until` composes with all of this: that gates one video on your own promise,
+`startWhen` is the policy for all of them, and a video waits for both.
 
 `playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
 to clear `playAbove` to start; a running one keeps going until it drops to

@@ -19,11 +19,12 @@ import { gzipSync } from 'node:zlib';
  */
 const budgets = {
   // Raised for: the unstyled-markup warning (~145 B), registerAll and shared
-  // target resolution (~59 B), the missing-pause-control warning (~132 B), and
-  // the playAbove band with its unreachable-threshold warning (~230 B). Every
-  // one of those bought a report on something that was otherwise silent, which
-  // is the only thing this budget has ever been raised for.
-  'src/video.ts': 3300,
+  // target resolution (~59 B), the missing-pause-control warning (~132 B), the
+  // playAbove band with its unreachable-threshold warning (~230 B), and
+  // startWhen (~144 B), which keeps the video fetch out of page load and can
+  // hold playback until the buffer is ready. The first four bought reports on
+  // things that were otherwise silent; this one is the first that is behaviour.
+  'src/video.ts': 3450,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

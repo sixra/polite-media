@@ -257,6 +257,45 @@ test.describe('the pause-state event', () => {
   });
 });
 
+test.describe('startWhen', () => {
+  /**
+   * The whole point of the `'page-loaded'` default, asserted the way a page
+   * performance tool would see it rather than through library internals: the
+   * video's own resource-timing entry must begin after the page finished
+   * loading. Module scripts are deferred, so without the gate the fetch lands
+   * inside the tail of page load and competes with it.
+   */
+  test('does not fetch the video until the page has loaded', async ({ page }) => {
+    // The demo loads in about 45ms, so on its own the video fetch lands after
+    // `load` whatever the setting and the assertion below proves nothing --
+    // verified by mutation, which it survived. Holding one of the page's own
+    // resources back is what creates a window for the video to jump into.
+    await page.route('**/sample-poster.avif', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+
+    await page.goto('/demo/hero.html');
+    await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
+
+    const timing = await page.evaluate(() => {
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const media = performance
+        .getEntriesByType('resource')
+        .filter((r) => /\.mp4$/.test(r.name)) as PerformanceResourceTiming[];
+      return {
+        loadEventEnd: nav.loadEventEnd,
+        videoStart: media[0]?.startTime ?? null,
+        videoCount: media.length,
+      };
+    });
+
+    expect(timing.videoCount).toBeGreaterThan(0);
+    expect(timing.loadEventEnd).toBeGreaterThan(0);
+    expect(timing.videoStart).toBeGreaterThanOrEqual(timing.loadEventEnd);
+  });
+});
+
 test.describe('reduced motion', () => {
   test('never starts a video and leaves the poster in place', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });

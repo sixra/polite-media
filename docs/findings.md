@@ -234,3 +234,44 @@ the shipped 50px margin anything past about 1.4x the viewport cannot clear 0.75.
 This is why `playAbove` ships at `0` rather than at a sensible-looking 0.75: the
 library cannot know how tall a consumer's videos are, and a default that silently
 never starts some of them is worse than one that starts everything early.
+
+## Promoting `preload` at runtime does start a fetch, in all three engines
+
+`startWhen: 'buffered'` has to wait for `canplaythrough`, but the markup contract
+says `preload="none"` and a browser will not buffer until playback is asked for.
+So the wait is only possible if raising `preload` to `'auto'` at runtime actually
+starts the fetch -- and MDN is explicit that it need not: "The specification does
+not force the browser to follow the value of this attribute; it is a mere hint."
+
+Measured, Playwright 1.62.1, a cold cache-busted copy of `sample-h264.mp4` (4s),
+2.5s after the promotion:
+
+| engine   | `progress` events | `canplaythrough` | buffered | `readyState` |
+| -------- | ----------------- | ---------------- | -------- | ------------ |
+| Chromium | 2                 | yes              | 4s (all) | 4            |
+| WebKit   | 1                 | yes              | 4s (all) | 4            |
+| Firefox  | 2                 | yes              | 4s (all) | 4            |
+
+Identical with and without a following `load()` call, so the promotion alone is
+sufficient. All three honour the hint, so `'buffered'` needs no fallback for the
+engines this suite can drive; an engine that ignored it would simply leave the
+poster up, which is the same degraded state as reduced motion or Save-Data.
+
+## A deferred script's video fetch lands inside page load
+
+Module scripts are deferred, so a video registered by one begins fetching shortly
+after DOM parse -- well before `load` on any page with real assets. That is the
+window `startWhen: 'page-loaded'` exists to close.
+
+Measured on `demo/hero.html` with one of its own resources held back 1500ms, to
+create the window a trivial demo does not have:
+
+| `startWhen`     | video fetch starts | `loadEventEnd` |
+| --------------- | ------------------ | -------------- |
+| `'visible'`     | 106ms              | 1560ms         |
+| `'page-loaded'` | after 1560ms       | 1560ms         |
+
+So the eager setting took a 1.45 second head start on bandwidth the page still
+needed. Without the artificial delay the demo loads in about 45ms and the video
+fetch lands at 49ms, which is _after_ `load` either way -- an e2e written against
+the undelayed page passes whatever the default is, and did.
