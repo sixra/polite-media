@@ -292,16 +292,38 @@ test.describe('contracts', () => {
       .not.toEqual([]);
   });
 
-  test('stays silent on the demos, which are all correctly marked up', async ({ page }) => {
-    const warnings: string[] = [];
-    page.on('console', (message) => {
-      if (message.type() === 'warning') warnings.push(message.text());
-    });
+  // Every video demo, not just the hero: the warning is page-wide, so a demo that
+  // drifted out of the markup contract would start warning and nothing would say
+  // so if only one page were checked.
+  for (const path of [
+    '/demo/hero.html',
+    '/demo/bento.html',
+    '/demo/sizes.html',
+    '/demo/fallback.html',
+  ]) {
+    test(`stays silent on ${path}, which is correctly marked up`, async ({ page }) => {
+      const warnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.type() === 'warning') warnings.push(message.text());
+      });
 
-    await page.goto('/demo/hero.html');
-    await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
-    expect(warnings.filter((w) => w.includes('polite-media'))).toEqual([]);
-  });
+      await page.goto(path);
+
+      // The warning fires when a video first starts, so a page where nothing
+      // started proves nothing. Measured on bento.html: at 800ms none of its
+      // twelve boxes had begun, the grid sitting below the fold, so asserting
+      // silence there was vacuous. Scroll first, then wait for a real start.
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      // Polled on the ready attribute alone, which the library sets whatever the
+      // markup says. Requiring data-polite-media here too would make a broken
+      // page fail on this line instead of on the warning below, reporting the
+      // precondition rather than the defect.
+      await expect.poll(() => page.locator('[data-polite-ready]').count()).toBeGreaterThan(0);
+      await settle(page);
+
+      expect(warnings.filter((w) => w.includes('polite-media'))).toEqual([]);
+    });
+  }
 
   test('images keep a 350ms fade, and --polite-fade overrides it', async ({ page }) => {
     await page.goto('/demo/images.html');

@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,699 B    | 194 B      | **2.9 KB** |
+| `polite-media/video` | 2,728 B    | 194 B      | **2.9 KB** |
 | `polite-media/image` | 478 B      | 144 B      | **622 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -17,20 +17,24 @@ connection, doesn't ignore reduced motion, and doesn't autoplay without giving
 anyone a way to stop it.
 
 ```html
+<!-- data-polite-media goes on the video's direct parent -->
 <div class="your-own-box" data-polite-media>
   <img src="poster.avif" alt="" />
-  <video muted loop playsinline preload="none">
+  <!-- decorative: the video is not in the tab order, the poster's alt carries any meaning -->
+  <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
     <source src="hero.mp4" type="video/mp4" />
   </video>
 </div>
+
+<!-- looping video needs a way to stop it: WCAG 2.2.2. You style it; this ships no CSS -->
+<button type="button" data-polite-pause aria-pressed="false">Pause background video</button>
 ```
 
 ```js
 import { register } from 'polite-media/video';
 import 'polite-media/video.css';
 
-const box = document.querySelector('[data-polite-media]');
-register(box.querySelector('video'), { observe: box });
+register(document.querySelector('[data-polite-media] video'));
 ```
 
 Images are the other half, and a separate import:

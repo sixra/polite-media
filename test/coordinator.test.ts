@@ -1063,14 +1063,16 @@ describe('the unstyled-markup warning', () => {
     return spy;
   }
 
-  // happy-dom reports '' for an unstyled element's opacity where a browser
-  // reports '1', so the visible state has to be stated outright here. The e2e
-  // suite covers the realistic case, where the browser default is what triggers it.
+  // happy-dom reports '' for an unstyled element's opacity and visibility where a
+  // browser reports '1' and 'visible', so the visible state has to be stated
+  // outright here. The e2e suite covers the realistic case, where the browser
+  // defaults are what trigger it.
   it('warns when the box carries no data-polite-media and nothing hides the video', () => {
     const warn = warnings();
     const { video, container } = makeHarness();
     container.removeAttribute('data-polite-media');
     video.style.opacity = '1';
+    video.style.visibility = 'visible';
 
     register(video);
     currentObserver().report([[video, 1]]);
@@ -1087,6 +1089,21 @@ describe('the unstyled-markup warning', () => {
     const { video, container } = makeHarness();
     container.removeAttribute('data-polite-media');
     video.style.opacity = '0';
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // visibility does not show up in the computed opacity, so hiding a video that
+  // way is a working setup the earlier check still warned about.
+  it('stays quiet when the host hides the video with visibility', () => {
+    const warn = warnings();
+    const { video, container } = makeHarness();
+    container.removeAttribute('data-polite-media');
+    video.style.opacity = '1';
+    video.style.visibility = 'hidden';
 
     register(video);
     currentObserver().report([[video, 1]]);
@@ -1114,6 +1131,8 @@ describe('the unstyled-markup warning', () => {
     b.container.removeAttribute('data-polite-media');
     a.video.style.opacity = '1';
     b.video.style.opacity = '1';
+    a.video.style.visibility = 'visible';
+    b.video.style.visibility = 'visible';
 
     register(a.video);
     register(b.video);
@@ -1163,6 +1182,32 @@ describe('elements removed from the document', () => {
     expect(inspect().tracked).toBe(0);
     expect(inspect().observing).toBe(false);
     expect(inspect().lifecycle).toBe(false);
+  });
+
+  // Measured in Chromium: observing a detached target reports it at once with
+  // isIntersecting false, so an unconditional sweep would undo this registration
+  // on the first batch, silently.
+  it('keeps a video registered before it is appended to the document', () => {
+    const { video, container } = makeHarness();
+    container.remove();
+    register(video);
+    currentObserver().report([[video, 0]]);
+
+    expect(inspect().tracked).toBe(1);
+  });
+
+  it('still drops it once it has been in the document and left', () => {
+    const { video, container } = makeHarness();
+    container.remove();
+    register(video);
+    currentObserver().report([[video, 0]]);
+
+    document.body.append(container);
+    currentObserver().report([[video, 0.6]]);
+    container.remove();
+    currentObserver().report([[video, 0]]);
+
+    expect(inspect().tracked).toBe(0);
   });
 
   it('leaves a video that is merely invisible alone', () => {

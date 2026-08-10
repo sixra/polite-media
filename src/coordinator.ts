@@ -206,6 +206,16 @@ interface Entry {
   /** Held out of arbitration until `until` settles. */
   gated: boolean;
   /**
+   * This element has been in the document at least once.
+   *
+   * Gates the disconnected sweep, which means "the page discarded this" -- and an
+   * element never in the page cannot have been discarded. Measured in Chromium:
+   * observing a detached target reports it immediately with isIntersecting false,
+   * so without this, registering a video before appending it is silently undone
+   * on the very first batch.
+   */
+  seenConnected: boolean;
+  /**
    * The one-time machinery -- source list and error listener -- has been built.
    *
    * Separate from `started` because the gates flip that one back and forth: a
@@ -352,14 +362,19 @@ let warnedNothingToReveal = false;
  * the library looks installed while doing nothing at all.
  *
  * Checked here rather than at registration because stylesheets have certainly
- * applied by the time a video starts. The opacity test is what separates a
- * genuine mistake from a host driving the reveal from its own CSS, which is
- * supported and must not be nagged.
+ * applied by the time a video starts. The visual test is what separates a genuine
+ * mistake from a host driving the reveal from its own CSS, which is supported and
+ * must not be nagged -- and it covers visibility as well as opacity, because
+ * hiding a video either way is a working setup and only one of them shows up in
+ * the computed opacity. A warning that fires on correct code costs more than it
+ * saves: it teaches people to ignore the one that matters.
  */
 function warnIfNothingToReveal(entry: Entry): void {
   if (warnedNothingToReveal) return;
   if (entry.host.hasAttribute('data-polite-media')) return;
-  if (getComputedStyle(entry.video).opacity !== '1') return;
+
+  const style = getComputedStyle(entry.video);
+  if (style.opacity !== '1' || style.visibility !== 'visible') return;
 
   warnedNothingToReveal = true;
   console.warn(
@@ -507,7 +522,8 @@ export function reconcile(): void {
   // observer still watching elements that can never intersect again. Removing a
   // target is itself reported, so this runs on the batch that caused it.
   for (const entry of [...entries.values()]) {
-    if (!entry.video.isConnected) unregister(entry.video);
+    if (entry.video.isConnected) entry.seenConnected = true;
+    else if (entry.seenConnected) unregister(entry.video);
   }
 
   // Reduced motion or a metered connection retracts the reveal as well as
@@ -671,6 +687,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     host: video.parentElement ?? video,
     ratio: 0,
     gated: options.until !== undefined,
+    seenConnected: video.isConnected,
     prepared: false,
     started: false,
     retryArmed: false,
