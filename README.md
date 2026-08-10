@@ -105,7 +105,7 @@ most of the web — and every test on Chrome still passes.
 bfcache restore, and mobile browsers pause video while the tab is hidden and
 leave it paused on return.
 
-Measurements and citations: [`docs/findings.md`](docs/findings.md).
+Measurements and citations: [`docs/findings.md`](https://github.com/sixra/polite-media/blob/main/docs/findings.md).
 
 ## What it does
 
@@ -255,7 +255,7 @@ plays while it is still arriving. It raises `preload` to `'auto'` when it decide
 to prepare — necessary, because `preload="none"` means the browser buffers
 nothing until playback is requested, so waiting for `canplaythrough` without the
 promotion would wait forever. All three engines honour the promotion
-([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
+([`docs/findings.md`](https://github.com/sixra/polite-media/blob/main/docs/findings.md)). If the buffer never fills, the poster
 stays, which is the same outcome as reduced motion or Save-Data.
 
 Two consequences worth knowing. A page whose `load` never fires never starts its

@@ -63,7 +63,7 @@ First release.
 - **The video fade defaults to `0s`, a cut.** A crossfade blends a frozen poster
   against a frame the video has already moved past, so it ghosts even when the
   poster is an exact frame-0 match. Measured in
-  [`docs/findings.md`](docs/findings.md). Images keep a `350ms` default, where
+  [`docs/findings.md`](https://github.com/sixra/polite-media/blob/main/docs/findings.md). Images keep a `350ms` default, where
   there is no second moving picture to diverge from.
 - **The box carrying `data-polite-media` must be the video's direct parent.** The
   library writes to `video.parentElement` and the stylesheet reads

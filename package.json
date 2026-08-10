@@ -57,6 +57,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "prepack": "pnpm run build",
     "size": "node scripts/size-check.js",
     "test": "vitest run",
     "test:e2e": "playwright test",

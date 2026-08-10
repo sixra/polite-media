@@ -29,6 +29,13 @@ jobs:
       # numbers describe something that does not exist.
       - run: pnpm size
 
+      # The published artefact, not the source. `prepack` builds dist on publish,
+      # and nothing here would have caught it being absent.
+      - run: pnpm dlx publint
+      # node10 resolution and the two CSS subpaths fail by design for an ESM-only
+      # browser package; CHANGELOG explains both. Everything else must pass.
+      - run: pnpm dlx @arethetypeswrong/cli --pack --ignore-rules no-resolution cjs-resolves-to-esm
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
