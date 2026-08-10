@@ -346,8 +346,15 @@ test.describe('contracts', () => {
       // The warning fires when a video first starts, so a page where nothing
       // started proves nothing. Measured on bento.html: at 800ms none of its
       // twelve boxes had begun, the grid sitting below the fold, so asserting
-      // silence there was vacuous. Scroll first, then wait for a real start.
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      // silence there was vacuous.
+      //
+      // Centred on the media rather than scrolled to the page bottom, because
+      // `playAbove` now means partial visibility is not enough: at the bottom of
+      // bento.html the grid is clipped and no card clears the threshold, where
+      // centred all twelve reach 0.93 or better.
+      await page.evaluate(() =>
+        document.querySelector('[data-polite-media]')?.scrollIntoView({ block: 'center' })
+      );
       // Polled on the ready attribute alone, which the library sets whatever the
       // markup says. Requiring data-polite-media here too would make a broken
       // page fail on this line instead of on the warning below, reporting the

@@ -196,14 +196,14 @@ describe('playback arbitration', () => {
     register(video);
     expect(play).not.toHaveBeenCalled();
 
-    currentObserver().report([[video, 0.6]]);
+    currentObserver().report([[video, 0.9]]);
     expect(play).toHaveBeenCalled();
   });
 
   it('marks the container ready once a frame has painted', () => {
     const { video, container } = makeHarness();
     register(video);
-    currentObserver().report([[video, 0.6]]);
+    currentObserver().report([[video, 0.9]]);
     // On the container, not the video: the poster is an earlier sibling and CSS
     // cannot style backwards.
     expect(container.hasAttribute('data-polite-ready')).toBe(true);
@@ -215,7 +215,7 @@ describe('playback arbitration', () => {
     configure({ pauseGraceMs: 400 });
     register(video);
 
-    currentObserver().report([[video, 0.6]]);
+    currentObserver().report([[video, 0.9]]);
     currentObserver().report([[video, 0]]);
     expect(pause).not.toHaveBeenCalled();
 
@@ -643,18 +643,23 @@ describe('why a video lost decides how it pauses', () => {
 });
 
 describe('pauseBelow', () => {
-  it('keeps playing at any visibility by default', () => {
+  it('stops at a quarter visible by default, and keeps going above it', () => {
     vi.useFakeTimers();
     const { video, pause } = makeHarness();
     register(video);
 
+    // Comfortably above the default 0.25: still mostly on screen, still running.
     currentObserver().report([[video, 0.9]]);
-    currentObserver().report([[video, 0.05]]);
+    currentObserver().report([[video, 0.4]]);
     vi.advanceTimersByTime(1000);
-
-    // The default is 0: only a video that is entirely gone stops. One still on
-    // screen but frozen reads as broken, not as considerate.
     expect(pause).not.toHaveBeenCalled();
+
+    // Down to a sliver. The old default of 0 kept this playing until the video
+    // was entirely gone, which in practice meant it never stopped while any part
+    // of it hung on screen.
+    currentObserver().report([[video, 0.1]]);
+    vi.advanceTimersByTime(1000);
+    expect(pause).toHaveBeenCalled();
   });
 
   it('stops a video once it falls to the configured fraction', () => {
@@ -1452,6 +1457,134 @@ describe('the missing-pause-control warning', () => {
     unregisterAll();
     vi.advanceTimersByTime(5000);
 
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The band. `pauseBelow` alone is a line, and a video sitting on it depends on
+ * the debounce to behave; pulling the two apart puts the start and stop
+ * crossings in different places, so oscillation stops being possible rather than
+ * being smoothed over.
+ */
+describe('playAbove', () => {
+  it('holds a video back until it clears the start threshold', () => {
+    const { video, play } = makeHarness();
+    configure({ playAbove: 0.75, pauseBelow: 0.25 });
+    register(video);
+
+    currentObserver().report([[video, 0.5]]);
+    expect(play).not.toHaveBeenCalled();
+
+    currentObserver().report([[video, 0.8]]);
+    expect(play).toHaveBeenCalled();
+  });
+
+  // The point of the band: once running, it is judged by the lower threshold, so
+  // scrolling back through the middle does not stop it.
+  it('keeps a running video alive down to the stop threshold', () => {
+    vi.useFakeTimers();
+    const { video, pause } = makeHarness();
+    configure({ playAbove: 0.75, pauseBelow: 0.25 });
+    register(video);
+
+    currentObserver().report([[video, 0.8]]);
+    currentObserver().report([[video, 0.5]]);
+    vi.advanceTimersByTime(1000);
+    expect(pause).not.toHaveBeenCalled();
+
+    currentObserver().report([[video, 0.2]]);
+    vi.advanceTimersByTime(1000);
+    expect(pause).toHaveBeenCalled();
+  });
+
+  // 0.62 on purpose: the static ladder already carries 0.75, so asserting that
+  // one would pass whether or not playAbove reached the observer at all. The
+  // browser reports only at crossings it was given, so a missing threshold means
+  // the start fires at the nearest one below instead.
+  it('makes the observer report at the start threshold', () => {
+    const { video } = makeHarness();
+    configure({ playAbove: 0.62 });
+    register(video);
+    expect(currentObserver().options?.threshold).toContain(0.62);
+  });
+
+  // Nobody can mean "start at less visibility than you stop at", so it is no
+  // band rather than an error.
+  it('ignores a start threshold at or below the stop threshold', () => {
+    const { video, play } = makeHarness();
+    configure({ playAbove: 0.1, pauseBelow: 0.5 });
+    register(video);
+
+    currentObserver().report([[video, 0.3]]);
+    expect(play).not.toHaveBeenCalled();
+
+    currentObserver().report([[video, 0.6]]);
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('is rejected outside 0 to 1, at the call that caused it', () => {
+    expect(() => configure({ playAbove: 1.5 })).toThrow(RangeError);
+  });
+
+  it('cannot be changed once the observer exists', () => {
+    const { video } = makeHarness();
+    register(video);
+    expect(() => configure({ playAbove: 0.5 })).toThrow(/before the first register/);
+  });
+});
+
+/**
+ * The safety net for the 0.75 default. A box taller than the viewport cannot be
+ * fully intersecting, so a high start threshold is unreachable and the video
+ * simply never plays -- silently, which is the one outcome this library treats
+ * as a bug rather than a preference.
+ */
+describe('the unreachable-start warning', () => {
+  function warnings(): ReturnType<typeof vi.spyOn> {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    spy.mockClear();
+    return spy;
+  }
+
+  function withHeight(video: HTMLVideoElement, height: number): void {
+    video.getBoundingClientRect = (() => ({ height, width: 100 })) as unknown as () => DOMRect;
+  }
+
+  it('warns when the box is too tall to ever clear the start threshold', () => {
+    const warn = warnings();
+    const { video } = makeHarness();
+    // Ten viewports tall: the ceiling is about 0.1, under the default 0.25. At
+    // three viewports it would still reach ~0.38 and be fine, which is why the
+    // 0.25 default is far safer than a high one.
+    withHeight(video, window.innerHeight * 10);
+    register(video);
+
+    currentObserver().report([[video, 0.05]]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('playAbove');
+  });
+
+  it('stays quiet for a box that can reach it', () => {
+    const warn = warnings();
+    const { video } = makeHarness();
+    withHeight(video, window.innerHeight / 2);
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // With no start threshold there is nothing to be unreachable.
+  it('stays quiet when the band is switched off', () => {
+    const warn = warnings();
+    configure({ playAbove: 0, pauseBelow: 0 });
+    const { video } = makeHarness();
+    withHeight(video, window.innerHeight * 10);
+    register(video);
+
+    currentObserver().report([[video, 0.3]]);
     expect(warn).not.toHaveBeenCalled();
   });
 });

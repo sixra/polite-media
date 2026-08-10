@@ -18,12 +18,12 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought. Every size quoted in README.md must match this table.
  */
 const budgets = {
-  // Raised three times, each for something that was otherwise silent: the
-  // unstyled-markup warning (~145 B), registerAll and shared target resolution
-  // (~59 B), then the missing-pause-control warning (~132 B). The last is the
-  // package's headline claim -- never autoplay without a way to stop it -- which
-  // it cannot keep alone, since the button belongs to the host.
-  'src/video.ts': 3050,
+  // Raised for: the unstyled-markup warning (~145 B), registerAll and shared
+  // target resolution (~59 B), the missing-pause-control warning (~132 B), and
+  // the playAbove band with its unreachable-threshold warning (~230 B). Every
+  // one of those bought a report on something that was otherwise silent, which
+  // is the only thing this budget has ever been raised for.
+  'src/video.ts': 3300,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

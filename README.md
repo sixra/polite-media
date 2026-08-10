@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,976 B    | 194 B      | **3.1 KB** |
+| `polite-media/video` | 3,241 B    | 194 B      | **3.4 KB** |
 | `polite-media/image` | 473 B      | 157 B      | **630 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -180,12 +180,13 @@ resolution error for the bare package name does not name them.
 
 | option          | default                |                                                          |
 | --------------- | ---------------------- | -------------------------------------------------------- |
-| `rootMargin`    | `'50px'`               | how far outside the viewport to start preparing          |
+| `rootMargin`    | `'0px'`                | how far outside the viewport to start preparing          |
 | `pauseGraceMs`  | `400`                  | anti-flicker debounce at the viewport edge               |
 | `smallViewport` | `'(max-width: 767px)'` | which viewports are "small"                              |
 | `mobile`        | `'arbitrate'`          | `'arbitrate'` (one at a time) or `'poster'` (never play) |
 | `hysteresis`    | `0.15`                 | how much more visible a rival must be to take the slot   |
-| `pauseBelow`    | `0`                    | visible fraction at or below which a video stops         |
+| `pauseBelow`    | `0.25`                 | visible fraction at or below which a video stops         |
+| `playAbove`     | `0`                    | visible fraction a video must clear before it starts     |
 
 `register(video, { until: promise })` holds a video back until the promise
 settles — for a splash screen, a consent dialog, or protecting your LCP. A hero
@@ -232,13 +233,52 @@ recognisable -- Chromium echoes the text straight back and simply never matches.
 So `smallViewport: '(max-width: 767)'`, missing its unit, means arbitration
 silently never engages and phones behave like desktops. Check that value by eye.
 
-`pauseBelow` defaults to `0`, meaning a video plays while any part of it is on
-screen and stops only once it is entirely gone. A video still visible but frozen
-reads as broken rather than considerate, so raising it trades that for decode
-time. Note the fraction is measured against the viewport **expanded by
-`rootMargin`**: with the defaults, a video keeps playing until it is fully 50px
-past the edge. Whatever you set is also added to the observer's threshold list,
-because the browser only reports at crossings it was told about.
+`playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
+to clear `playAbove` to start; a running one keeps going until it drops to
+`pauseBelow`. Because the two crossings are in different places, a video parked near the
+boundary cannot oscillate — `pauseGraceMs` is left covering scroll wobble instead
+of doing this job.
+
+**`pauseBelow` ships at `0.25`**, and `playAbove` at `0`, which is a single line
+rather than a band: a video runs while more than a quarter of it is on screen and
+stops once less is. The earlier default of `0` meant "stop only when entirely
+gone", which in practice meant a video hanging on by a sliver never stopped at
+all.
+
+```js
+configure({ pauseBelow: 0 }); //                  play while any part shows
+configure({ playAbove: 0.75, pauseBelow: 0.25 }); // a band, for extra stability
+```
+
+A `playAbove` at or below `pauseBelow` is simply no band rather than an error.
+
+**A tall video may never reach a high `playAbove`.** `intersectionRatio` is a
+fraction of the _element_, so a box taller than the viewport can never be fully
+intersecting. Measured in Chromium at a 953px viewport with the default 50px
+margin:
+
+| element height | highest ratio it reaches |
+| -------------- | ------------------------ |
+| 1x viewport    | 1.0                      |
+| 1.5x viewport  | 0.736                    |
+| 3x viewport    | 0.368                    |
+
+This is the main reason the start threshold ships at `0` and the stop threshold
+at `0.25` rather than something higher: a quarter is out of reach only past about
+four viewports, where `0.75` fails at one and a half. **The library warns on the
+console when it detects a threshold a box can never reach**, rather than leaving
+you to wonder why a video never plays.
+
+`pauseBelow` defaults to `0.25`: a video keeps running while more than a quarter
+of it is on screen. Set it to `0` to play while any part shows at all, at the
+cost of a video that never stops while a sliver of it hangs on. These fractions are measured against the viewport **plus `rootMargin`**, which is
+why that now defaults to `'0px'`: at the old `'50px'` a 368px card reported 0.39
+when 25% was on screen, so `pauseBelow: 0.25` really stopped it at about 10%, and
+the error scaled with element height. At zero margin the reported fraction is the
+visible fraction. Set a margin if you would rather a video be loading before it
+arrives, and read these numbers as fractions of the expanded box when you do.
+Whatever you set is also added to the observer's threshold list, because the
+browser only reports at crossings it was told about.
 
 A `<button>` carrying `data-polite-pause` toggles playback. You supply it and its
 styling; this ships no markup and no CSS for it. Put it anywhere on the page --

@@ -211,3 +211,26 @@ Two consequences:
 Counter-example from the same project: `first-visit-poster.jpeg` scored **0.235**
 against `first-visit-desktop.mp4`'s frame 0 despite the matching filenames, so
 name-matching is not evidence that a poster is frame 0. Verify with SSIM.
+
+## A tall element can never reach a high intersectionRatio
+
+`intersectionRatio` is intersection area over _element_ area, so an element
+taller than the root cannot report 1 however it is scrolled. That makes a high
+`playAbove` unreachable for tall media, and the failure is silent: the video
+simply never starts.
+
+Measured in Chromium, 953px viewport, `rootMargin: 50px`, scrolled to centre:
+
+| element height | highest ratio |
+| -------------- | ------------- |
+| 0.5x viewport  | 1.0           |
+| 1x viewport    | 1.0           |
+| 1.5x viewport  | 0.736         |
+| 3x viewport    | 0.368         |
+
+The ceiling is roughly `(viewport + 2 x rootMargin) / element height`, so with
+the shipped 50px margin anything past about 1.4x the viewport cannot clear 0.75.
+
+This is why `playAbove` ships at `0` rather than at a sensible-looking 0.75: the
+library cannot know how tall a consumer's videos are, and a default that silently
+never starts some of them is worse than one that starts everything early.

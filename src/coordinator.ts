@@ -30,7 +30,19 @@ import { resolveTargets, type Target } from './targets.js';
  * via contextual typing.
  */
 export interface ConfigureOptions {
-  /** How far outside the viewport a video may start preparing. */
+  /**
+   * How far outside the viewport a video may start preparing.
+   *
+   * Defaults to `'0px'`, which is what makes every other threshold here honest:
+   * `intersectionRatio` is measured against the root *including* this margin, so
+   * any non-zero value inflates it. Measured on a 368px card with the old 50px
+   * default, 25% on screen reported 0.39 and `pauseBelow: 0.25` actually stopped
+   * the video at about 10% visible. The error also scales with element height,
+   * so the same setting meant different things per video.
+   *
+   * Set it if you would rather a video be loading before it arrives, and read
+   * the other thresholds as fractions of the expanded box when you do.
+   */
   rootMargin?: string;
   /**
    * Anti-flicker debounce for a video wobbling at the viewport edge. Not a
@@ -75,6 +87,27 @@ export interface ConfigureOptions {
    * viewport edge.
    */
   pauseBelow?: number;
+  /**
+   * Visible fraction, 0 to 1, a video must exceed before it may *start*.
+   *
+   * Together with {@link ConfigureOptions.pauseBelow} this is a band rather than
+   * a line: start once mostly on screen, keep running until mostly gone. The gap
+   * between the two is what makes a video sitting near the boundary stable, so
+   * `pauseGraceMs` is left covering scroll wobble rather than doing the work.
+   *
+   * Defaults to 0, which collapses the band back to a single threshold and is
+   * the behaviour with no surprises: anything visible plays. A value at or below
+   * `pauseBelow` is simply no band rather than an error, since starting at a
+   * lower visibility than you stop at is not a thing anyone can mean.
+   *
+   * **A tall video may never reach a high value.** `intersectionRatio` is a
+   * fraction of the *element*, so a box taller than the viewport cannot be fully
+   * intersecting. Measured in Chromium at a 953px viewport with the default
+   * 50px margin: 1.5x viewport height peaks at 0.736 and 3x at 0.368, so a
+   * `playAbove` of 0.75 would leave both of those permanently stopped. Keep it
+   * comfortably under `(viewport + 2 x rootMargin) / tallest video`.
+   */
+  playAbove?: number;
 }
 
 /**
@@ -84,12 +117,13 @@ export interface ConfigureOptions {
 type ResolvedConfig = Required<ConfigureOptions>;
 
 const defaults: ResolvedConfig = {
-  rootMargin: '50px',
+  rootMargin: '0px',
   pauseGraceMs: 400,
   smallViewport: '(max-width: 767px)',
   mobile: 'arbitrate',
   hysteresis: 0.15,
-  pauseBelow: 0,
+  pauseBelow: 0.25,
+  playAbove: 0,
 };
 
 let config: ResolvedConfig = { ...defaults };
@@ -107,7 +141,7 @@ let config: ResolvedConfig = { ...defaults };
  *   so detaching would resolve a different MediaQueryList than attaching did.
  * - `rootMargin` is genuinely inert, and is grouped here so the rule is one rule.
  */
-const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'smallViewport'] as const;
+const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'playAbove', 'smallViewport'] as const;
 
 /**
  * Call before the first `register`.
@@ -155,7 +189,7 @@ export function configure(patch: ConfigureOptions): void {
  * obviously empty case is caught; the rest is a documentation problem.
  */
 function validate(patch: ConfigureOptions): void {
-  for (const key of ['pauseBelow', 'hysteresis'] as const) {
+  for (const key of ['pauseBelow', 'hysteresis', 'playAbove'] as const) {
     const value = patch[key];
     if (value === undefined) continue;
     if (!Number.isFinite(value) || value < 0 || value > 1) {
@@ -299,7 +333,7 @@ function getObserver(): IntersectionObserver {
  * setting would silently mean something other than what it says.
  */
 function thresholds(): number[] {
-  const ladder = [0, 0.1, 0.25, 0.5, 0.75, 1, config.pauseBelow];
+  const ladder = [0, 0.1, 0.25, 0.5, 0.75, 1, config.pauseBelow, config.playAbove];
   return [...new Set(ladder)].sort((a, b) => a - b);
 }
 
@@ -356,6 +390,43 @@ function armReveal(entry: Entry): void {
   entry.cancelReveal?.();
   entry.cancelReveal = revealWhenPainted(entry.video, () => markReady(entry));
 }
+
+/**
+ * A video taller than the viewport can never be fully intersecting, because
+ * `intersectionRatio` is a fraction of the *element*. So a `playAbove` it cannot
+ * reach means it never starts, and nothing else would ever say so -- the poster
+ * simply stays. Measured in Chromium at a 953px viewport with a 50px margin,
+ * 1.5x viewport height peaks at 0.736 and 3x at 0.368 (docs/findings.md).
+ *
+ * Checked against the ceiling rather than the observed ratio, so it fires on the
+ * first report instead of waiting for a scroll that can never help.
+ */
+function warnIfStartUnreachable(entry: Entry): void {
+  if (warnedUnreachable) return;
+
+  const startAt = Math.max(config.playAbove, config.pauseBelow);
+  if (startAt === 0) return;
+
+  const height = entry.target.getBoundingClientRect().height;
+  if (height === 0) return;
+
+  // The root is the viewport grown by rootMargin on both edges. Parsed loosely:
+  // a single length covers the shipped default and anything else only makes this
+  // estimate conservative, which is the safe direction for a warning.
+  const margin = Number.parseFloat(config.rootMargin) || 0;
+  const ceiling = Math.min(1, (window.innerHeight + margin * 2) / height);
+  if (ceiling > startAt) return;
+
+  warnedUnreachable = true;
+  console.warn(
+    `polite-media: this video is too tall to reach playAbove (${startAt}); its highest ` +
+      `possible visible fraction is about ${ceiling.toFixed(2)}, so it will never start. ` +
+      'Lower playAbove, or make the box shorter than the viewport.',
+    entry.video
+  );
+}
+
+let warnedUnreachable = false;
 
 let pauseControlChecked = false;
 
@@ -584,9 +655,17 @@ export function reconcile(): void {
     return;
   }
 
-  // Eligible to play at all. Anything at or below pauseBelow is out of the
-  // running before arbitration even looks at it.
-  const eligible = [...entries.values()].filter((e) => !e.gated && e.ratio > config.pauseBelow);
+  // Eligible to play at all, as a band rather than a line: a stopped video has
+  // to clear `playAbove` to start, while a running one only has to stay above
+  // `pauseBelow`. With the defaults equal this is one threshold and behaves
+  // exactly as before; pull them apart and a video near the boundary can no
+  // longer oscillate, because the two crossings are in different places.
+  const startAt = Math.max(config.playAbove, config.pauseBelow);
+  const eligible = [...entries.values()].filter((e) => {
+    if (e.gated) return false;
+    if (!e.started && e.ratio > 0) warnIfStartUnreachable(e);
+    return e.ratio > (e.started ? config.pauseBelow : startAt);
+  });
   const winners = pickWinners(eligible);
   const wasEligible = new Set(eligible);
 
@@ -856,6 +935,7 @@ export function unregisterAll(): void {
   setPaused(false);
   config = { ...defaults };
   warnedNothingToReveal = false;
+  warnedUnreachable = false;
   pauseControlChecked = false;
 }
 

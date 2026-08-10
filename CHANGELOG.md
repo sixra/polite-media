@@ -34,6 +34,23 @@ First release.
   clip that ends by itself is never flagged. The package promises never to
   autoplay without a way to stop it, and that is the half it cannot keep alone.
 
+- `rootMargin` ships at `'0px'` rather than `'50px'`. `intersectionRatio` is
+  measured against the root including the margin, so a non-zero default made
+  every threshold mean less than it said: on a 368px card, `pauseBelow: 0.25`
+  stopped the video at about 10% visible, and the error scaled with element
+  height. At zero the reported fraction is the visible fraction.
+- `pauseBelow` ships at `0.25` rather than `0`: a video stops once less than a
+  quarter of it is on screen. At `0` it stopped only when entirely gone, so one
+  hanging on by a sliver effectively never stopped.
+- `playAbove`, an optional start threshold that pairs with `pauseBelow` to make a
+  band: clear the first to start, drop below the second to stop. Defaults to `0`,
+  which is a single line at `pauseBelow`. Pull them apart when a video parked near
+  the boundary needs to be stable by construction rather than by debounce.
+- A console warning when a video is too tall to ever reach its start threshold.
+  `intersectionRatio` is a fraction of the element, so a box taller than the
+  viewport cannot be fully intersecting, and a threshold it cannot reach means it
+  never plays, silently.
+
 ### Notes for the first adopters
 
 - **The video fade defaults to `0s`, a cut.** A crossfade blends a frozen poster
