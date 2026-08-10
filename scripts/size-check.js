@@ -10,6 +10,7 @@
 // `gzip -c v.js` disagree by several bytes, so a budget measured that way would
 // depend on what the file was called.
 import { build } from 'esbuild';
+import { readFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 
 /**
@@ -47,10 +48,12 @@ async function measure(entry) {
 }
 
 let failed = false;
+const measured = {};
 
 /* eslint-disable no-console -- the report is this script's output, not debug logging */
 for (const [entry, budget] of Object.entries(budgets)) {
   const size = await measure(entry);
+  measured[entry] = size;
   const over = size > budget;
   const loose = !over && budget - size > budget * looseRatio;
   if (over) failed = true;
@@ -62,10 +65,28 @@ for (const [entry, budget] of Object.entries(budgets)) {
   );
 }
 
+/*
+ * The README quotes these bytes, and "keep them in sync" as a comment is how the
+ * old figures drifted 14% unnoticed in the first place. Checked rather than
+ * asked for: every measured size must appear verbatim in the table.
+ */
+const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+for (const [entry, size] of Object.entries(measured)) {
+  const printed = size.toLocaleString('en-US');
+  // Anchored on the left: a plain substring test would let "2,478 B" satisfy the
+  // check for "478 B", so a stale figure could pass on a collision with another
+  // row -- the exact drift this is here to catch.
+  if (!new RegExp(`(?<![\\d,])${printed} B`).test(readme)) {
+    failed = true;
+    console.error(`README does not quote ${printed} B for ${entry}`);
+  }
+}
+
 if (failed) {
   console.error(
-    '\nSize budget exceeded. Either shrink it, or raise the budget in this file\n' +
-      'in the same commit and say in the message what the extra bytes bought.'
+    '\nSize budget exceeded, or the README is out of date. Either shrink it, or\n' +
+      'raise the budget and update the README table in the same commit, saying in\n' +
+      'the message what the extra bytes bought.'
   );
   process.exit(1);
 }

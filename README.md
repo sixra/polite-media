@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,681 B    | 194 B      | **2.9 KB** |
+| `polite-media/video` | 2,699 B    | 194 B      | **2.9 KB** |
 | `polite-media/image` | 478 B      | 144 B      | **622 B**  |
 
 An image-only page never pays for the video coordinator.
