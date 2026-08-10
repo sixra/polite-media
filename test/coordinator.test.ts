@@ -87,6 +87,10 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   const { src = '/authored.mp4', sources = [], canPlayType = () => 'probably' } = options;
 
   const container = document.createElement('div');
+  // The documented markup, not decoration: the coordinator warns when the box a
+  // video sits in carries no data-polite-media, so a fixture without it would
+  // both misrepresent real usage and warn through every test in this file.
+  container.setAttribute('data-polite-media', '');
   const poster = document.createElement('img');
   const video = document.createElement('video');
   if (src !== null) video.setAttribute('src', src);
@@ -1040,5 +1044,84 @@ describe('aria-pressed on the pause control', () => {
     const el = control('<span role="button" data-polite-pause aria-pressed="false">pause</span>');
     pauseAll();
     expect(el.getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+/**
+ * The failure this guards is silent by construction: `host` is derived as the
+ * video's parent while video.css keys off an authored attribute on that same
+ * element, so the two can disagree and every rule simply misses. Nothing else
+ * in the library or the browser reports it.
+ */
+describe('the unstyled-markup warning', () => {
+  // Cleared on creation: spying a method that is already spied hands back the
+  // existing mock with its history intact, so without this each test inherits
+  // the previous one's calls and the counts below are meaningless.
+  function warnings(): ReturnType<typeof vi.spyOn> {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    spy.mockClear();
+    return spy;
+  }
+
+  // happy-dom reports '' for an unstyled element's opacity where a browser
+  // reports '1', so the visible state has to be stated outright here. The e2e
+  // suite covers the realistic case, where the browser default is what triggers it.
+  it('warns when the box carries no data-polite-media and nothing hides the video', () => {
+    const warn = warnings();
+    const { video, container } = makeHarness();
+    container.removeAttribute('data-polite-media');
+    video.style.opacity = '1';
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('data-polite-media');
+  });
+
+  // A host that hides the video with its own CSS is a supported setup, and one
+  // of the two real consumers does exactly that. Nagging it would train people
+  // to ignore the warning that matters.
+  it('stays quiet when the host hides the video itself', () => {
+    const warn = warnings();
+    const { video, container } = makeHarness();
+    container.removeAttribute('data-polite-media');
+    video.style.opacity = '0';
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet on the documented markup', () => {
+    const warn = warnings();
+    const { video } = makeHarness();
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Once per page, not once per video: a grid of twelve misconfigured cards
+  // should not print twelve identical paragraphs.
+  it('warns only once however many videos are wrong', () => {
+    const warn = warnings();
+    const a = makeHarness();
+    const b = makeHarness();
+    a.container.removeAttribute('data-polite-media');
+    b.container.removeAttribute('data-polite-media');
+    a.video.style.opacity = '1';
+    b.video.style.opacity = '1';
+
+    register(a.video);
+    register(b.video);
+    currentObserver().report([
+      [a.video, 1],
+      [b.video, 1],
+    ]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

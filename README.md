@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,538 B    | 196 B      | **2.7 KB** |
+| `polite-media/video` | 2,681 B    | 194 B      | **2.9 KB** |
 | `polite-media/image` | 478 B      | 144 B      | **622 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -202,6 +202,15 @@ it — a screen reader announcing "Play, pressed" is worse than either.
    `<video preload="none">` paints an empty box, so if the hidden state only
    arrived once JS ran, a page whose bundle failed would stack that over the
    poster. Authored, the safe state is the default.
+
+   That box must be the video's **direct parent**. This is the one rule with a
+   silent failure mode, so it is worth stating twice: the library writes
+   `data-polite-ready` to `video.parentElement`, while the stylesheet matches
+   `[data-polite-media][data-polite-ready] > video`. Put the attribute a level
+   too high and the two never meet, every rule misses, and the video is simply
+   visible from the start with no error anywhere. The library warns on the
+   console when it can detect this.
+
 3. The poster is ideally the video's **frame 0**, which is what makes the
    handoff invisible. It buys less than it seems to on its own, though: what
    makes it invisible is frame 0 _plus_ cutting rather than fading, because the

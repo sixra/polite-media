@@ -340,6 +340,35 @@ function armReveal(entry: Entry): void {
   entry.cancelReveal = revealWhenPainted(entry.video, () => markReady(entry));
 }
 
+let warnedNothingToReveal = false;
+
+/**
+ * The one misconfiguration that is otherwise undetectable.
+ *
+ * `host` is derived as the video's parent, while video.css keys off
+ * `data-polite-media` authored on that same element. Nothing forces the two to
+ * agree, so putting the attribute one level too high leaves every rule
+ * unmatched: the video is visible from the start, the poster never hides, and
+ * the library looks installed while doing nothing at all.
+ *
+ * Checked here rather than at registration because stylesheets have certainly
+ * applied by the time a video starts. The opacity test is what separates a
+ * genuine mistake from a host driving the reveal from its own CSS, which is
+ * supported and must not be nagged.
+ */
+function warnIfNothingToReveal(entry: Entry): void {
+  if (warnedNothingToReveal) return;
+  if (entry.host.hasAttribute('data-polite-media')) return;
+  if (getComputedStyle(entry.video).opacity !== '1') return;
+
+  warnedNothingToReveal = true;
+  console.warn(
+    "polite-media: no data-polite-media on this video's parent, so revealing it does " +
+      'nothing. Put the attribute there, or hide the video with your own CSS.',
+    entry.video
+  );
+}
+
 /**
  * Nothing decodable is left. The poster stays and the host is told, rather than
  * leaving a permanently black box and no way to know about it.
@@ -430,6 +459,7 @@ function start(entry: Entry): void {
 
   if (!entry.prepared) {
     entry.prepared = true;
+    warnIfNothingToReveal(entry);
     // Built here rather than at registration so `<source media>` is evaluated
     // against the viewport as it is when the video actually starts, which for a
     // lazy video can be long after the page loaded. Built once, because
@@ -722,6 +752,7 @@ export function unregisterAll(): void {
   for (const video of [...entries.keys()]) unregister(video);
   config = { ...defaults };
   userPaused = false;
+  warnedNothingToReveal = false;
   document.documentElement.removeAttribute('data-polite-paused');
 }
 

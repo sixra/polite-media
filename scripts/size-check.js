@@ -17,7 +17,9 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought. Every size quoted in README.md must match this table.
  */
 const budgets = {
-  'src/video.ts': 2600,
+  // 2600 until the unstyled-markup warning, which costs ~145 B gz and is the only
+  // report a consumer gets for a misconfiguration that is otherwise silent.
+  'src/video.ts': 2750,
   'src/image.ts': 500,
   'src/video.css': 230,
   'src/image.css': 170,

@@ -265,6 +265,44 @@ test.describe('contracts', () => {
    * under a full parallel run, and the video default is pinned by the reveal
    * test above.
    */
+  /**
+   * The realistic form of the misconfiguration, which the unit suite cannot
+   * reach: happy-dom reports '' for an unstyled opacity, so only a real browser
+   * supplies the '1' default that makes the reveal provably a no-op.
+   *
+   * Stripping the attribute before the module runs reproduces putting it on the
+   * wrong element, since either way the box the library writes to is not the box
+   * the stylesheet reads.
+   */
+  test('warns when the markup gives the reveal nothing to act on', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () =>
+        document.getElementById('hero')?.removeAttribute('data-polite-media')
+      );
+    });
+    await page.goto('/demo/hero.html');
+
+    await expect
+      .poll(() => warnings.filter((w) => w.includes('data-polite-media')))
+      .not.toEqual([]);
+  });
+
+  test('stays silent on the demos, which are all correctly marked up', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+
+    await page.goto('/demo/hero.html');
+    await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);
+    expect(warnings.filter((w) => w.includes('polite-media'))).toEqual([]);
+  });
+
   test('images keep a 350ms fade, and --polite-fade overrides it', async ({ page }) => {
     await page.goto('/demo/images.html');
     const image = '[data-polite-reveal]';
