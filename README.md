@@ -7,8 +7,8 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 2,728 B    | 194 B      | **2.9 KB** |
-| `polite-media/image` | 478 B      | 144 B      | **622 B**  |
+| `polite-media/video` | 2,787 B    | 194 B      | **2.9 KB** |
+| `polite-media/image` | 473 B      | 157 B      | **630 B**  |
 
 An image-only page never pays for the video coordinator.
 
@@ -120,11 +120,19 @@ its backdrop to the photo on whatever frame the decode lands.
 **An image needs a backdrop.** Video degrades to its poster; a lone image
 degrades to nothing, so its container must carry a visible `background-color`.
 
+**Images are only hidden where scripting can reveal them.** Because that degraded
+state is nothing at all, `image.css` puts the hiding rule behind
+`@media (scripting: enabled)`, Baseline since December 2023. With scripting off
+the photos simply arrive unfaded instead of never arriving. No media query can
+see a bundle that fails to load while scripting is on, so don't mark an image you
+couldn't afford to lose if your JavaScript never turns up.
+
 ## API
 
 ```js
 // polite-media/video
 register(video, { until, observe }); // manage a video
+registerAll(target, { until }); //      manage everything a selector names
 unregister(video); //                   stop managing it, release everything
 unregisterAll(); //                     tear down the whole page
 configure({ ... }); //                  before the first register, or it throws
@@ -135,7 +143,7 @@ const stop = revealImages(target, { allowEager }); // reveal on decode
 stop(); //                                            cancel anything pending
 ```
 
-Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `ImageTarget`,
+Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `VideoTarget`, `ImageTarget`,
 `PoliteVideoEventDetail`, `PoliteImageEventDetail`. Event names ship as constants
 (`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`, `POLITE_IMAGE_READY`) because a
 mistyped event string still compiles against lib.dom's `type: string` overload.
@@ -159,6 +167,12 @@ before whatever the page is waiting on has finished.
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
+
+`registerAll(target)` takes the same shapes `revealImages` does — a selector, an
+element, or any collection — and registers each. It does not accept `observe`:
+each observed element maps to exactly one video, so sharing a wrapper between
+several would silently discard all but the last. Reach for `register` when a
+video needs its own gate or wrapper.
 
 `configure()` throws if `rootMargin`, `pauseBelow` or `smallViewport` is patched
 while videos are registered. Those three are read when the observer and the
@@ -304,17 +318,13 @@ first page and never again, and every video on every later page stays a poster.
 Re-register on the lifecycle event, which fires on the initial load too:
 
 ```js
-import { register } from 'polite-media/video';
+import { registerAll } from 'polite-media/video';
 
-document.addEventListener('astro:page-load', () => {
-  for (const video of document.querySelectorAll('video[data-polite]')) {
-    register(video);
-  }
-});
+document.addEventListener('astro:page-load', () => registerAll('[data-polite-media] video'));
 ```
 
-`register()` is idempotent, so a video that survived the swap is not registered
-twice. Videos that did not survive need no cleanup: the coordinator drops any
+`registerAll()` is idempotent, so a video that survived the swap is not
+registered twice. Videos that did not survive need no cleanup: the coordinator drops any
 entry whose element has left the document on its next pass, so the discarded
 nodes are released rather than pinned by a strong reference.
 

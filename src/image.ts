@@ -17,19 +17,10 @@
  */
 
 import { POLITE_IMAGE_READY, type PoliteImageEventDetail } from './events.js';
+import { resolveTargets, type Target } from './targets.js';
 
-/**
- * Anything that names one or more images: a selector, a single element, or any
- * collection of them.
- *
- * `ArrayLike` is listed alongside `Iterable` deliberately. `NodeListOf` and
- * `HTMLCollectionOf` are iterable at runtime, but their `[Symbol.iterator]`
- * lives in `lib.dom.iterable`, so a consumer whose `lib` omits it cannot pass
- * `document.querySelectorAll('img')` to an `Iterable`-only parameter even though
- * it works. `ArrayLike` is structural and needs no `lib` support.
- */
-export type ImageTarget =
-  string | HTMLImageElement | ArrayLike<HTMLImageElement> | Iterable<HTMLImageElement>;
+/** Anything that names one or more images. See {@link Target}. */
+export type ImageTarget = Target<HTMLImageElement>;
 
 export interface RevealImagesOptions {
   /**
@@ -60,16 +51,6 @@ function markReady(image: HTMLImageElement): void {
   );
 }
 
-function resolve(target: ImageTarget): HTMLImageElement[] {
-  if (typeof target === 'string') {
-    return [...document.querySelectorAll<HTMLImageElement>(target)];
-  }
-  // A single element is the obvious thing to pass when you already hold one, and
-  // it used to be rejected: `revealImages(myImg)` did not compile.
-  if (target instanceof HTMLImageElement) return [target];
-  return Array.from(target as ArrayLike<HTMLImageElement>);
-}
-
 /**
  * Reveals each matching image once it has decoded.
  *
@@ -80,7 +61,7 @@ export function revealImages(target: ImageTarget, options: RevealImagesOptions =
   const controller = new AbortController();
   const { signal } = controller;
 
-  for (const image of resolve(target)) {
+  for (const image of resolveTargets(target)) {
     // Eager images are revealed at once rather than skipped.
     //
     // Skipping looks like the cautious choice and is the opposite: image.css

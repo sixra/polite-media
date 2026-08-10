@@ -16,6 +16,7 @@ const pages = [
   '/demo/sizes.html',
   '/demo/fallback.html',
   '/demo/images.html',
+  '/demo/no-js.html',
   '/demo/rvfc-spike.html',
 ];
 

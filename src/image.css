@@ -17,23 +17,31 @@
  *     <img src="photo.avif" alt="" loading="lazy" data-polite-reveal>
  *   </div>
  *
- * Marking an image here creates a real dependency on the script running. That
- * is the trade: without the fade, an image cuts from the backdrop to the photo
- * on whatever frame the async decode lands, which reads as a flicker rather
- * than a load. Do not mark an image you cannot afford to have hidden.
+ * The fade exists because otherwise an image cuts from the backdrop to the photo
+ * on whatever frame the async decode lands, which reads as a flicker rather than
+ * a load. That is also why this keeps a 350ms default where video.css cuts at
+ * 0s: an image has no second moving picture to ghost against. Both read
+ * --polite-fade, so setting it overrides both.
  *
- * That flicker is why this keeps a 350ms default where video.css cuts at 0s: an
- * image has no second moving picture to ghost against. Both read --polite-fade,
- * so setting it overrides both.
+ * Unlike the video half, a hidden image degrades to nothing rather than to a
+ * poster, so hiding it is gated on scripting being available. Baseline since
+ * December 2023, and it needs nothing from the host: with scripting off the rule
+ * never applies and the images simply arrive unfaded.
+ *
+ * It cannot cover a bundle that fails to load while scripting is on -- no media
+ * query can see that -- so do not mark an image you could not afford to have
+ * hidden if your JavaScript never arrives.
  */
 
-img[data-polite-reveal] {
-  opacity: 0;
-  transition: opacity var(--polite-fade, 350ms) ease;
-}
+@media (scripting: enabled) {
+  img[data-polite-reveal] {
+    opacity: 0;
+    transition: opacity var(--polite-fade, 350ms) ease;
+  }
 
-img[data-polite-reveal][data-polite-ready] {
-  opacity: 1;
+  img[data-polite-reveal][data-polite-ready] {
+    opacity: 1;
+  }
 }
 
 /*

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — without scripting</title>
+    <link rel="stylesheet" href="/dist/image.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      .card {
+        background-color: #2a2a33;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Marked images, no script</h1>
+      <p class="note">
+        Deliberately authored rather than generated, and deliberately without a module import: every
+        other demo builds its markup in JavaScript, so none of them can show what happens when
+        JavaScript never runs. Turn scripting off and these photos must still be visible. A hidden
+        image degrades to nothing, so <code>image.css</code> only hides one where
+        <code>scripting: enabled</code> matches.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="grid">
+        <div class="card">
+          <img src="/demo/assets/sample-poster.avif" alt="" loading="lazy" data-polite-reveal />
+        </div>
+        <div class="card">
+          <img src="/demo/assets/sample-poster.avif?b" alt="" loading="lazy" data-polite-reveal />
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

@@ -3,6 +3,7 @@ import { resetEnv } from '../src/env.js';
 import {
   configure,
   inspect,
+  registerAll,
   pauseAll,
   register,
   resumeAll,
@@ -1215,5 +1216,54 @@ describe('elements removed from the document', () => {
     register(video);
     currentObserver().report([[video, 0]]);
     expect(inspect().tracked).toBe(1);
+  });
+});
+
+/**
+ * Mirrors `revealImages` on the image half, so the two read as one idea rather
+ * than two. The idempotence is what makes it safe to call on every navigation of
+ * a client-side router, where module scripts do not re-run.
+ */
+describe('registerAll', () => {
+  it('registers every video a selector names', () => {
+    makeHarness();
+    makeHarness();
+    makeHarness();
+
+    registerAll('video');
+    expect(inspect().tracked).toBe(3);
+  });
+
+  it('accepts a collection as well as a selector', () => {
+    makeHarness();
+    makeHarness();
+
+    registerAll(document.querySelectorAll('video'));
+    expect(inspect().tracked).toBe(2);
+  });
+
+  it('accepts a single element, which is the obvious thing to pass', () => {
+    const { video } = makeHarness();
+    registerAll(video);
+    expect(inspect().tracked).toBe(1);
+  });
+
+  it('is idempotent, so a router can call it on every navigation', () => {
+    makeHarness();
+    makeHarness();
+
+    registerAll('video');
+    registerAll('video');
+    expect(inspect().tracked).toBe(2);
+  });
+
+  it('passes options through to each video', () => {
+    const a = makeHarness();
+    makeHarness();
+    // Never settles: the point is that the gate is honoured, not that it opens.
+    registerAll('video', { until: new Promise<void>(() => undefined) });
+    currentObserver().report([[a.video, 0.9]]);
+    // Gated, so visibility alone must not start it.
+    expect(a.play).not.toHaveBeenCalled();
   });
 });

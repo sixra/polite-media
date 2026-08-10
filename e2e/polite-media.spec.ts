@@ -364,6 +364,28 @@ test.describe('contracts', () => {
   });
 });
 
+test.describe('images without scripting', () => {
+  // A hidden image degrades to nothing, unlike a video which degrades to its
+  // poster, so the hiding rule is gated on `scripting: enabled`. Without that
+  // gate every marked image stays invisible for good when JS is unavailable,
+  // which is worse than never fading at all.
+  //
+  // /demo/no-js.html exists for this: every other demo builds its markup in
+  // JavaScript, so with scripting off they contain no images to assert on. Note
+  // page.evaluate cannot run here either, hence the locator assertions.
+  test.use({ javaScriptEnabled: false });
+
+  test('leaves marked images fully visible when scripting is off', async ({ page }) => {
+    await page.goto('/demo/no-js.html');
+
+    const images = page.locator('img[data-polite-reveal]');
+    await expect(images).toHaveCount(2);
+    for (const image of await images.all()) {
+      await expect(image).toHaveCSS('opacity', '1');
+    }
+  });
+});
+
 test.describe('images', () => {
   test('reveals lazy images once decoded', async ({ page }) => {
     await page.goto('/demo/images.html');

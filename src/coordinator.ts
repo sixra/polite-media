@@ -2,6 +2,7 @@ import { connectionAllowsMedia, mediaQuery, motionAllowed } from './env.js';
 import { POLITE_VIDEO_FAILED, POLITE_VIDEO_READY, type PoliteVideoEventDetail } from './events.js';
 import { revealWhenPainted } from './reveal.js';
 import { isUnusable, manageSources, type SourceManager } from './sources.js';
+import { resolveTargets, type Target } from './targets.js';
 
 /**
  * @module
@@ -715,6 +716,28 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     // rejection reported against a path this library documents as supported.
     void options.until.then(release, release);
   }
+}
+
+/** Anything that names one or more videos. See {@link Target}. */
+export type VideoTarget = Target<HTMLVideoElement>;
+
+/**
+ * Registers every video a target names, so the common case is one line and
+ * matches `revealImages` on the image side rather than being a second idea.
+ *
+ * `observe` is deliberately not accepted. Each observed element maps to exactly
+ * one entry, so handing the same wrapper to several videos would silently
+ * discard all but the last. Anything needing it, or a different gate per video,
+ * goes through {@link register} one at a time.
+ *
+ * Idempotent, because `register` is: safe to call on every navigation of a
+ * client-side router, where module scripts do not re-run.
+ */
+export function registerAll(
+  target: VideoTarget,
+  options: Omit<RegisterOptions, 'observe'> = {}
+): void {
+  for (const video of resolveTargets(target)) register(video, options);
 }
 
 /**
