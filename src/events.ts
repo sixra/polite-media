@@ -42,7 +42,7 @@ export const POLITE_IMAGE_READY = 'polite-image:ready';
  * library avoids by maintaining `aria-pressed` itself. Without it, the
  * label-swapping control the README offers as an option cannot be built.
  */
-export const POLITE_PAUSE_CHANGE = 'polite-video:pausechange';
+export const POLITE_VIDEO_PAUSECHANGE = 'polite-video:pausechange';
 
 export interface PoliteVideoEventDetail {
   /**

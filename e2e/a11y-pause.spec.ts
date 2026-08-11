@@ -23,7 +23,7 @@ for (const path of videoPages) {
     await page.goto(path);
     // Three of these four shipped without one, on the pages whose job is to
     // demonstrate the library's compliance.
-    await expect(page.locator('[data-polite-pause]')).toHaveCount(1);
+    await expect(page.locator('[data-polite-pause-control]')).toHaveCount(1);
   });
 }
 
@@ -39,11 +39,11 @@ test.describe('the pause control', () => {
     // Not cosmetic. The library binds a delegated `click`, and a browser only
     // synthesises that from Enter and Space for a native button: a
     // div[role="button"][tabindex="0"] answers a mouse and ignores a keyboard.
-    await expect(page.locator('[data-polite-pause]')).toHaveJSProperty('tagName', 'BUTTON');
+    await expect(page.locator('[data-polite-pause-control]')).toHaveJSProperty('tagName', 'BUTTON');
   });
 
   test('has an accessible name', async ({ page }) => {
-    await expect(page.locator('[data-polite-pause]')).toHaveAccessibleName(/pause/i);
+    await expect(page.locator('[data-polite-pause-control]')).toHaveAccessibleName(/pause/i);
   });
 
   test('is reachable by Tab, not buried behind the media', async ({ page, browserName }) => {
@@ -58,7 +58,7 @@ test.describe('the pause control', () => {
     for (let i = 0; i < 30; i += 1) {
       await page.keyboard.press('Tab');
       const onControl = await page.evaluate(
-        () => document.activeElement?.hasAttribute('data-polite-pause') ?? false
+        () => document.activeElement?.hasAttribute('data-polite-pause-control') ?? false
       );
       // Two presses in practice. Before the decorative videos were given
       // tabindex="-1", Firefox put all twelve of them ahead of this button.
@@ -73,7 +73,7 @@ test.describe('the pause control', () => {
     test(`${key === ' ' ? 'Space' : key} genuinely stops and restarts playback`, async ({
       page,
     }) => {
-      await page.locator('[data-polite-pause]').focus();
+      await page.locator('[data-polite-pause-control]').focus();
       await page.keyboard.press(key);
       await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(0);
 
@@ -85,7 +85,7 @@ test.describe('the pause control', () => {
   test('announces its state to assistive technology', async ({ page }) => {
     // Without this the control stops playback and nothing changes in the
     // accessibility tree, so a screen reader user gets no confirmation.
-    const control = page.locator('[data-polite-pause]');
+    const control = page.locator('[data-polite-pause-control]');
     await expect(control).toHaveAttribute('aria-pressed', 'false');
 
     await control.click();

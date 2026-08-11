@@ -33,6 +33,10 @@ First release.
 - A console warning when a video's parent carries no `data-polite-media` and
   nothing else hides the video, because that misconfiguration is otherwise
   completely silent — the library looks installed while doing nothing.
+- The pause control is marked with **`data-polite-pause-control`**, and its event
+  constant is **`POLITE_VIDEO_PAUSECHANGE`**. The attribute names a control
+  rather than reading like a command, and the constant now mirrors its own string
+  the way `POLITE_VIDEO_READY` and `POLITE_VIDEO_FAILED` already did.
 - `polite-video:pausechange` on `document`, with `detail: { paused: boolean }`.
   Without it the label-swapping pause control the README offers as an option
   could not be built: the only other signal is `data-polite-paused` on `<html>`,
@@ -40,7 +44,7 @@ First release.
   only on real transitions, including the reset inside `unregisterAll()`, so a
   host mirroring the state is never left holding a stale button.
 - A console warning when a looping video has been playing for five seconds and
-  the page has no `[data-polite-pause]` control. WCAG 2.2.2's own threshold, so a
+  the page has no `[data-polite-pause-control]` control. WCAG 2.2.2's own threshold, so a
   clip that ends by itself is never flagged. The package promises never to
   autoplay without a way to stop it, and that is the half it cannot keep alone.
 - `startWhen`, deciding how patient a video is about starting: `'visible'`,

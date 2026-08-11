@@ -24,7 +24,7 @@ export type { AtOnce, ConfigureOptions, RegisterOptions, VideoTarget } from './c
 // ElementEventMap and DocumentEventMap augmentation only reaches a consumer if
 // this module is part of their program.
 export {
-  POLITE_PAUSE_CHANGE,
+  POLITE_VIDEO_PAUSECHANGE,
   POLITE_VIDEO_FAILED,
   POLITE_VIDEO_READY,
   type PolitePauseEventDetail,

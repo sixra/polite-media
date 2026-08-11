@@ -25,7 +25,7 @@
  *   data-polite-ready   a frame has actually painted
  *   data-polite-failed  no source could be decoded; the poster is now permanent
  * And on <html>:
- *   data-polite-paused  the user stopped playback via a [data-polite-pause] control
+ *   data-polite-paused  the user stopped playback via a [data-polite-pause-control] control
  *
  * --polite-fade defaults to 0s here, meaning a cut. A frame-0 poster does not
  * make a fade free: playback starts at the reveal, so the poster stays frozen

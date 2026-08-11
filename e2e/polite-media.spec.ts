@@ -243,7 +243,7 @@ test.describe('pause control (WCAG 2.2.2)', () => {
     await page.evaluate(() => document.getElementById('grid')!.scrollIntoView());
     await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(1);
 
-    await page.click('[data-polite-pause]');
+    await page.click('[data-polite-pause-control]');
     await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(0);
     expect(
       await page.evaluate(() => document.documentElement.hasAttribute('data-polite-paused'))
@@ -256,7 +256,7 @@ test.describe('pause control (WCAG 2.2.2)', () => {
     await settle(page);
     expect(await page.evaluate(() => window.__playingCount())).toBe(0);
 
-    await page.click('[data-polite-pause]');
+    await page.click('[data-polite-pause-control]');
     await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(1);
   });
 });
@@ -273,7 +273,7 @@ test.describe('the pause-state event', () => {
    */
   test('drives a label swap, and leaves aria-pressed off that control', async ({ page }) => {
     await page.goto('/demo/sizes.html');
-    const control = page.locator('[data-polite-pause]');
+    const control = page.locator('[data-polite-pause-control]');
 
     await expect(control).toHaveText(/pause/i);
     await expect(control).not.toHaveAttribute('aria-pressed');

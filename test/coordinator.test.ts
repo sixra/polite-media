@@ -602,10 +602,10 @@ describe('pause control (WCAG 2.2.2)', () => {
     expect(play).toHaveBeenCalled();
   });
 
-  it('toggles from any element carrying data-polite-pause', () => {
+  it('toggles from any element carrying data-polite-pause-control', () => {
     const { video, play, pause } = makeHarness();
     const button = document.createElement('button');
-    button.setAttribute('data-polite-pause', '');
+    button.setAttribute('data-polite-pause-control', '');
     // Nested, to prove the delegation walks up rather than matching the target.
     const label = document.createElement('span');
     button.append(label);
@@ -1064,7 +1064,7 @@ describe('aria-pressed on the pause control', () => {
   };
 
   it('keeps a declared aria-pressed current', () => {
-    const button = control('<button data-polite-pause aria-pressed="false">pause</button>');
+    const button = control('<button data-polite-pause-control aria-pressed="false">pause</button>');
     pauseAll();
     expect(button.getAttribute('aria-pressed')).toBe('true');
     resumeAll();
@@ -1076,7 +1076,7 @@ describe('aria-pressed on the pause control', () => {
   // "Play, pressed". Not declaring it is how an author selects that pattern, so
   // the library must not add one.
   it('does not add aria-pressed to a control that omits it', () => {
-    const button = control('<button data-polite-pause>pause</button>');
+    const button = control('<button data-polite-pause-control>pause</button>');
     pauseAll();
     expect(button.hasAttribute('aria-pressed')).toBe(false);
   });
@@ -1084,13 +1084,15 @@ describe('aria-pressed on the pause control', () => {
   // aria-pressed is valid only on a button role, so writing it anywhere else
   // would be ARIA a validator rejects.
   it('leaves a non-button alone even when it declares one', () => {
-    const div = control('<div data-polite-pause aria-pressed="false">pause</div>');
+    const div = control('<div data-polite-pause-control aria-pressed="false">pause</div>');
     pauseAll();
     expect(div.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('maintains it on an element that takes the button role explicitly', () => {
-    const el = control('<span role="button" data-polite-pause aria-pressed="false">pause</span>');
+    const el = control(
+      '<span role="button" data-polite-pause-control aria-pressed="false">pause</span>'
+    );
     pauseAll();
     expect(el.getAttribute('aria-pressed')).toBe('true');
   });
@@ -1411,7 +1413,7 @@ describe('the pause-state event', () => {
 
   it('keeps the attribute, aria-pressed and the event in step', () => {
     const button = document.createElement('button');
-    button.setAttribute('data-polite-pause', '');
+    button.setAttribute('data-polite-pause-control', '');
     button.setAttribute('aria-pressed', 'false');
     document.body.append(button);
     const { video } = makeHarness();
@@ -1466,14 +1468,14 @@ describe('the missing-pause-control warning', () => {
 
     vi.advanceTimersByTime(1);
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0]?.[0]).toContain('data-polite-pause');
+    expect(warn.mock.calls[0]?.[0]).toContain('data-polite-pause-control');
   });
 
   it('stays quiet when the page has a control', () => {
     vi.useFakeTimers();
     const warn = warnings();
     const button = document.createElement('button');
-    button.setAttribute('data-polite-pause', '');
+    button.setAttribute('data-polite-pause-control', '');
     document.body.append(button);
 
     startLooping();

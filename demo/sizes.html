@@ -32,17 +32,17 @@
            NO aria-pressed and the library leaves it alone. "Play, pressed" is
            worse than either half. The swap is driven by polite-video:pausechange,
            because a label is not something CSS can rewrite. -->
-      <button data-polite-pause type="button">Pause background video</button>
+      <button data-polite-pause-control type="button">Pause background video</button>
     </div>
 
     <script type="module">
-      import { configure, POLITE_PAUSE_CHANGE, register } from '/dist/video.js';
+      import { configure, POLITE_VIDEO_PAUSECHANGE, register } from '/dist/video.js';
 
       // The label-swapping control, which is only buildable because the library
       // announces the change. Watching data-polite-paused on <html> instead would
       // mean a MutationObserver on the root for one boolean.
-      const control = document.querySelector('[data-polite-pause]');
-      document.addEventListener(POLITE_PAUSE_CHANGE, (event) => {
+      const control = document.querySelector('[data-polite-pause-control]');
+      document.addEventListener(POLITE_VIDEO_PAUSECHANGE, (event) => {
         control.textContent = event.detail.paused
           ? 'Play background video'
           : 'Pause background video';

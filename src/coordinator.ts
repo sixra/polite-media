@@ -1,6 +1,6 @@
 import { connectionAllowsMedia, mediaQuery, motionAllowed } from './env.js';
 import {
-  POLITE_PAUSE_CHANGE,
+  POLITE_VIDEO_PAUSECHANGE,
   POLITE_VIDEO_FAILED,
   POLITE_VIDEO_READY,
   type PolitePauseEventDetail,
@@ -650,11 +650,11 @@ function warnIfNoPauseControl(video: HTMLVideoElement): void {
   setTimeout(() => {
     // Nothing is moving any more, so there is nothing to demand a control for.
     if (entries.size === 0) return;
-    if (document.querySelector('[data-polite-pause]')) return;
+    if (document.querySelector('[data-polite-pause-control]')) return;
 
     console.warn(
       'polite-media: a looping video is playing with no way to stop it, which WCAG 2.2.2 ' +
-        'requires. Add data-polite-pause to a <button>, or drive pauseAll() from your own control.'
+        'requires. Add data-polite-pause-control to a <button>, or drive pauseAll() from your own control.'
     );
   }, 5000);
 }
@@ -1023,7 +1023,7 @@ function motionQuery(): MediaQueryList {
 function onPauseControlClick(event: Event): void {
   const target = event.target;
   if (!(target instanceof Element)) return;
-  if (!target.closest('[data-polite-pause]')) return;
+  if (!target.closest('[data-polite-pause-control]')) return;
   if (userPaused) resumeAll();
   else pauseAll();
 }
@@ -1086,7 +1086,7 @@ function detachLifecycle(): void {
  * valid on, so this cannot emit ARIA that a validator would reject.
  */
 function reflectPaused(): void {
-  for (const control of document.querySelectorAll('[data-polite-pause][aria-pressed]')) {
+  for (const control of document.querySelectorAll('[data-polite-pause-control][aria-pressed]')) {
     if (control.matches('button, [role="button"]')) {
       control.setAttribute('aria-pressed', String(userPaused));
     }
@@ -1221,7 +1221,7 @@ export function unregister(video: HTMLVideoElement): void {
  * mechanism the user can actually operate has to exist.
  *
  * The host supplies the button and its styling; the library ships no markup and
- * no CSS for it. A `<button>` carrying `data-polite-pause` toggles this.
+ * no CSS for it. A `<button>` carrying `data-polite-pause-control` toggles this.
  *
  * It has to be a real `<button>`. The binding is a delegated `click`, and a
  * browser only synthesises that from Enter and Space for a native button, so a
@@ -1247,7 +1247,7 @@ function setPaused(paused: boolean): void {
   // before `reconcile()` would hand a listener reading `video.paused` the state
   // the event says has just ended.
   document.dispatchEvent(
-    new CustomEvent<PolitePauseEventDetail>(POLITE_PAUSE_CHANGE, { detail: { paused } })
+    new CustomEvent<PolitePauseEventDetail>(POLITE_VIDEO_PAUSECHANGE, { detail: { paused } })
   );
 }
 

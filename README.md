@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,957 B    | 194 B      | **4.2 KB** |
+| `polite-media/video` | 3,959 B    | 194 B      | **4.2 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -27,7 +27,7 @@ anyone a way to stop it.
 </div>
 
 <!-- looping video needs a way to stop it: WCAG 2.2.2. You style it; this ships no CSS -->
-<button type="button" data-polite-pause aria-pressed="false">Pause background video</button>
+<button type="button" data-polite-pause-control aria-pressed="false">Pause background video</button>
 ```
 
 ```js
@@ -59,14 +59,14 @@ Six in total, and they fall into three groups. The distinction that catches
 people is the middle column: two of the ones you write are live on their own, and
 one is inert until you call something.
 
-| attribute            | goes on                     | live on its own?                                           |
-| -------------------- | --------------------------- | ---------------------------------------------------------- |
-| `data-polite-media`  | the box around poster+video | **yes**, for the CSS. The video still needs `register()`   |
-| `data-polite-reveal` | the `<img>`                 | **no** — without `revealImages()` it reveals late, unfaded |
-| `data-polite-pause`  | your `<button>`             | **yes** — no call, anywhere on the page                    |
-| `data-polite-ready`  | the box, or the image       | written by the library                                     |
-| `data-polite-failed` | the box                     | written by the library                                     |
-| `data-polite-paused` | `<html>`                    | written by the library                                     |
+| attribute                   | goes on                     | live on its own?                                           |
+| --------------------------- | --------------------------- | ---------------------------------------------------------- |
+| `data-polite-media`         | the box around poster+video | **yes**, for the CSS. The video still needs `register()`   |
+| `data-polite-reveal`        | the `<img>`                 | **no** — without `revealImages()` it reveals late, unfaded |
+| `data-polite-pause-control` | your `<button>`             | **yes** — no call, anywhere on the page                    |
+| `data-polite-ready`         | the box, or the image       | written by the library                                     |
+| `data-polite-failed`        | the box                     | written by the library                                     |
+| `data-polite-paused`        | `<html>`                    | written by the library                                     |
 
 `data-polite-reveal` is the one to be careful with, and it is the reason this
 table exists: `image.css` hides a marked image immediately, so marking one you
@@ -180,7 +180,7 @@ stop(); //                                            cancel anything pending
 Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`, `VideoTarget`, `ImageTarget`,
 `AtOnce`, `PoliteVideoEventDetail`, `PoliteImageEventDetail`, `PolitePauseEventDetail`. Event
 names ship as constants (`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`,
-`POLITE_IMAGE_READY`, `POLITE_PAUSE_CHANGE`) because a mistyped event string still
+`POLITE_IMAGE_READY`, `POLITE_VIDEO_PAUSECHANGE`) because a mistyped event string still
 compiles against lib.dom's `type: string` overload.
 
 `polite-video:pausechange` is the odd one out: a user pause is page-wide rather
@@ -359,7 +359,7 @@ plays.
 Whatever you set for either is also added to the playback observer's threshold
 list, because the browser only reports at crossings it was told about.
 
-A `<button>` carrying `data-polite-pause` toggles playback. You supply it and its
+A `<button>` carrying `data-polite-pause-control` toggles playback. You supply it and its
 styling; this ships no markup and no CSS for it. Put it anywhere on the page --
 the listener is delegated on `document`, so it does not have to live near the
 video, and several controls stay in step with each other automatically.
@@ -369,7 +369,7 @@ starts -- WCAG 2.2.2's own threshold, so a short clip that ends by itself is
 never asked about -- the library checks for a control and warns if there is none.
 It is the one part of "never autoplays without a way to stop it" that the library
 cannot keep on its own. If you drive `pauseAll()` from your own UI instead, put
-`data-polite-pause` on that control too: it costs nothing, silences the warning,
+`data-polite-pause-control` on that control too: it costs nothing, silences the warning,
 and gets you `aria-pressed` maintenance for free.
 
 It must be a real `<button>`. The binding is a delegated `click`, and browsers
@@ -388,9 +388,9 @@ entirely — a screen reader announcing "Play, pressed" is worse than either hal
 and listen for the state instead:
 
 ```js
-import { POLITE_PAUSE_CHANGE } from 'polite-media/video';
+import { POLITE_VIDEO_PAUSECHANGE } from 'polite-media/video';
 
-document.addEventListener(POLITE_PAUSE_CHANGE, (event) => {
+document.addEventListener(POLITE_VIDEO_PAUSECHANGE, (event) => {
   control.textContent = event.detail.paused ? 'Play' : 'Pause';
 });
 ```
