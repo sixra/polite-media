@@ -61,7 +61,7 @@ class FakeIntersectionObserver {
 /**
  * The observer that decides playback, identified by its threshold ladder rather
  * than by construction order. Two others can exist: the prefetch observer, and
- * the throwaway `configure()` builds to make the platform parse a rootMargin.
+ * the throwaway `configure()` builds to make the platform parse a prefetchMargin.
  */
 function currentObserver(): FakeIntersectionObserver {
   const last = newest((o) => Array.isArray(o.options?.threshold));
@@ -69,7 +69,7 @@ function currentObserver(): FakeIntersectionObserver {
   return last;
 }
 
-/** The prefetch observer, which exists only when a rootMargin asked for one. */
+/** The prefetch observer, which exists only when a prefetchMargin asked for one. */
 function prefetchObserver(): FakeIntersectionObserver | undefined {
   return newest((o) => o.options?.threshold === 0 && o.options.rootMargin !== undefined);
 }
@@ -827,13 +827,13 @@ describe('configure validation', () => {
   });
 });
 
-describe('rootMargin validation', () => {
+describe('prefetchMargin validation', () => {
   // Delegated to the platform rather than hand-parsed: the grammar is CSS margin
   // syntax, and a second parser here would drift from the browser's.
   class ThrowingObserver {
     constructor(_cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
       if (options?.rootMargin && !/^-?[\d.]+(px|%)( |$)/.test(options.rootMargin)) {
-        throw new SyntaxError('rootMargin must be specified in pixels or percent.');
+        throw new SyntaxError('prefetchMargin must be specified in pixels or percent.');
       }
     }
     observe(): void {}
@@ -841,22 +841,22 @@ describe('rootMargin validation', () => {
     disconnect(): void {}
   }
 
-  it('rejects a malformed rootMargin at configure time', () => {
+  it('rejects a malformed prefetchMargin at configure time', () => {
     vi.stubGlobal('IntersectionObserver', ThrowingObserver);
     // Without units, which is the mistake the browser rejects.
-    expect(() => configure({ rootMargin: '50' })).toThrow(SyntaxError);
+    expect(() => configure({ prefetchMargin: '50' })).toThrow(SyntaxError);
   });
 
   it('accepts a valid one', () => {
     vi.stubGlobal('IntersectionObserver', ThrowingObserver);
-    expect(() => configure({ rootMargin: '50px' })).not.toThrow();
-    expect(() => configure({ rootMargin: '10%' })).not.toThrow();
+    expect(() => configure({ prefetchMargin: '50px' })).not.toThrow();
+    expect(() => configure({ prefetchMargin: '10%' })).not.toThrow();
   });
 
   it('skips the check when there is no IntersectionObserver to ask', () => {
     // Importing and configuring under SSR or in a Node test must not explode.
     vi.stubGlobal('IntersectionObserver', undefined);
-    expect(() => configure({ rootMargin: 'anything at all' })).not.toThrow();
+    expect(() => configure({ prefetchMargin: 'anything at all' })).not.toThrow();
   });
 });
 
@@ -968,11 +968,11 @@ describe('configure() after the first register', () => {
   // merely fail to apply: pauseBelow half-applies, because eligibility reads it
   // live while the threshold ladder does not, so it silently takes effect at the
   // nearest stale crossing. That is precisely what thresholds() exists to stop.
-  it.each(['rootMargin', 'pauseBelow', 'smallViewport'])(
+  it.each(['prefetchMargin', 'pauseBelow', 'smallViewport'])(
     'rejects a late %s rather than half-applying it',
     (key) => {
       const patches: Record<string, unknown> = {
-        rootMargin: '10px',
+        prefetchMargin: '10px',
         pauseBelow: 0.4,
         smallViewport: '(max-width: 900px)',
       };
@@ -1919,9 +1919,9 @@ describe('atOnce', () => {
   });
 });
 
-describe('rootMargin drives a second observer', () => {
+describe('prefetchMargin drives a second observer', () => {
   it('leaves the playback observer with no margin, so a ratio means what it says', () => {
-    configure({ rootMargin: '200px' });
+    configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();
     register(video);
 
@@ -1940,7 +1940,7 @@ describe('rootMargin drives a second observer', () => {
   });
 
   it('buffers a video that is near but not yet eligible to play', () => {
-    configure({ rootMargin: '200px' });
+    configure({ prefetchMargin: '200px' });
     const { video, play } = makeHarness();
     register(video);
 
@@ -1954,7 +1954,7 @@ describe('rootMargin drives a second observer', () => {
   });
 
   it('does not prefetch a video still held by its until gate', () => {
-    configure({ rootMargin: '200px' });
+    configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();
     register(video, { until: new Promise(() => {}) });
 
@@ -1964,7 +1964,7 @@ describe('rootMargin drives a second observer', () => {
   });
 
   it('releases the target from both observers on unregister', () => {
-    configure({ rootMargin: '200px' });
+    configure({ prefetchMargin: '200px' });
     const first = makeHarness();
     const second = makeHarness();
     register(first.video);
@@ -1982,7 +1982,7 @@ describe('rootMargin drives a second observer', () => {
   });
 
   it('disconnects the prefetch observer once the last video goes', () => {
-    configure({ rootMargin: '200px' });
+    configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();
     register(video);
     const prefetch = prefetchObserver();

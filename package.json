@@ -35,6 +35,7 @@
     },
     "./video.css": "./dist/video.css",
     "./image.css": "./dist/image.css",
+    "./layer.css": "./dist/layer.css",
     "./package.json": "./package.json"
   },
   "files": [
@@ -50,7 +51,7 @@
     }
   },
   "scripts": {
-    "build": "node scripts/clean.js && tsc -p tsconfig.build.json && esbuild src/video.css src/image.css --minify --outdir=dist",
+    "build": "node scripts/clean.js && tsc -p tsconfig.build.json && esbuild src/video.css src/image.css src/layer.css --minify --outdir=dist",
     "clean": "node scripts/clean.js",
     "fixtures": "sh scripts/make-fixtures.sh",
     "format": "prettier --write .",

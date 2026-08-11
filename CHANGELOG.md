@@ -30,6 +30,19 @@ First release.
 
 - Optional stylesheets, `polite-media/video.css` and `polite-media/image.css`.
   Timing only: neither sets a width, height or aspect ratio.
+- `polite-media/layer.css`, a third and separate stylesheet, for the standard
+  poster-over-video stack. The other two own _when_ media appears and
+  deliberately own no geometry, which left every consumer writing the same five
+  declarations for themselves. Both of the first two apps did, twice each, and
+  both then reimplemented `video.css` wholesale rather than import it, because
+  adding a `z-index` to those elements felt like taking ownership of the file.
+  Even this repo's own demo stylesheet had the same block.
+
+  Opt-in, so the no-geometry promise still holds for anyone who does not import
+  it. `<picture>` needs its own selector: `object-fit` applies to replaced
+  elements and a `<picture>` is a container, so sizing it alone leaves the image
+  at its intrinsic size.
+
 - A console warning when a video's parent carries no `data-polite-media` and
   nothing else hides the video, because that misconfiguration is otherwise
   completely silent — the library looks installed while doing nothing.
@@ -72,10 +85,11 @@ First release.
   H.264 streams while compositing drops frames badly on real hardware. A grid of
   cards whose content is the video still needs to move, so the answer is one at a
   time rather than none.
-- `rootMargin` drives its own IntersectionObserver, separate from the one that
+- `prefetchMargin` (named for what it does, not for the observer option it sets)
+  drives its own IntersectionObserver, separate from the one that
   decides playback. `intersectionRatio` is measured against the root including
   any margin, so keeping the playback observer free of one means a fraction is
-  always the true visible fraction, and `rootMargin` means only "start buffering
+  always the true visible fraction, and `prefetchMargin` means only "start buffering
   this far out". Defaults to `'0px'`: fetching video nobody scrolls to is the
   opposite of the point.
 - `pauseBelow` defaults to `0.5`: a video runs while it is the thing you are

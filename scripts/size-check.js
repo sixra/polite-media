@@ -47,6 +47,10 @@ const budgets = {
   'src/image.ts': 680,
   'src/video.css': 230,
   'src/image.css': 220,
+  // The optional stacking stylesheet. Its own entry rather than part of
+  // video.css: folding it in would make the "imposes no geometry" promise false
+  // for everyone instead of optional for anyone.
+  'src/layer.css': 160,
 };
 
 /**

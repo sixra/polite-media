@@ -14,6 +14,7 @@ declare global {
     __videoOpacity: (id: string) => string;
     __posterVisible: (id: string) => boolean;
     __fadeDuration: (id: string) => string;
+    __fills: (id: string) => { poster: boolean; video: boolean; objectFit: string };
     __marks: {
       ready: number | null;
       framesAtReveal: number | null;

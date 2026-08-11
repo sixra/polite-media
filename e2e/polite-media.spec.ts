@@ -681,3 +681,26 @@ test.describe('a per-video --polite-fade', () => {
     expect(trace.cut.filter((o) => o > 0 && o < 1)).toEqual([]);
   });
 });
+
+/**
+ * layer.css is the one stylesheet that touches layout, and it exists because two
+ * consumers independently wrote the same five declarations rather than find them
+ * in the docs. Both poster shapes are covered: the `<picture>` case needs its own
+ * selector, since object-fit "Applies to: replaced elements" and a picture is a
+ * container rather than one.
+ */
+test.describe('the stacking stylesheet', () => {
+  for (const id of ['bare', 'picture']) {
+    test(`makes both layers fill the box, poster as ${id}`, async ({ page }) => {
+      await page.goto('/demo/layered.html');
+
+      const fills = await page.evaluate((box) => window.__fills(box), id);
+
+      expect(fills.poster).toBe(true);
+      expect(fills.video).toBe(true);
+      // Without this the poster letterboxes inside a box it is supposed to cover,
+      // which is the failure the selector split exists to prevent.
+      expect(fills.objectFit).toBe('cover');
+    });
+  }
+});

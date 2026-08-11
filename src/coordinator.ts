@@ -64,7 +64,7 @@ export interface ConfigureOptions {
    * the error scaling by element height. The observer that decides playback
    * keeps no margin, so a fraction is always the true visible fraction.
    */
-  rootMargin?: string;
+  prefetchMargin?: string;
   /**
    * Anti-flicker debounce for a video wobbling at the viewport edge. Not a
    * window in which offscreen video is meant to keep decoding: leaving the
@@ -189,7 +189,7 @@ export interface ConfigureOptions {
 type ResolvedConfig = Required<ConfigureOptions>;
 
 const defaults: ResolvedConfig = {
-  rootMargin: '0px',
+  prefetchMargin: '0px',
   pauseGraceMs: 400,
   smallViewport: '(max-width: 767px)',
   atOnce: { small: 1, large: 'all' },
@@ -234,10 +234,15 @@ const HAVE_ENOUGH_DATA = 4;
  *   same moment, so a late patch half-applies the same way.
  * - `smallViewport` used to strand a listener. `mediaQuery` memoises by string,
  *   so detaching would resolve a different MediaQueryList than attaching did.
- * - `rootMargin` builds the prefetch observer, at that same first `register()`.
+ * - `prefetchMargin` builds the prefetch observer, at that same first `register()`.
  *   A late patch would not reach the one already built.
  */
-const CONSTRUCTION_TIME_KEYS = ['rootMargin', 'pauseBelow', 'playAbove', 'smallViewport'] as const;
+const CONSTRUCTION_TIME_KEYS = [
+  'prefetchMargin',
+  'pauseBelow',
+  'playAbove',
+  'smallViewport',
+] as const;
 
 /**
  * Call before the first `register`.
@@ -266,7 +271,7 @@ export function configure(patch: ConfigureOptions): void {
 /**
  * Checked here because for two of the four the platform never complains at all.
  *
- * Only `pauseBelow` and `rootMargin` reach a platform API, through the threshold
+ * Only `pauseBelow` and `prefetchMargin` reach a platform API, through the threshold
  * ladder and the observer options. Chromium rejects both -- a RangeError outside
  * 0..1, a TypeError for NaN or Infinity, a SyntaxError for a malformed margin --
  * but not until the IntersectionObserver constructor runs at the first
@@ -316,7 +321,7 @@ function validate(patch: ConfigureOptions): void {
     throw new SyntaxError('polite-media: smallViewport must be a media query, got an empty string');
   }
 
-  // rootMargin is handed to the platform to parse rather than checked by hand:
+  // prefetchMargin is handed to the platform to parse rather than checked by hand:
   // the accepted grammar is CSS margin syntax and reimplementing it here would
   // be a second, worse parser that drifts. Constructing a throwaway observer
   // raises the browser's own SyntaxError now, at the configure() call, instead
@@ -324,8 +329,8 @@ function validate(patch: ConfigureOptions): void {
   //
   // Skipped where IntersectionObserver does not exist, so that importing this
   // module and configuring it under SSR or in a Node test still works.
-  if (patch.rootMargin !== undefined && typeof IntersectionObserver === 'function') {
-    new IntersectionObserver(() => {}, { rootMargin: patch.rootMargin }).disconnect();
+  if (patch.prefetchMargin !== undefined && typeof IntersectionObserver === 'function') {
+    new IntersectionObserver(() => {}, { rootMargin: patch.prefetchMargin }).disconnect();
   }
 }
 
@@ -372,7 +377,7 @@ interface Entry {
    */
   seenConnected: boolean;
   /**
-   * Within `rootMargin` of the viewport, per the prefetch observer.
+   * Within `prefetchMargin` of the viewport, per the prefetch observer.
    *
    * Kept because prefetching can be refused for a reason that later goes away --
    * the page still loading, most often -- and the observer does not report a
@@ -416,7 +421,7 @@ const byTarget = new Map<Element, Entry>();
 /** Decides playback. Never carries a margin, so a ratio is the true visible fraction. */
 let observer: IntersectionObserver | null = null;
 /**
- * Decides when to start buffering, and exists only when `rootMargin` asks for it.
+ * Decides when to start buffering, and exists only when `prefetchMargin` asks for it.
  * Separate because one observer cannot serve both jobs: its margin dilates the
  * root that every ratio is measured against, so a margin big enough to be useful
  * for prefetch would quietly rescale `pauseBelow` and `playAbove`.
@@ -484,7 +489,7 @@ function getPrefetchObserver(): IntersectionObserver | null {
         if (entry.nearby) prefetch(entry);
       }
     },
-    { rootMargin: config.rootMargin, threshold: 0 }
+    { rootMargin: config.prefetchMargin, threshold: 0 }
   );
   return prefetchObserver;
 }
@@ -501,7 +506,7 @@ function getPrefetchObserver(): IntersectionObserver | null {
  * https://w3c.github.io/IntersectionObserver/#parse-a-margin
  */
 function wantsPrefetch(): boolean {
-  return /[1-9]/.test(config.rootMargin);
+  return /[1-9]/.test(config.prefetchMargin);
 }
 
 /**
@@ -613,7 +618,7 @@ function warnIfStartUnreachable(entry: Entry): void {
   const height = entry.target.getBoundingClientRect().height;
   if (height === 0) return;
 
-  // rootMargin is deliberately absent: it belongs to the prefetch observer now,
+  // The prefetch margin is deliberately absent: it belongs to that observer,
   // and the one that reports these ratios has no margin to grow the root by.
   const ceiling = Math.min(1, window.innerHeight / height);
   if (ceiling > startAt) return;
@@ -820,7 +825,7 @@ function prepare(entry: Entry): boolean {
  */
 function prefetch(entry: Entry): void {
   if (entry.gated || !videoAllowed()) return;
-  // The same page gate reconcile applies. Without it a rootMargin defeats
+  // The same page gate reconcile applies. Without it a prefetchMargin defeats
   // startWhen entirely, because the fetch this triggers lands inside page load,
   // which is the contention `'page-loaded'` exists to avoid. Measured on
   // demo/feed.html: the video request went out before the load event.

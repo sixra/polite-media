@@ -26,7 +26,7 @@
       <h1>Feed</h1>
       <p class="note">
         One video at a time on every viewport, not just small ones, and the slot changes hands as a
-        card passes half visible. <code>rootMargin</code> buffers the next card 200px out, so it
+        card passes half visible. <code>prefetchMargin</code> buffers the next card 200px out, so it
         plays as it lands instead of showing its poster and catching up.
       </p>
       <nav><a href="/demo/">all demos</a></nav>
@@ -46,12 +46,12 @@
       import { configure, register } from '/dist/video.js';
 
       // The whole recipe. atOnce: 1 rather than the default { small: 1, large:
-      // 'all' } because a feed is a feed on a desktop too, and rootMargin is the
+      // 'all' } because a feed is a feed on a desktop too, and prefetchMargin is the
       // opt-in that makes the handover smooth instead of merely correct.
       // startWhen: 'page-loaded' because a feed is scrolled anyway, and holding
       // the first card until the visitor moves would hide the handover this page
       // exists to show.
-      configure({ atOnce: 1, pauseBelow: 0.5, rootMargin: '200px', startWhen: 'page-loaded' });
+      configure({ atOnce: 1, pauseBelow: 0.5, prefetchMargin: '200px', startWhen: 'page-loaded' });
 
       const feed = document.getElementById('feed');
       for (let i = 0; i < 6; i += 1) {

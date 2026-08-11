@@ -7,8 +7,11 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,948 B    | 194 B      | **4.1 KB** |
+| `polite-media/video` | 3,953 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
+
+`polite-media/layer.css` is a third, optional stylesheet: **137 B** for the
+standard poster-over-video stack, so you write only the parts that are yours.
 
 An image-only page never pays for the video coordinator.
 
@@ -190,26 +193,48 @@ than about one video, so it is dispatched on `document` with
 There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
 
-| option            | default                      |                                                        |
-| ----------------- | ---------------------------- | ------------------------------------------------------ |
-| `rootMargin`      | `'0px'`                      | how far outside the viewport to start buffering        |
-| `pauseGraceMs`    | `400`                        | anti-flicker debounce at the viewport edge             |
-| `smallViewport`   | `'(max-width: 767px)'`       | which viewports are "small"                            |
-| `atOnce`          | `{ small: 1, large: 'all' }` | how many videos may run at once: `0`, `1` or `'all'`   |
-| `hysteresis`      | `0.15`                       | how much more visible a rival must be to take the slot |
-| `pauseBelow`      | `0.5`                        | visible fraction at or below which a video stops       |
-| `startWhen`       | `'interaction'`              | how patient a video is about starting                  |
-| `requireBuffered` | `false`                      | hold playback until it can play through                |
-| `playAbove`       | `0`                          | visible fraction a video must clear before it starts   |
+Nine options, and they answer three questions. Nothing needs setting: the
+defaults were measured on real sites, and neither of the first two consumers
+calls `configure()` at all.
+
+**How visible must it be?**
+
+| option         | default | reach for it when                                                                                 |
+| -------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `pauseBelow`   | `0.5`   | a video should run longer, or stop sooner, than "half on screen"                                  |
+| `playAbove`    | `0`     | a video parked at the boundary cycles, or should start only when it is really the thing on screen |
+| `pauseGraceMs` | `400`   | a jittery scroll makes videos stutter, or you want stopping to feel instant                       |
+
+`playAbove` and `pauseGraceMs` are not alternatives, though both reduce cycling.
+One is a position that gates starting, the other a duration that delays stopping.
+The grace period absorbs fast jitter and does nothing for slow oscillation, since
+crossing upward starts playback immediately; `playAbove` makes cycling impossible
+by putting the two crossings in different places.
+
+**How many may run?**
+
+| option          | default                      | reach for it when                                                      |
+| --------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| `atOnce`        | `{ small: 1, large: 'all' }` | a feed wants one at a time everywhere, or phones want none             |
+| `smallViewport` | `'(max-width: 767px)'`       | your breakpoint is not ours, which it usually is not                   |
+| `hysteresis`    | `0.15`                       | with one slot, a carousel's peeking neighbour steals it back and forth |
+
+**When may it begin?**
+
+| option            | default         | reach for it when                                                             |
+| ----------------- | --------------- | ----------------------------------------------------------------------------- |
+| `startWhen`       | `'interaction'` | you want autoplay on arrival, and accept the LCP cost                         |
+| `requireBuffered` | `false`         | your visitors are on connections where video plays while it is still arriving |
+| `prefetchMargin`  | `'0px'`         | the next card should be buffered before it arrives                            |
 
 A feed is `atOnce: 1` plus a margin to buffer the next card:
 
 ```js
-configure({ atOnce: 1, pauseBelow: 0.5, rootMargin: '200px' });
+configure({ atOnce: 1, pauseBelow: 0.5, prefetchMargin: '200px' });
 ```
 
 `atOnce` is about count, not about phones, so one-at-a-time is available on a
-desktop without pretending the viewport is small. `rootMargin` drives an observer
+desktop without pretending the viewport is small. `prefetchMargin` drives an observer
 of its own and no longer touches the thresholds: `intersectionRatio` is measured
 against the root _including_ the margin, so a single observer made every
 threshold mean less than it said. See [`docs/findings.md`](docs/findings.md).
@@ -242,7 +267,7 @@ each observed element maps to exactly one video, and `register` refuses a second
 video on a target it already watches, with a warning. Reach for `register` when a
 video needs its own gate or wrapper.
 
-`configure()` throws if `rootMargin`, `pauseBelow`, `playAbove` or `smallViewport`
+`configure()` throws if `prefetchMargin`, `pauseBelow`, `playAbove` or `smallViewport`
 is patched while videos are registered. Those four are read when the observer and
 the lifecycle listeners are built, so a late change does not merely fail to
 apply: `pauseBelow` and `playAbove` half-apply, because eligibility reads them
@@ -315,7 +340,7 @@ not be expressed at all.
 Two consequences worth knowing. A page whose `load` never fires never starts its
 videos, and `requireBuffered` is one of two places the library changes markup you
 authored: `prefetch()` also promotes `preload` to `'auto'`, for any video within
-a configured `rootMargin`, once its gates have settled. `until` composes with all
+a configured `prefetchMargin`, once its gates have settled. `until` composes with all
 of this: that gates one video on your own promise, `startWhen` is the policy for
 all of them, and a video waits for every gate that applies to it.
 

@@ -1,0 +1,60 @@
+/*
+ * polite-media/layer.css -- optional stylesheet, and the only one that touches
+ * layout.
+ *
+ * video.css owns *when* the swap happens and deliberately owns no geometry, so
+ * that the package drops into any design at any size. That left one thing every
+ * consumer has to write for themselves: stacking the poster and the video in the
+ * same box. Both of this project's first two consumers wrote the same five
+ * declarations, twice each, and both then reimplemented video.css wholesale
+ * rather than import it, because adding `z-index` to those elements felt like
+ * taking ownership of the file.
+ *
+ * So this is the standard stack, opt-in. Import it and write only what is
+ * genuinely yours:
+ *
+ *   import 'polite-media/video.css';
+ *   import 'polite-media/layer.css';
+ *
+ *   .hero__video { z-index: -2; }   <-- yours: this sits behind a scrim
+ *
+ * Skip it and nothing changes: the package still imposes no geometry on anyone
+ * who has their own arrangement, and `object-fit: cover` stays a choice you made
+ * rather than one made for you.
+ *
+ * The box needs a size of its own. This positions the media inside it and says
+ * nothing about how tall it is, which is still the host's decision: an
+ * aspect-ratio, a fixed height, a grid cell.
+ */
+
+[data-polite-media] {
+  position: relative;
+}
+
+/*
+ * The image is positioned, never the `<picture>` around it.
+ *
+ * Two reasons, both learned the hard way against a real page. A `<picture>` is
+ * commonly `display: contents`, which generates no box at all, so positioning it
+ * does nothing and the image's `height: 100%` has no definite containing block
+ * to resolve against: it silently falls back to `auto` and letterboxes. And
+ * forcing `display: contents` here to normalise that would be worse than the
+ * bug, since browsers drop such elements from the accessibility tree, taking the
+ * poster's `alt` with them.
+ *
+ * Positioning the image instead works for both shapes without caring: an
+ * absolutely positioned element resolves against its nearest *positioned*
+ * ancestor, skipping a static or box-less `<picture>` to land on the container
+ * above.
+ *
+ * object-fit needs the image for its own reason: it "Applies to: replaced
+ * elements", and a `<picture>` is a container rather than one.
+ */
+[data-polite-media] > :is(img, video),
+[data-polite-media] > picture > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
