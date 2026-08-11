@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,959 B    | 194 B      | **4.2 KB** |
+| `polite-media/video` | 3,948 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -436,12 +436,20 @@ not a label.
    else it likes -- a scrim, a caption, a pause control -- and those are left
    alone. But **every** direct-child `img` or `picture` is treated as the poster
    and hidden on reveal, so a logo or badge belongs deeper, not beside the video.
-5. If you use several `<source>` elements, the **last one carries no `media`
-   attribute**, and the library warns on the console when none of them qualifies. Narrow queries above it, unconditional fallback at the bottom:
-   pairing `(max-width: 50rem)` with `(min-width: 50.001rem)` looks exhaustive
-   and is not, and a fractional viewport that matches neither leaves the video
-   with nothing to play. The first matching source wins, so ordering does the
-   rest.
+5. If you use several `<source>` elements, order them narrowest first: the first
+   one that claims the viewport wins. **You do not need an unconditional
+   fallback.** Two queries meant to partition the viewport often do not quite
+   meet: `(max-width: 50rem)` beside `(min-width: 50.001rem)` leaves 0.016px
+   matching neither at a 16px root, and a different root font-size moves the
+   boundary again. Rather than make that your problem, `media` is treated as a
+   preference: when no source claims the current
+   viewport, every decodable one is a candidate and document order decides. The
+   console says so once when it happens, because the file it picks may well be
+   meant for a different screen.
+
+   The trade is that `media` cannot mean "and otherwise play nothing".
+   `atOnce: { small: 0 }` says that properly.
+
 6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
    poster's `alt` carries any meaning — and without this it lands in the tab
    order: measured in Firefox, twelve background videos sat ahead of the pause

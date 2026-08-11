@@ -164,6 +164,21 @@ let reduceMotion = false;
 let smallViewport = false;
 
 /**
+ * A fresh view of console.warn.
+ *
+ * `mockClear()` is the load-bearing line: `vi.spyOn` on an already-spied method
+ * returns the *existing* mock with its call history, so a test asserting a count
+ * would otherwise inherit every warning the file had already produced. This was
+ * three identical copies in three describe blocks before a fourth caller needed
+ * it.
+ */
+function warnings(): ReturnType<typeof vi.spyOn> {
+  const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  spy.mockClear();
+  return spy;
+}
+
+/**
  * happy-dom reports `readyState: 'complete'`, so any test about the page gate
  * has to say otherwise. Restored in the shared teardown, or one test leaves the
  * page "loading" for every test after it.
@@ -1108,12 +1123,6 @@ describe('the unstyled-markup warning', () => {
   // Cleared on creation: spying a method that is already spied hands back the
   // existing mock with its history intact, so without this each test inherits
   // the previous one's calls and the counts below are meaningless.
-  function warnings(): ReturnType<typeof vi.spyOn> {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    spy.mockClear();
-    return spy;
-  }
-
   // happy-dom reports '' for an unstyled element's opacity and visibility where a
   // browser reports '1' and 'visible', so the visible state has to be stated
   // outright here. The e2e suite covers the realistic case, where the browser
@@ -1445,12 +1454,6 @@ describe('the pause-state event', () => {
  * five-second threshold, so these use fake timers.
  */
 describe('the missing-pause-control warning', () => {
-  function warnings(): ReturnType<typeof vi.spyOn> {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    spy.mockClear();
-    return spy;
-  }
-
   function startLooping(): void {
     const { video } = makeHarness();
     video.loop = true;
@@ -1633,12 +1636,6 @@ describe('playAbove', () => {
  * as a bug rather than a preference.
  */
 describe('the unreachable-start warning', () => {
-  function warnings(): ReturnType<typeof vi.spyOn> {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    spy.mockClear();
-    return spy;
-  }
-
   function withHeight(video: HTMLVideoElement, height: number): void {
     video.getBoundingClientRect = (() => ({ height, width: 100 })) as unknown as () => DOMRect;
   }
@@ -2102,5 +2099,30 @@ describe("the 'interaction' gate", () => {
 
     currentObserver().report([[video, 0.9]]);
     expect(play).toHaveBeenCalled();
+  });
+});
+
+describe('the once-per-page warnings and a client-side router', () => {
+  // unregisterAll() is what a router calls per navigation, and every
+  // once-per-page warning resets there so the next page is judged on its own
+  // markup. The source-gap warning was the odd one out, resetting only in the
+  // test-only helper, so a second page with a gap would never have said so.
+  it('warns again about a source gap on the next page', () => {
+    const warn = warnings();
+    // Every source conditional, and the query cannot match: nothing claims the
+    // viewport, so the fallback engages and says so.
+    const gap = { src: null, sources: [{ src: '/only.mp4', media: '(max-width: 1px)' }] };
+
+    const first = makeHarness(gap);
+    register(first.video);
+    currentObserver().report([[first.video, 0.9]]);
+    expect(warn).toHaveBeenCalledOnce();
+
+    unregisterAll();
+
+    const second = makeHarness(gap);
+    register(second.video);
+    currentObserver().report([[second.video, 0.9]]);
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });

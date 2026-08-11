@@ -55,55 +55,70 @@ export interface SourceManager {
   advance(): boolean;
 }
 
-let warnedConditional = false;
+let warnedMediaGap = false;
 
 /**
- * Every `<source>` carrying a `media` attribute leaves viewports with nothing to
- * play, and the failure is invisible: on the widths that do match, the video
- * works perfectly.
+ * Which `<source>` this video could actually load, best first.
  *
- * The trap is that a pair like `(max-width: 50rem)` and `(min-width: 50.001rem)`
- * looks exhaustive and is not, so a fractional viewport between them matches
- * neither. Checked rather than documented, because "the last source carries no
- * media attribute" was already documented and is exactly the kind of rule that
- * is followed until someone adds a third source.
+ * `media` is treated as a *preference*, not an exclusion. Two queries meant to
+ * partition the viewport often do not quite meet: `(max-width: 50rem)` beside
+ * `(min-width: 50.001rem)` leaves 0.016px matching neither at a 16px root, and
+ * a root font-size that is not 16px moves the boundary somewhere else again.
+ * Widths in the gap select nothing and the video has nothing to play. The
+ * browser behaves that way too, which is no help to anyone.
+ *
+ * So when no source claims the current viewport, every decodable one is a
+ * candidate and document order decides. The alternative was a markup rule, "the
+ * last <source> must carry no media attribute", which every consumer had to
+ * remember and which a real project had already got wrong.
+ *
+ * The cost is that `media` can no longer mean "and otherwise play nothing". It
+ * never reliably could, since the markup contract already required an
+ * unconditional fallback, and `atOnce: { small: 0 }` says that properly.
  */
-function warnIfAllConditional(sources: HTMLSourceElement[], video: HTMLVideoElement): void {
-  if (warnedConditional || sources.length === 0) return;
-  if (sources.some((source) => !source.getAttribute('media'))) return;
-
-  warnedConditional = true;
-  console.warn(
-    'polite-media: every <source> here carries a media attribute, so a viewport matching ' +
-      'none of them leaves this video with nothing to play. Drop the media attribute from ' +
-      'the last one, so it is an unconditional fallback.',
-    video
-  );
-}
-
 function candidatesFor(video: HTMLVideoElement): { declared: number; playable: string[] } {
   // `:scope >` so a <source> belonging to some nested media element is never
   // mistaken for this one's.
   const sources = [...video.querySelectorAll<HTMLSourceElement>(':scope > source')];
-  warnIfAllConditional(sources, video);
 
-  const playable = sources
-    .filter((source) => {
-      // The attribute, not the property: `.src` resolves against the document
-      // base, so `<source src="">` comes back as the page's own URL -- truthy,
-      // and it would then be handed to the video as if it were a media file.
-      if (!source.getAttribute('src')) return false;
-      const media = source.getAttribute('media');
-      // An unmatched media query removes the candidate entirely: it describes a
-      // viewport this page is not in.
-      if (media && !mediaQuery(media).matches) return false;
-      // Empty string is the only definite "no" canPlayType offers. "maybe" is
-      // kept, because "maybe" is what browsers say about most things.
-      return !source.type || video.canPlayType(source.type) !== '';
-    })
-    .map((source) => source.src);
+  const decodable = sources.filter((source) => {
+    // The attribute, not the property: `.src` resolves against the document
+    // base, so `<source src="">` comes back as the page's own URL -- truthy,
+    // and it would then be handed to the video as if it were a media file.
+    if (!source.getAttribute('src')) return false;
+    // Empty string is the only definite "no" canPlayType offers. "maybe" is
+    // kept, because "maybe" is what browsers say about most things.
+    return !source.type || video.canPlayType(source.type) !== '';
+  });
 
-  return { declared: sources.length, playable };
+  const claiming = decodable.filter((source) => {
+    const media = source.getAttribute('media');
+    return !media || mediaQuery(media).matches;
+  });
+
+  if (claiming.length === 0 && decodable.length > 0) warnMediaGap(video);
+
+  return {
+    declared: sources.length,
+    playable: (claiming.length > 0 ? claiming : decodable).map((source) => source.src),
+  };
+}
+
+/**
+ * Fires only when the gap actually opens, rather than whenever the markup looks
+ * capable of it. A static check would have to nag every page whose sources are
+ * all conditional, including the overwhelming majority whose queries really do
+ * cover every width they will ever see.
+ */
+function warnMediaGap(video: HTMLVideoElement): void {
+  if (warnedMediaGap) return;
+  warnedMediaGap = true;
+  console.warn(
+    'polite-media: no <source> claims this viewport, so the first decodable one was used ' +
+      'instead of nothing. Give the last <source> no media attribute to choose the fallback ' +
+      'yourself.',
+    video
+  );
 }
 
 export function manageSources(video: HTMLVideoElement): SourceManager {
@@ -145,5 +160,5 @@ export function manageSources(video: HTMLVideoElement): SourceManager {
 
 /** Internal reset for tests. Not exported from the package entry point. */
 export function resetSourceWarnings(): void {
-  warnedConditional = false;
+  warnedMediaGap = false;
 }

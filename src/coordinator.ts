@@ -1273,12 +1273,12 @@ export function unregisterAll(): void {
   warnedNothingToReveal = false;
   warnedUnreachable = false;
   pauseControlChecked = false;
+  resetSourceWarnings();
 }
 
 /** Internal reset for tests. Not exported from the package entry point. */
 export function resetForTests(): void {
   unregisterAll();
-  resetSourceWarnings();
   config = { ...defaults };
   interacted = false;
 }

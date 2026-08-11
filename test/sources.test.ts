@@ -176,15 +176,28 @@ describe('repeated select()', () => {
   });
 });
 
-describe('the all-conditional source warning', () => {
-  // The trap the markup contract documents: two queries that look exhaustive and
-  // are not, so a fractional viewport between them matches neither and the video
-  // has nothing to play. Invisible, because every width that does match works.
-  it('warns when no source is an unconditional fallback', () => {
+describe('a viewport no <source> claims', () => {
+  // The trap: (min-width: 768px) beside (max-width: 767px) looks exhaustive and
+  // is not. A fractional width, which zoom and non-integer device pixel ratios
+  // both produce, matches neither. The browser plays nothing at all there; this
+  // falls back to document order instead, so no markup rule is needed.
+  it('still plays, using the first decodable source', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { video, load } = build([
+      { src: '/desktop.mp4', media: '(min-width: 900px)' },
+      { src: '/mobile.mp4', media: '(max-width: 400px)' },
+    ]);
+
+    expect(manageSources(video).select()).toBe(true);
+    expect(video.src).toContain('/desktop.mp4');
+    expect(load).toHaveBeenCalled();
+  });
+
+  it('says so once, naming the video', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { video } = build([
-      { src: '/small.mp4', media: '(max-width: 50rem)' },
-      { src: '/large.mp4', media: '(min-width: 50.001rem)' },
+      { src: '/desktop.mp4', media: '(min-width: 900px)' },
+      { src: '/mobile.mp4', media: '(max-width: 400px)' },
     ]);
 
     manageSources(video);
@@ -193,26 +206,48 @@ describe('the all-conditional source warning', () => {
     expect(warn.mock.calls[0]?.[1]).toBe(video);
   });
 
-  it('stays quiet when the last source carries no media attribute', () => {
+  // A matching query still wins: the fallback is for when nothing claims the
+  // viewport, not a licence to ignore the queries.
+  it('prefers a source that does claim the viewport', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { video } = build([
-      { src: '/small.mp4', media: '(max-width: 50rem)' },
-      { src: '/large.mp4' },
+      { src: '/narrow.mp4', media: '(max-width: 400px)' },
+      { src: '/wide.mp4', media: '(min-width: 768px)' },
     ]);
 
-    manageSources(video);
+    manageSources(video).select();
 
+    expect(video.src).toContain('/wide.mp4');
     expect(warn).not.toHaveBeenCalled();
   });
 
-  // A video authored with a plain `src` and no <source> children is somebody
-  // else's arrangement, not a hole.
-  it('stays quiet when there are no sources at all', () => {
+  it('stays quiet when a source carries no media attribute at all', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { video } = build([], () => 'probably', { src: '/plain.mp4' });
+    const { video } = build([
+      { src: '/narrow.mp4', media: '(max-width: 400px)' },
+      { src: '/any.mp4' },
+    ]);
 
-    manageSources(video);
+    manageSources(video).select();
 
+    expect(video.src).toContain('/any.mp4');
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  // An undecodable source is not a candidate however the queries fall, or the
+  // fallback would hand the element a file it has already said it cannot play.
+  it('never falls back to a codec the element rejected', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { video } = build(
+      [
+        { src: '/av1.mp4', type: 'video/mp4; codecs="av01"', media: '(min-width: 900px)' },
+        { src: '/h264.mp4', type: 'video/mp4; codecs="avc1"', media: '(max-width: 400px)' },
+      ],
+      (type) => (type.includes('av01') ? '' : 'probably')
+    );
+
+    manageSources(video).select();
+
+    expect(video.src).toContain('/h264.mp4');
   });
 });

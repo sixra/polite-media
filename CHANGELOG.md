@@ -92,11 +92,18 @@ First release.
   band: clear the first to start, drop below the second to stop. Defaults to `0`,
   which is a single line at `pauseBelow`. Pull them apart when a video parked near
   the boundary needs to be stable by construction rather than by debounce.
-- A console warning when every `<source>` carries a `media` attribute, so a
-  viewport matching none of them leaves the video with nothing to play. The trap
-  is that `(max-width: 50rem)` beside `(min-width: 50.001rem)` looks exhaustive
-  and is not, and the failure is invisible because every width that does match
-  works perfectly.
+- `<source media>` is a preference rather than an exclusion. When no source
+  claims the current viewport, every decodable one becomes a candidate and
+  document order decides, instead of the video having nothing to play.
+
+  Two queries meant to partition the viewport often do not quite meet:
+  `(max-width: 50rem)` beside `(min-width: 50.001rem)` leaves 0.016px matching
+  neither at a 16px root. Both consumer projects had a pair of this shape. The
+  alternative was a
+  markup rule every consumer has to remember, so the library absorbs it and warns
+  once when the fallback actually engages, since the file it picks may be meant
+  for a different screen.
+
 - A console warning when a video is too tall to ever reach its start threshold.
   `intersectionRatio` is a fraction of the element, so a box taller than the
   viewport cannot be fully intersecting, and a threshold it cannot reach means it
