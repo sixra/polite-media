@@ -6,9 +6,14 @@ declare global {
     __readyCount: (scope: string) => number;
     __eagerReadyAtSetup: number;
     __preloadCount: () => number;
+    /** reveal-failsafe.html: the marked <img> itself. */
     __opacity: (id: string) => string;
     __isReady: (id: string) => boolean;
     __playing: () => boolean;
+    /** art-directed.html: the <video> inside the box, not the box. */
+    __videoOpacity: (id: string) => string;
+    __posterVisible: (id: string) => boolean;
+    __fadeDuration: (id: string) => string;
     __marks: {
       ready: number | null;
       framesAtReveal: number | null;

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — an art-directed poster</title>
+    <link rel="stylesheet" href="/dist/video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      /*
+       * The whole point of the page: --polite-fade is an ordinary inherited
+       * custom property, so scoping it to one container gives that video its own
+       * transition. Nothing else on the page changes.
+       */
+      #faded {
+        --polite-fade: 600ms;
+      }
+
+      .pair {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      }
+
+      /* .frame carries no height of its own: demo.css gives it one per context
+         (.grid .frame, .hero, .sizes .frame.wide). This layout is its own
+         context, so it has to say. Without this the boxes compute to height 0
+         and the page renders black while every opacity assertion still passes. */
+      .pair .frame {
+        aspect-ratio: 16 / 9;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>When the poster is not frame 0</h1>
+      <p class="note">
+        Both boxes hold the same video and the same poster, and that poster is deliberately a
+        different picture from the video's first frame: colour bars against the clip's own pattern.
+        The left one cuts, which is the shipped default. The right one crossfades over 600ms,
+        because its container sets <code>--polite-fade</code>.
+        <strong>Watch the swap and decide which you want.</strong>
+      </p>
+      <p class="note">
+        The measured case against a <em>frame-0</em> poster is different and is why the default is a
+        cut: there, a fade blends a still against a frame the video has already moved past, so you
+        get a double exposure of one scene. Between two genuinely different pictures it is an
+        ordinary dissolve.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="pair">
+        <div>
+          <p class="note"><code>--polite-fade: 0s</code> (default, a cut)</p>
+          <div class="frame" data-polite-media id="cut">
+            <img src="/demo/assets/sample-poster-art.avif" alt="" />
+            <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+              <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+        <div>
+          <p class="note"><code>--polite-fade: 600ms</code> (a crossfade)</p>
+          <div class="frame" data-polite-media id="faded">
+            <img src="/demo/assets/sample-poster-art.avif" alt="" />
+            <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+              <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="controls">
+      <button type="button" id="replay">replay both</button>
+      <button data-polite-pause-control type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { configure, registerAll } from '/dist/video.js';
+
+      // startWhen: 'page-loaded' rather than the shipped 'interaction' default,
+      // because this page is about what the swap looks like and a demo you have
+      // to poke first hides the moment it exists to show.
+      configure({ startWhen: 'page-loaded' });
+
+      registerAll('[data-polite-media] video');
+
+      // Reload rather than tearing the library down and rebuilding it. Two
+      // attempts at the latter were wrong in different ways: re-registering in
+      // the same task gave the transition no start value to run from, and
+      // suppressing that by removing data-polite-ready ran the same fade in
+      // reverse, so the 600ms box never visibly moved. A reload shows the real
+      // first-paint behaviour, which is the thing being demonstrated anyway.
+      document.getElementById('replay').addEventListener('click', () => {
+        location.reload();
+      });
+
+      window.__videoOpacity = (id) =>
+        getComputedStyle(document.querySelector(`#${id} video`)).opacity;
+      window.__posterVisible = (id) =>
+        getComputedStyle(document.querySelector(`#${id} img`)).visibility !== 'hidden';
+      window.__fadeDuration = (id) =>
+        getComputedStyle(document.querySelector(`#${id} video`)).transitionDuration;
+    </script>
+  </body>
+</html>

@@ -47,6 +47,23 @@ ffmpeg -y -hide_banner -loglevel error -i "$out/sample-h264.mp4" \
 ffmpeg -y -hide_banner -loglevel error -i "$out/sample-h264.mp4" \
   -vf "select=eq(n\,0)" -vframes 1 "$out/sample-poster.avif"
 
+# The opposite case, for demo/art-directed.html: a poster that is not the video's
+# frame 0 at all, standing in for an art-directed still.
+#
+# A different lavfi source rather than a later frame of the same clip. Frame 60
+# was tried first and is the wrong fixture: testsrc2 is largely static, so it
+# measured 0.941 SSIM against frame 0, and a crossfade between two near-identical
+# pictures shows nothing, which is exactly what the demo exists to show.
+#
+# This scores 0.639, against 0.994 for the frame-0 poster beside it. Not as far
+# apart as a real art-directed pair (dental's is 0.235), because SSIM plateaus
+# around 0.6 to 0.7 for any two unrelated synthetic patterns: mandelbrot measured
+# 0.686 and a gradient 0.728. Bars against testsrc2's pattern is unmistakable to
+# look at, which is what this fixture is for.
+echo "art-directed poster (deliberately not frame 0) ..."
+ffmpeg -y -hide_banner -loglevel error -f lavfi -i "smptebars=s=$size" \
+  -vframes 1 "$out/sample-poster-art.avif"
+
 # A truncated AV1 file, for exercising error-driven source fallback without an
 # Apple device that claims AV1 it cannot decode.
 #

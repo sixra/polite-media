@@ -111,6 +111,11 @@ First release.
 
 ### Notes for the first adopters
 
+- **A per-video fade needs no option.** `--polite-fade` is an ordinary inherited
+  custom property, so scoping it to one container gives that video its own
+  transition while the rest of the page keeps cutting. Worth knowing for an
+  art-directed poster, where the default cut is a visible jump and a crossfade is
+  an ordinary dissolve. `demo/art-directed.html` shows both.
 - **The video fade defaults to `0s`, a cut.** A crossfade blends a frozen poster
   against a frame the video has already moved past, so it ghosts even when the
   poster is an exact frame-0 match. Measured in

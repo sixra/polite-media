@@ -489,15 +489,39 @@ double exposure of a moving scene. That reads as a rendering bug rather than a
 styling choice, and lengthening the fade to smooth it makes it worse. Shipping
 `0s` is why the default is now correct for a moving video instead of subtly wrong.
 
-So the poster question decides something narrower, what the **cut** looks like,
-not whether a fade is safe:
+**That measurement is about a frame-0 poster, and does not transfer.** The ghost
+it describes is a double exposure of one scene slightly advanced, which is what
+you get when the two layers are nearly the same picture. Blend two genuinely
+different pictures and you get an ordinary dissolve, which is a normal
+transition rather than an artefact.
 
-| poster                          | at `0s`                               |
-| ------------------------------- | ------------------------------------- |
-| the video's frame 0             | seamless, nothing visibly happens     |
-| a different, art-directed image | a visible jump, still beating a ghost |
+So the poster decides which you want:
 
-A still video is the one case where the fade is genuinely free.
+| poster                          | at `0s`, the default              | with a fade                        |
+| ------------------------------- | --------------------------------- | ---------------------------------- |
+| the video's frame 0             | seamless, nothing visibly happens | ghosts, and worse the longer it is |
+| a different, art-directed image | a visible jump                    | an ordinary crossfade              |
+
+The default cuts because the library cannot tell which you have, and guessing
+wrong on a frame-0 poster is the worse failure. **Turn it on for the videos that
+want it**, one container at a time. `--polite-fade` is an ordinary custom
+property, so it inherits:
+
+```css
+/* this hero dissolves; every other video on the page still cuts */
+.hero[data-polite-media] {
+  --polite-fade: 600ms;
+}
+```
+
+`demo/art-directed.html` shows both side by side with a poster that is
+deliberately not frame 0, which is the honest way to pick: whether a dissolve
+beats a jump is a judgement about your footage, not something a number settles.
+
+Reduced motion overrides you either way. The stylesheet sets `transition: none`
+there, so a fade you asked for never runs for someone who asked not to see one.
+
+A still video is the one case where the fade is free whatever the poster is.
 
 **A hard cut is safe here**, which is not true of background-video code in
 general. The reveal fires from `requestVideoFrameCallback`, so a frame has

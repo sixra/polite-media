@@ -632,3 +632,52 @@ test.describe('rootMargin and the page gate', () => {
     await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(0);
   });
 });
+
+/**
+ * The inverse of the hero's "leaves neither a gap nor a ghost" test. That one
+ * pins the shipped default by asserting no frame ever catches the video
+ * part-way; this one pins that a host can opt out, by asserting some frame does.
+ * Between them the behaviour is nailed in both directions.
+ */
+test.describe('a per-video --polite-fade', () => {
+  test('crossfades the one container that asks, and cuts the one that does not', async ({
+    page,
+  }) => {
+    await page.goto('/demo/art-directed.html');
+
+    const trace = await page.evaluate(async () => {
+      const seen = { faded: [] as number[], cut: [] as number[], posterDuringFade: true };
+
+      for (let i = 0; i < 900; i += 1) {
+        const faded = Number(window.__videoOpacity('faded'));
+        seen.faded.push(faded);
+        seen.cut.push(Number(window.__videoOpacity('cut')));
+        // The poster must still be under the video while it dissolves, or the
+        // fade would reveal whatever sits behind the box instead.
+        if (faded > 0 && faded < 1 && !window.__posterVisible('faded')) {
+          seen.posterDuringFade = false;
+        }
+        if (faded === 1 && seen.faded.some((o) => o > 0 && o < 1)) break;
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+
+      return {
+        ...seen,
+        fadedDuration: window.__fadeDuration('faded'),
+        cutDuration: window.__fadeDuration('cut'),
+      };
+    });
+
+    // Guards the test itself: if the demo stopped setting the property these
+    // assertions would quietly become vacuous.
+    expect(trace.fadedDuration).toBe('0.6s');
+    expect(trace.cutDuration).toBe('0s');
+
+    // The opt-in container dissolves: some frame is genuinely part-way.
+    expect(trace.faded.filter((o) => o > 0 && o < 1).length).toBeGreaterThan(0);
+    expect(trace.posterDuringFade).toBe(true);
+
+    // Its neighbour, same page and same stylesheet, still cuts.
+    expect(trace.cut.filter((o) => o > 0 && o < 1)).toEqual([]);
+  });
+});
