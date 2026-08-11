@@ -2,13 +2,14 @@
 
 Background video and image reveals that behave themselves. No dependencies, no framework.
 
-Two independent halves, imported separately, because they share almost nothing.
-Bundled, minified and gzipped, which is what `pnpm size` enforces:
+Three independent entry points, imported separately, because they share almost
+nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
 | `polite-media/video` | 3,953 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
+| `polite-media/warm`  | 643 B      | none       | **643 B**  |
 
 `polite-media/layer.css` is a third, optional stylesheet: **137 B** for the
 standard poster-over-video stack, so you write only the parts that are yours.
@@ -135,7 +136,8 @@ at any video size, and it would be undone by one dimension declaration.
 
 It's also not an image pipeline (no srcset or poster generation: that's a build
 step), not a lazy-loader for images (`loading="lazy"` is native), not a player,
-not a lightbox, and not a scroll-animation library.
+not a lightbox, and not a scroll-animation library. `polite-media/warm` is not an
+exception to that: it warms candidates you already build, and generates none.
 
 **Images are opt-in per image, not per container.** `data-polite-reveal` goes on
 the `<img>`. That placement is load-bearing: a container-wide rule hides every
@@ -568,6 +570,61 @@ Two things that surprise people:
   property is undefined. Harmless on video, which cuts anyway; on images it
   silently removes the 350ms fade. A mistake here always fails toward a cut.
 
+## Warming the next page's image
+
+`polite-media/warm` is a third, independent entry point. It fetches the image the
+_next_ page will show, while the visitor is still deciding to go there.
+
+Every document prefetcher stops at the HTML. Astro's `data-astro-prefetch`, Next's
+`<Link>` and quicklink all fetch the document, and the hero inside it is
+discovered only once that document parses, which is exactly too late.
+
+```js
+import { warmOnIntent } from 'polite-media/warm';
+
+// One listener for a whole grid, delegated on the document.
+warmOnIntent('a[data-hero]', (link) => ({
+  sources: [{ type: 'image/avif', srcset: link.dataset.hero }],
+  src: '/fallback.jpg',
+  sizes: '(min-width: 50rem) 800px, 100vw',
+}));
+```
+
+`sizes` is passed straight through. **Nothing in this package parses a media
+query**, which is the point: the candidates are assembled as a detached
+`<picture>` and the browser picks, running the same algorithm it will run on the
+destination. Hand-rolling that selection is the usual approach and it drifts the
+moment `sizes` changes in one place and not the other.
+
+`warm(options)` warms one image directly, for navigation that isn't a link.
+`warmOnIntent` returns a teardown; call it if you re-bind per navigation, since
+listeners on `document` survive a `<ClientRouter />` swap.
+
+**Why not a `<link>` hint.** `imagesrcset` and `imagesizes` do responsive
+selection, but only for `rel="preload"` with `as="image"`, and preload is for
+resources "your page will need very soon" rather than the next page's. `prefetch`
+has the right timing and ignores those attributes. `type` gates on format support
+but has no first-supported-wins rule, so a browser handling both AVIF and WebP
+fetches both.
+
+A preload link injected on hover does select correctly in all three engines,
+measured, so this is a real alternative rather than a broken one. What it costs is
+a console warning in Chromium, because the resource is by definition never used by
+the page that preloaded it ([`docs/findings.md`](docs/findings.md)). Going the
+other way, to `prefetch`, is
+worse still: Safari doesn't support `<link rel="prefetch">` and Firefox aborts it
+with `NS_BINDING_ABORTED` without an explicit cache header. A detached image both
+selects and fetches, so none of it applies.
+
+**Skipped on Save-Data and 2g**, since nobody asked for these bytes yet. Deduped,
+so repeated hovering warms once. Fetched at `fetchpriority="low"`, so it never
+competes with the page the visitor is actually looking at.
+
+**When you don't need this.** If your audience is Chromium and you already use
+Speculation Rules `prerender`, that loads the whole destination including its
+images and does strictly more. It is [not Baseline][prerender] and covers neither
+Safari nor Firefox, which is the gap this fills.
+
 ## Client-side routers
 
 If your pages are replaced without a reload (Astro's `<ClientRouter />`, or any
@@ -611,6 +668,7 @@ does so correctly on an iPhone is untested.
 install line above. Depend on it by path or git until that changes.
 
 [astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-re-execution
+[prerender]: https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API
 
 ## Development
 

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media: a warmed destination</title>
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      .hero {
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #1c1c22;
+      }
+
+      .hero img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>The destination</h1>
+      <p class="note">
+        This page declares its hero exactly as any page would. It imports nothing from
+        <code>polite-media</code>: warming is entirely the previous page's business, and the point
+        is that this markup did not have to change to be warmable.
+      </p>
+      <p class="note">
+        Arrive here from the <a href="/demo/warm.html">warming demo</a> after hovering, and the hero
+        is already in the cache. Arrive by reloading this page directly and it is fetched now, the
+        cold path.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="hero">
+        <picture>
+          <source
+            type="image/avif"
+            srcset="
+              /demo/assets/sample-poster.avif?v=480 480w,
+              /demo/assets/sample-poster.avif?v=800 800w
+            "
+            sizes="(min-width: 50rem) 800px, 100vw"
+          />
+          <img
+            src="/demo/assets/sample-poster.jpg"
+            sizes="(min-width: 50rem) 800px, 100vw"
+            alt="Colour bars test pattern"
+          />
+        </picture>
+      </div>
+    </main>
+  </body>
+</html>

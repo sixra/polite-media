@@ -3,6 +3,30 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.2.0 (2026-08-11)
+
+### Added
+
+- `polite-media/warm`, a third entry point. Fetches the image the next page will
+  show while the visitor is still deciding to go there, since document
+  prefetchers fetch the HTML and stop.
+- `warm(options)` warms one image; `warmOnIntent(selector, resolve)` does it on
+  hover, focus or touch, delegated on the document, and returns a teardown.
+- Candidates are given as `sources`, `srcset`, `src` and `sizes`, mirroring
+  `<picture>`.
+
+### Notes
+
+- **Nothing in the package parses `sizes`.** The candidates are assembled as a
+  detached `<picture>` and the browser selects, so warming cannot disagree with
+  what the destination renders.
+- No `<link>` hint is injected. A detached image both selects and fetches, which
+  avoids `rel="prefetch"` being unsupported in Safari and aborted in Firefox
+  without a cache header.
+- Skipped on Save-Data and 2g, deduped per candidate set, and fetched at
+  `fetchpriority="low"`.
+- Nothing else changed. The video and image entry points are untouched.
+
 ## 0.1.0 (2026-08-11)
 
 First release.

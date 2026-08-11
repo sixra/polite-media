@@ -73,6 +73,44 @@ which this library does itself, so treating it as fatal would cascade through
 every candidate on the first assignment. Code 2 (`MEDIA_ERR_NETWORK`) means the
 connection failed, and another file will not fix that.
 
+## Warming a destination image: why not a `<link>` hint
+
+Measured 2026-08-11, all three engines, a `rel="preload" as="image"` link injected
+after load with `imagesrcset` and `imagesizes="100px"`, then left unused for five
+seconds.
+
+| engine   | fetched         | console                                 |
+| -------- | --------------- | --------------------------------------- |
+| Chromium | the 480w, right | **warns**, "preloaded ... but not used" |
+| Firefox  | the 480w, right | silent                                  |
+| WebKit   | the 480w, right | silent                                  |
+
+Two things follow, and they point in opposite directions.
+
+**Responsive selection through a link works, everywhere.** `imagesrcset` and
+`imagesizes` picked the same variant a `<picture>` would. So the link route is a
+real option, not a broken one, and any claim that it cannot select variants is
+wrong.
+
+**But the resource is never used by the page that preloaded it**, which is exactly
+the condition Chromium warns on: "was preloaded using link preload but not used
+within a few seconds from the window's load event." That is the concrete cost
+behind MDN scoping preload to resources "your page will need very soon".
+
+Measured with one resource, so one warning. The message names a single URL, which
+suggests a grid of warmed cards produces one per card, but that was not measured
+and is inference.
+
+The link route also cannot express first-supported-wins. `type` gates a candidate
+on format support, but a browser supporting both AVIF and WebP fetches both links,
+so a multi-format hero has to pick one format and lose warming everywhere else.
+
+Hence `warm` builds a detached `<picture>` instead: same selection, no warning, and
+`<source>` ordering handles formats. Note this is about **preload**. The separate
+claim that Safari does not support `<link rel="prefetch">` and that Firefox aborts
+it without a cache header comes from Astro's prefetch guide and concerns prefetch,
+which is the other half of the bind: right timing, no `imagesrcset`.
+
 ## Citations
 
 - **LCP excludes `opacity: 0`.** "Elements with an opacity of 0, that are invisible to

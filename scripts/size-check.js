@@ -45,6 +45,10 @@ const budgets = {
   // delay (~32 B) and the module names the stray element on the console
   // (~157 B). The CSS half is the fix; the JS half is what makes it findable.
   'src/image.ts': 680,
+  // warm: the detached <picture> that lets the browser pick the variant, the
+  // save-data gate, dedup, and the delegated intent binding. Almost all of it is
+  // element plumbing, because the selection it replaces is the browser's own.
+  'src/warm.ts': 700,
   'src/video.css': 230,
   'src/image.css': 220,
   // The optional stacking stylesheet. Its own entry rather than part of

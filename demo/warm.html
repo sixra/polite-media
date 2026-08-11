@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media: warming a destination image</title>
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      .cards {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      }
+
+      .card {
+        display: block;
+        padding: 1.25rem;
+        border: 1px solid #33333d;
+        border-radius: 12px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .card:hover,
+      .card:focus-visible {
+        border-color: #6f6fd8;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Warming what the next page will show</h1>
+      <p class="note">
+        Hover or focus a card and watch the network panel: one request goes out, for the one variant
+        this viewport and this browser would have chosen anyway. Nothing here parses
+        <code>sizes</code> or compares a <code>w</code> descriptor. The candidates are handed to a
+        detached <code>&lt;picture&gt;</code> and the browser picks, which is the same algorithm the
+        destination runs.
+      </p>
+      <p class="note">
+        Narrow the window below 50rem and reload: the warmed URL changes with it, because
+        <code>sizes</code> is passed through untouched rather than reimplemented.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="cards">
+        <a
+          class="card"
+          href="/demo/warm-destination.html"
+          data-warm-avif="/demo/assets/sample-poster.avif?v=480 480w, /demo/assets/sample-poster.avif?v=800 800w"
+        >
+          The destination, warmed on intent
+        </a>
+        <a class="card" href="/demo/warm-destination.html" data-warm-plain>
+          The same page, not warmed
+        </a>
+      </div>
+    </main>
+
+    <script type="module">
+      import { warmOnIntent } from '/dist/warm.js';
+
+      // The one string that must match the destination's <picture>. It is passed
+      // through as data, never interpreted here, which is the whole reason it
+      // cannot drift out of step with the markup it describes.
+      const SIZES = '(min-width: 50rem) 800px, 100vw';
+
+      warmOnIntent('[data-warm-avif]', (link) => ({
+        sources: [{ type: 'image/avif', srcset: link.dataset.warmAvif }],
+        src: '/demo/assets/sample-poster.jpg',
+        sizes: SIZES,
+      }));
+
+      // Only for the e2e suite: what actually went over the wire is asserted from
+      // Playwright, not from here.
+      window.__warmedUrls = () =>
+        performance
+          .getEntriesByType('resource')
+          .filter((entry) => entry.name.includes('sample-poster'))
+          .map((entry) => entry.name);
+    </script>
+  </body>
+</html>

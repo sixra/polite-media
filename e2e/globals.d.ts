@@ -21,6 +21,8 @@ declare global {
       readyStateAtReveal: number | null;
     };
     __events: string[];
+    /** warm.html: fixture URLs the browser has actually fetched. */
+    __warmedUrls: () => string[];
     __state: () => {
       recoversSrc: string;
       recoversReady: boolean;
