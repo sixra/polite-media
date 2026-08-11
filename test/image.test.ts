@@ -46,6 +46,12 @@ const ready = (image: HTMLImageElement): boolean => image.hasAttribute('data-pol
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // Both of these were missing, and both bit. Fake timers leak into later tests,
+  // and `vi.spyOn` on an already-spied method hands back the *existing* mock
+  // with its call history, so a second test asserting "never warned" was
+  // inheriting the first test's warning. Each passed alone and failed together.
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   document.body.innerHTML = '';
 });
 
@@ -223,5 +229,71 @@ describe('the loading attribute, across engine disagreement', () => {
     const { image } = build({ loading: 'lazy' });
     revealImages([image]);
     expect(ready(image)).toBe(false);
+  });
+});
+
+describe('the unmanaged-image warning', () => {
+  function stray(): HTMLImageElement {
+    const container = document.createElement('div');
+    const image = document.createElement('img');
+    image.setAttribute('data-polite-reveal', '');
+    image.setAttribute('loading', 'lazy');
+    container.append(image);
+    document.body.append(container);
+    return image;
+  }
+
+  it('names an image that carries the attribute but no call manages', () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const orphan = stray();
+    build();
+
+    revealImages('img[loading="lazy"]:not([data-polite-reveal])');
+    vi.advanceTimersByTime(1000);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[1]).toBe(orphan);
+  });
+
+  it('stays quiet when every marked image is managed', () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stray();
+
+    revealImages('img[data-polite-reveal]');
+    vi.advanceTimersByTime(1000);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns once however many calls a page makes', () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stray();
+
+    revealImages('img#none-a');
+    revealImages('img#none-b');
+    revealImages('img#none-c');
+    vi.advanceTimersByTime(1000);
+
+    // Without the debounce each call schedules its own check and the same stray
+    // image is reported three times.
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  // Several calls with different selectors is a normal way to set a page up, so
+  // an image is only stray once all of them have had their chance.
+  it('does not fire for an image a later call picks up', () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const image = stray();
+    image.id = 'second';
+
+    revealImages('img#nothing');
+    revealImages('img#second');
+    vi.advanceTimersByTime(1000);
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

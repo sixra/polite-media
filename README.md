@@ -8,7 +8,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
 | `polite-media/video` | 3,743 B    | 194 B      | **3.8 KB** |
-| `polite-media/image` | 473 B      | 157 B      | **630 B**  |
+| `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 
 An image-only page never pays for the video coordinator.
 
@@ -59,19 +59,20 @@ Six in total, and they fall into three groups. The distinction that catches
 people is the middle column: two of the ones you write are live on their own, and
 one is inert until you call something.
 
-| attribute            | goes on                     | live on its own?                                         |
-| -------------------- | --------------------------- | -------------------------------------------------------- |
-| `data-polite-media`  | the box around poster+video | **yes**, for the CSS. The video still needs `register()` |
-| `data-polite-reveal` | the `<img>`                 | **no** — without `revealImages()` the image stays hidden |
-| `data-polite-pause`  | your `<button>`             | **yes** — no call, anywhere on the page                  |
-| `data-polite-ready`  | the box, or the image       | written by the library                                   |
-| `data-polite-failed` | the box                     | written by the library                                   |
-| `data-polite-paused` | `<html>`                    | written by the library                                   |
+| attribute            | goes on                     | live on its own?                                           |
+| -------------------- | --------------------------- | ---------------------------------------------------------- |
+| `data-polite-media`  | the box around poster+video | **yes**, for the CSS. The video still needs `register()`   |
+| `data-polite-reveal` | the `<img>`                 | **no** — without `revealImages()` it reveals late, unfaded |
+| `data-polite-pause`  | your `<button>`             | **yes** — no call, anywhere on the page                    |
+| `data-polite-ready`  | the box, or the image       | written by the library                                     |
+| `data-polite-failed` | the box                     | written by the library                                     |
+| `data-polite-paused` | `<html>`                    | written by the library                                     |
 
 `data-polite-reveal` is the one to be careful with, and it is the reason this
 table exists: `image.css` hides a marked image immediately, so marking one you
-never pass to `revealImages()` leaves it invisible rather than merely unfaded.
-Mark an image only when something is going to reveal it.
+never pass to `revealImages()` means it is hidden until the failsafe shows it,
+five seconds later and without a fade. That used to be permanent. The console
+names any image in that state, so widen the selector or drop the attribute.
 
 The bottom three are yours to style against and never to write yourself.
 
@@ -135,8 +136,8 @@ not a lightbox, and not a scroll-animation library.
 
 **Images are opt-in per image, not per container.** `data-polite-reveal` goes on
 the `<img>`. That placement is load-bearing: a container-wide rule hides every
-image inside it, including ones the library then declines to fade, leaving them
-invisible rather than merely unfaded.
+image inside it, including ones the library then declines to fade, so each one
+waits out the failsafe instead of fading.
 
 **Eager images are revealed instantly rather than faded.** LCP excludes elements
 at `opacity: 0` and revealing one doesn't restore its candidacy, so an
@@ -150,9 +151,15 @@ degrades to nothing, so its container must carry a visible `background-color`.
 **Images are only hidden where scripting can reveal them.** Because that degraded
 state is nothing at all, `image.css` puts the hiding rule behind
 `@media (scripting: enabled)`, Baseline since December 2023. With scripting off
-the photos simply arrive unfaded instead of never arriving. No media query can
-see a bundle that fails to load while scripting is on, so don't mark an image you
-couldn't afford to lose if your JavaScript never turns up.
+the photos simply arrive unfaded instead of never arriving.
+
+**And nothing stays hidden forever.** No media query can see a bundle that fails
+to load while scripting is on, so the stylesheet reveals any marked image after
+`--polite-failsafe` (default `5s`) regardless. A missed selector or a bundle that
+never arrives costs you the fade, not the picture. Set the property to tune the
+delay; the failsafe applies to every marked image, including ones the library
+manages, because an earlier design that exempted them could send an
+already-revealed image back to hidden.
 
 ## API
 
@@ -416,7 +423,7 @@ not a label.
 
 Attributes set on the box: `data-polite-ready`, `data-polite-failed`. On
 `<html>`: `data-polite-paused`. Those are the public CSS API, along with
-`--polite-fade`.
+`--polite-fade` and `--polite-failsafe`.
 
 ## The fade
 

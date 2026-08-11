@@ -17,6 +17,17 @@ First release.
   blocked autoplay, and ships a pause hook for [WCAG 2.2.2][wcag].
 - `polite-media/image` — reveals an image once `decode()` resolves, rather than on
   `load`, which fires before the pixels exist.
+- A failsafe so a marked image can never stay hidden. `image.css` hides anything
+  carrying `data-polite-reveal`, which makes a missed selector, or a bundle that
+  never arrives, cost the picture rather than the fade. The stylesheet reveals on
+  a delay regardless, tunable with `--polite-failsafe` (default `5s`),
+  and `revealImages()` names any image in that state on the console.
+
+  Deliberately universal rather than cancelled for images the library manages. An
+  earlier design marked those and set `animation: none`, which reverts the filled
+  end state: measured in all three engines, an image the failsafe had already
+  revealed jumped back to invisible the moment it was claimed.
+
 - Optional stylesheets, `polite-media/video.css` and `polite-media/image.css`.
   Timing only: neither sets a width, height or aspect ratio.
 - A console warning when a video's parent carries no `data-polite-media` and

@@ -570,3 +570,38 @@ test.describe('images', () => {
     expect(opacity).toBe('1');
   });
 });
+
+test.describe('reveal failsafe', () => {
+  // The stylesheet reveals a marked image on a delay whatever JavaScript does,
+  // so a missed selector or a bundle that never arrives costs the fade rather
+  // than the picture. Before this, either left the image invisible permanently.
+  test('reveals an image no revealImages() call manages', async ({ page }) => {
+    await page.goto('/demo/reveal-failsafe.html');
+
+    // Hidden at first, or the failsafe would be defeating the fade it exists
+    // alongside rather than backstopping it.
+    expect(await page.evaluate(() => window.__opacity('stray'))).toBe('0');
+
+    await expect.poll(() => page.evaluate(() => window.__opacity('stray'))).toBe('1');
+    // Revealed by CSS alone: the library never claimed it, so no ready attribute.
+    expect(await page.evaluate(() => window.__isReady('stray'))).toBe(false);
+  });
+
+  test('still lets a managed image reveal normally, and reports the stray one', async ({
+    page,
+  }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+
+    await page.goto('/demo/reveal-failsafe.html');
+
+    await expect.poll(() => page.evaluate(() => window.__isReady('managed'))).toBe(true);
+    // Polled, not sampled: ready starts the 350ms fade rather than completing
+    // it, and reading straight after the attribute lands catches it mid-way.
+    await expect.poll(() => page.evaluate(() => window.__opacity('managed'))).toBe('1');
+
+    await expect.poll(() => warnings.filter((text) => /revealImages/.test(text)).length).toBe(1);
+  });
+});

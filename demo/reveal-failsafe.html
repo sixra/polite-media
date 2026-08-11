@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — reveal failsafe</title>
+    <link rel="stylesheet" href="/dist/image.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <style>
+      /* Shortened so the demo is watchable and the e2e is quick. Production
+         pages should leave the 5s default alone. */
+      :root {
+        --polite-failsafe: 400ms;
+      }
+      .card {
+        background-color: #2a2a33;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Reveal failsafe</h1>
+      <p class="note">
+        Deliberately misconfigured. The left image is marked
+        <code>data-polite-reveal</code> and passed to <code>revealImages()</code>, so it fades on
+        decode. The right one is marked and passed to nothing, which used to leave it invisible
+        permanently. It now appears after <code>--polite-failsafe</code>, unfaded, and the console
+        names it.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="grid">
+        <div class="frame card" data-polite-media>
+          <img
+            id="managed"
+            src="/demo/assets/sample-poster.avif?managed"
+            alt=""
+            loading="lazy"
+            data-polite-reveal
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            id="stray"
+            src="/demo/assets/sample-poster.avif?stray"
+            alt=""
+            loading="lazy"
+            data-polite-reveal
+          />
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { revealImages } from '/dist/image.js';
+
+      // Only the first one. The second is the point of the page.
+      revealImages('#managed');
+
+      window.__opacity = (id) => getComputedStyle(document.getElementById(id)).opacity;
+      window.__isReady = (id) => document.getElementById(id).hasAttribute('data-polite-ready');
+    </script>
+  </body>
+</html>

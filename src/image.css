@@ -28,19 +28,38 @@
  * December 2023, and it needs nothing from the host: with scripting off the rule
  * never applies and the images simply arrive unfaded.
  *
- * It cannot cover a bundle that fails to load while scripting is on -- no media
- * query can see that -- so do not mark an image you could not afford to have
- * hidden if your JavaScript never arrives.
+ * No media query can see a bundle that fails to load while scripting is on, so
+ * that case is covered by the failsafe below instead.
  */
 
 @media (scripting: enabled) {
   img[data-polite-reveal] {
     opacity: 0;
     transition: opacity var(--polite-fade, 350ms) ease;
+    /*
+     * Nothing may stay hidden forever. Marking an image and never passing it to
+     * revealImages() used to leave it invisible permanently, and so did a bundle
+     * that never arrived; both now resolve to merely unfaded.
+     *
+     * Deliberately universal rather than cancelled for images the library owns.
+     * An earlier version marked those and set `animation: none`, which reverts
+     * the filled end state: measured in all three engines, an image the failsafe
+     * had already revealed jumped back to opacity 0 the moment it was claimed.
+     * Applying to everything removes that case, and costs nothing, since a
+     * managed image reaches opacity 1 through `data-polite-ready` long before
+     * the delay and the two agree on the value.
+     */
+    animation: polite-reveal-failsafe 0s var(--polite-failsafe, 5s) forwards;
   }
 
   img[data-polite-reveal][data-polite-ready] {
     opacity: 1;
+  }
+
+  @keyframes polite-reveal-failsafe {
+    to {
+      opacity: 1;
+    }
   }
 }
 

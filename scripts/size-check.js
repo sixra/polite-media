@@ -33,9 +33,14 @@ const budgets = {
   // at once when another takes its slot, and holding the prefetch behind page
   // load so a margin cannot defeat startWhen.
   'src/video.ts': 3780,
-  'src/image.ts': 500,
+  // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
+  // revealImages() call reaches used to stay invisible forever, and so did every
+  // marked image on a page whose bundle failed. The stylesheet now reveals on a
+  // delay (~32 B) and the module names the stray element on the console
+  // (~157 B). The CSS half is the fix; the JS half is what makes it findable.
+  'src/image.ts': 680,
   'src/video.css': 230,
-  'src/image.css': 170,
+  'src/image.css': 220,
 };
 
 /**

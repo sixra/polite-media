@@ -52,6 +52,43 @@ function markReady(image: HTMLImageElement): void {
 }
 
 /**
+ * Every image this module has taken responsibility for.
+ *
+ * A WeakSet rather than an attribute: the stylesheet no longer needs to know
+ * which images are managed, so writing it into the DOM would be state kept for
+ * nobody. Weak so a released image is not pinned by the bookkeeping.
+ */
+const managed = new WeakSet<HTMLImageElement>();
+
+let unmanagedCheck: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * The failsafe in image.css keeps a stray image from vanishing, but silently.
+ * This is the half a developer can act on: it names the element and says which
+ * of the two mistakes was made.
+ *
+ * Debounced rather than run per call, because several `revealImages()` calls
+ * with different selectors are a normal way to set a page up and an image is
+ * only stray once all of them have had their chance. Rescheduling also means a
+ * client-side navigation gets its own check instead of one per page lifetime,
+ * which a once-only flag would have given.
+ */
+function scheduleUnmanagedCheck(): void {
+  clearTimeout(unmanagedCheck);
+  unmanagedCheck = setTimeout(() => {
+    for (const image of document.querySelectorAll<HTMLImageElement>('img[data-polite-reveal]')) {
+      if (managed.has(image)) continue;
+      console.warn(
+        'polite-media: no revealImages() call manages this image, so the failsafe revealed ' +
+          'it late and unfaded. Widen the selector, or drop data-polite-reveal.',
+        image
+      );
+      return;
+    }
+  }, 1000);
+}
+
+/**
  * Reveals each matching image once it has decoded.
  *
  * Returns a function that stops any reveals still pending, for a client-side
@@ -61,7 +98,10 @@ export function revealImages(target: ImageTarget, options: RevealImagesOptions =
   const controller = new AbortController();
   const { signal } = controller;
 
+  scheduleUnmanagedCheck();
+
   for (const image of resolveTargets(target)) {
+    managed.add(image);
     // Eager images are revealed at once rather than skipped.
     //
     // Skipping looks like the cautious choice and is the opposite: image.css
