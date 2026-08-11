@@ -88,6 +88,11 @@ First release.
   band: clear the first to start, drop below the second to stop. Defaults to `0`,
   which is a single line at `pauseBelow`. Pull them apart when a video parked near
   the boundary needs to be stable by construction rather than by debounce.
+- A console warning when every `<source>` carries a `media` attribute, so a
+  viewport matching none of them leaves the video with nothing to play. The trap
+  is that `(max-width: 50rem)` beside `(min-width: 50.001rem)` looks exhaustive
+  and is not, and the failure is invisible because every width that does match
+  works perfectly.
 - A console warning when a video is too tall to ever reach its start threshold.
   `intersectionRatio` is a fraction of the element, so a box taller than the
   viewport cannot be fully intersecting, and a threshold it cannot reach means it

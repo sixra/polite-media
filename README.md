@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,818 B    | 194 B      | **3.9 KB** |
+| `polite-media/video` | 3,957 B    | 194 B      | **4.2 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -437,7 +437,7 @@ not a label.
    alone. But **every** direct-child `img` or `picture` is treated as the poster
    and hidden on reveal, so a logo or badge belongs deeper, not beside the video.
 5. If you use several `<source>` elements, the **last one carries no `media`
-   attribute**. Narrow queries above it, unconditional fallback at the bottom:
+   attribute**, and the library warns on the console when none of them qualifies. Narrow queries above it, unconditional fallback at the bottom:
    pairing `(max-width: 50rem)` with `(min-width: 50.001rem)` looks exhaustive
    and is not, and a fractional viewport that matches neither leaves the video
    with nothing to play. The first matching source wins, so ordering does the

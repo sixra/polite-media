@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetEnv } from '../src/env.js';
-import { isUnusable, manageSources } from '../src/sources.js';
+import { isUnusable, manageSources, resetSourceWarnings } from '../src/sources.js';
 
 interface Built {
   video: HTMLVideoElement;
@@ -45,6 +45,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  resetSourceWarnings();
+  vi.restoreAllMocks();
   resetEnv();
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
@@ -171,5 +173,46 @@ describe('repeated select()', () => {
     const { video } = build([{ src: '' }, { src: '/real.mp4' }]);
     expect(manageSources(video).select()).toBe(true);
     expect(video.src).toContain('/real.mp4');
+  });
+});
+
+describe('the all-conditional source warning', () => {
+  // The trap the markup contract documents: two queries that look exhaustive and
+  // are not, so a fractional viewport between them matches neither and the video
+  // has nothing to play. Invisible, because every width that does match works.
+  it('warns when no source is an unconditional fallback', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { video } = build([
+      { src: '/small.mp4', media: '(max-width: 50rem)' },
+      { src: '/large.mp4', media: '(min-width: 50.001rem)' },
+    ]);
+
+    manageSources(video);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[1]).toBe(video);
+  });
+
+  it('stays quiet when the last source carries no media attribute', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { video } = build([
+      { src: '/small.mp4', media: '(max-width: 50rem)' },
+      { src: '/large.mp4' },
+    ]);
+
+    manageSources(video);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // A video authored with a plain `src` and no <source> children is somebody
+  // else's arrangement, not a hole.
+  it('stays quiet when there are no sources at all', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { video } = build([], () => 'probably', { src: '/plain.mp4' });
+
+    manageSources(video);
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

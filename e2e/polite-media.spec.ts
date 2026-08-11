@@ -234,45 +234,6 @@ test.describe('feed', () => {
     // arriving as a poster.
     await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(1);
   });
-
-  test('still waits for page load before fetching, margin or not', async ({ page }) => {
-    // rootMargin nearly defeated startWhen: prefetch fired on the observer's
-    // first batch, so the fetch it triggers landed inside page load -- exactly
-    // the contention the 'page-loaded' default was measured to avoid.
-    //
-    // Asserted as state while load is held open, not as request ordering. The
-    // ordering version passed alone and failed in the parallel run, because all
-    // three engines share one single-threaded server and the race is decided by
-    // whoever gets served first.
-    let release = (): void => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    // A poster, not the stylesheet: a render-blocking <link> in <head> also
-    // blocks the module script that builds the feed, so nothing would exist to
-    // observe. An image delays `load` and nothing else.
-    await page.route('**/sample-poster.avif', async (route) => {
-      await held;
-      await route.continue();
-    });
-
-    await page.goto('/demo/feed.html', { waitUntil: 'commit' });
-    // The observer has certainly reported by now, which is the moment the
-    // unfixed version promoted preload and started fetching.
-    await page.waitForFunction(() => document.querySelectorAll('#feed video').length === 6);
-    expect(await page.evaluate(() => document.readyState)).not.toBe('complete');
-    expect(await page.evaluate(() => window.__preloadCount())).toBe(0);
-
-    release();
-    // Waiting for `load` separately, so the released poster's download time is
-    // not spent out of the poll's budget. Folded together, the poll's default 5s
-    // had to cover a real image fetch from a server three engines are sharing,
-    // and Firefox lost that race in roughly one full run in five while passing
-    // alone every time. The promotion itself happens in the reconcile that
-    // `load` triggers, so once loaded it is immediate.
-    await page.waitForFunction(() => document.readyState === 'complete');
-    await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(0);
-  });
 });
 
 test.describe('pause control (WCAG 2.2.2)', () => {
@@ -623,5 +584,51 @@ test.describe('the interaction default', () => {
     await page.keyboard.press('Shift');
 
     await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
+});
+
+/**
+ * Outside the `feed` describe on purpose: this test navigates itself, and
+ * inheriting a beforeEach that fully loads a second page first put a real video
+ * fetch in flight on the server all three engines share.
+ */
+test.describe('rootMargin and the page gate', () => {
+  test('still waits for page load before fetching, margin or not', async ({ page }) => {
+    // rootMargin nearly defeated startWhen: prefetch fired on the observer's
+    // first batch, so the fetch it triggers landed inside page load -- exactly
+    // the contention the 'page-loaded' default was measured to avoid.
+    //
+    // Asserted as state while load is held open, not as request ordering. The
+    // ordering version passed alone and failed in the parallel run, because all
+    // three engines share one single-threaded server and the race is decided by
+    // whoever gets served first.
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // A poster, not the stylesheet: a render-blocking <link> in <head> also
+    // blocks the module script that builds the feed, so nothing would exist to
+    // observe. An image delays `load` and nothing else.
+    await page.route('**/sample-poster.avif', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.goto('/demo/feed.html', { waitUntil: 'commit' });
+    // The observer has certainly reported by now, which is the moment the
+    // unfixed version promoted preload and started fetching.
+    await page.waitForFunction(() => document.querySelectorAll('#feed video').length === 6);
+    expect(await page.evaluate(() => document.readyState)).not.toBe('complete');
+    expect(await page.evaluate(() => window.__preloadCount())).toBe(0);
+
+    release();
+    // Waiting for `load` separately, so the released poster's download time is
+    // not spent out of the poll's budget. Folded together, the poll's default 5s
+    // had to cover a real image fetch from a server three engines are sharing,
+    // and Firefox lost that race in roughly one full run in five while passing
+    // alone every time. The promotion itself happens in the reconcile that
+    // `load` triggers, so once loaded it is immediate.
+    await page.waitForFunction(() => document.readyState === 'complete');
+    await expect.poll(() => page.evaluate(() => window.__preloadCount())).toBeGreaterThan(0);
   });
 });

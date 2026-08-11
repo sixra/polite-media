@@ -35,7 +35,10 @@ const budgets = {
   // Then +75 B for the startWhen work: an 'interaction' rung that is now the
   // default, a per-video override so a hero can hold out while a grid does not,
   // and requireBuffered split off as its own axis.
-  'src/video.ts': 3860,
+  // And +97 B to warn when every <source> carries a media attribute, which
+  // leaves viewports with nothing to play. The markup contract already said the
+  // last one must be unconditional; this is the rule checked rather than trusted.
+  'src/video.ts': 4000,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a

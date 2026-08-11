@@ -55,10 +55,37 @@ export interface SourceManager {
   advance(): boolean;
 }
 
+let warnedConditional = false;
+
+/**
+ * Every `<source>` carrying a `media` attribute leaves viewports with nothing to
+ * play, and the failure is invisible: on the widths that do match, the video
+ * works perfectly.
+ *
+ * The trap is that a pair like `(max-width: 50rem)` and `(min-width: 50.001rem)`
+ * looks exhaustive and is not, so a fractional viewport between them matches
+ * neither. Checked rather than documented, because "the last source carries no
+ * media attribute" was already documented and is exactly the kind of rule that
+ * is followed until someone adds a third source.
+ */
+function warnIfAllConditional(sources: HTMLSourceElement[], video: HTMLVideoElement): void {
+  if (warnedConditional || sources.length === 0) return;
+  if (sources.some((source) => !source.getAttribute('media'))) return;
+
+  warnedConditional = true;
+  console.warn(
+    'polite-media: every <source> here carries a media attribute, so a viewport matching ' +
+      'none of them leaves this video with nothing to play. Drop the media attribute from ' +
+      'the last one, so it is an unconditional fallback.',
+    video
+  );
+}
+
 function candidatesFor(video: HTMLVideoElement): { declared: number; playable: string[] } {
   // `:scope >` so a <source> belonging to some nested media element is never
   // mistaken for this one's.
   const sources = [...video.querySelectorAll<HTMLSourceElement>(':scope > source')];
+  warnIfAllConditional(sources, video);
 
   const playable = sources
     .filter((source) => {
@@ -114,4 +141,9 @@ export function manageSources(video: HTMLVideoElement): SourceManager {
       return load();
     },
   };
+}
+
+/** Internal reset for tests. Not exported from the package entry point. */
+export function resetSourceWarnings(): void {
+  warnedConditional = false;
 }

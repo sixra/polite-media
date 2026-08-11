@@ -7,7 +7,7 @@ import {
   type PoliteVideoEventDetail,
 } from './events.js';
 import { revealWhenPainted } from './reveal.js';
-import { isUnusable, manageSources, type SourceManager } from './sources.js';
+import { isUnusable, manageSources, resetSourceWarnings, type SourceManager } from './sources.js';
 import { resolveTargets, type Target } from './targets.js';
 
 /**
@@ -1278,6 +1278,7 @@ export function unregisterAll(): void {
 /** Internal reset for tests. Not exported from the package entry point. */
 export function resetForTests(): void {
   unregisterAll();
+  resetSourceWarnings();
   config = { ...defaults };
   interacted = false;
 }
