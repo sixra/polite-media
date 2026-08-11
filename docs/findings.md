@@ -20,8 +20,8 @@ This is the justification for the library's core primitive, and it is stronger t
 the usual claim. The common framing is "`playing` fires too early". The measurement
 says `playing` is not merely early, it is **unordered**: reveal on it and you either
 
-- flash — the poster is removed before any frame has painted, or
-- linger — the frame painted already and the poster was held over it.
+- flash: the poster is removed before any frame has painted, or
+- linger: the frame painted already and the poster was held over it.
 
 Which one you get depends on the codec, so neither can be tuned away with a delay.
 `requestVideoFrameCallback` is the only signal defined in terms of a frame actually
@@ -32,7 +32,7 @@ which confirms the first presented frame is frame 0. That is what makes a frame-
 poster dissolve invisible, and why `scripts/make-fixtures.sh` extracts the poster with
 `select=eq(n\,0)` rather than at an arbitrary timestamp.
 
-**Caveat:** this is the fast path — local server, warm cache, hardware H.264. The slow
+**Caveat:** this is the fast path: local server, warm cache, hardware H.264. The slow
 network case, where the gap should widen, is not measured here. The conclusion does
 not depend on it: unordered is unordered.
 
@@ -49,14 +49,14 @@ can rely on it and needs neither headed CI, `--use-gl=swiftshader`, nor a canvas
 
 Measured 2026-08-08, headless Chromium, same fixtures.
 
-| source                     | outcome                    | `MediaError.code`                                                                           |
-| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
-| `sample-truncated-av1.mp4` | `error` after 17 ms        | **3** `MEDIA_ERR_DECODE` — `PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22` |
-| `sample-av1.mp4` (intact)  | `loadeddata`, readyState 4 | —                                                                                           |
-| a URL that does not exist  | `error` after 2 ms         | **4** `MEDIA_ERR_SRC_NOT_SUPPORTED`                                                         |
+| source                     | outcome                    | `MediaError.code`                                                                          |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
+| `sample-truncated-av1.mp4` | `error` after 17 ms        | **3** `MEDIA_ERR_DECODE`, `PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22` |
+| `sample-av1.mp4` (intact)  | `loadeddata`, readyState 4 | n/a                                                                                        |
+| a URL that does not exist  | `error` after 2 ms         | **4** `MEDIA_ERR_SRC_NOT_SUPPORTED`                                                        |
 
 In the same run, `canPlayType('video/mp4; codecs="av01.0.08M.08"')` returned
-**`"probably"`** — for the very file that then failed at decode.
+**`"probably"`**, for the very file that then failed at decode.
 
 That is the documented limitation reproduced locally: the HTML Standard says
 `canPlayType` returns `"probably"` only "if the user agent is confident that the
@@ -82,7 +82,7 @@ connection failed, and another file will not fix that.
   was never a candidate, so fading it costs nothing, while fading an eager one
   forfeits the metric. `allowEager` makes that a decision instead of an accident.
 - **Video LCP uses "the poster image load time or first frame presentation time,
-  whichever is earlier"** — same page. The poster is the LCP candidate, which is why
+  whichever is earlier"**, same page. The poster is the LCP candidate, which is why
   only the video layer may start at `opacity: 0`.
 - **AV1 needs a fallback.** Safari support "is limited to devices that feature a
   hardware decoder, meaning M3 MacBooks and later, iPhone 15 Pro, and iPhone 16 and
@@ -106,7 +106,7 @@ connection failed, and another file will not fix that.
   implementations were under review. Feature-detect, keep the JS path.
   <https://caniuse.com/loading-lazy-media>
 - **WCAG 2.2.2** applies to moving content that starts automatically, lasts over five
-  seconds, and is presented in parallel with other content — which a decorative looping
+  seconds, and is presented in parallel with other content, which a decorative looping
   background video is. `prefers-reduced-motion` is not listed as satisfying it.
   <https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html>
 - **rVFC baseline.** Newly available as of October 2024, so the

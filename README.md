@@ -1,6 +1,6 @@
 # polite-media
 
-Background video and images that behave themselves. No dependencies, no framework.
+Background video and image reveals that behave themselves. No dependencies, no framework.
 
 Two independent halves, imported separately, because they share almost nothing.
 Bundled, minified and gzipped, which is what `pnpm size` enforces:
@@ -62,14 +62,14 @@ Six in total, and they fall into three groups. The distinction that catches
 people is the middle column: two of the ones you write are live on their own, and
 one is inert until you call something.
 
-| attribute                   | goes on                     | live on its own?                                           |
-| --------------------------- | --------------------------- | ---------------------------------------------------------- |
-| `data-polite-media`         | the box around poster+video | **yes**, for the CSS. The video still needs `register()`   |
-| `data-polite-reveal`        | the `<img>`                 | **no** — without `revealImages()` it reveals late, unfaded |
-| `data-polite-pause-control` | your `<button>`             | **yes** — no call, anywhere on the page                    |
-| `data-polite-ready`         | the box, or the image       | written by the library                                     |
-| `data-polite-failed`        | the box                     | written by the library                                     |
-| `data-polite-paused`        | `<html>`                    | written by the library                                     |
+| attribute                   | goes on                     | live on its own?                                          |
+| --------------------------- | --------------------------- | --------------------------------------------------------- |
+| `data-polite-media`         | the box around poster+video | **yes**, for the CSS. The video still needs `register()`  |
+| `data-polite-reveal`        | the `<img>`                 | **no**, without `revealImages()` it reveals late, unfaded |
+| `data-polite-pause-control` | your `<button>`             | **yes**, no call anywhere on the page                     |
+| `data-polite-ready`         | the box, or the image       | written by the library                                    |
+| `data-polite-failed`        | the box                     | written by the library                                    |
+| `data-polite-paused`        | `<html>`                    | written by the library                                    |
 
 `data-polite-reveal` is the one to be careful with, and it is the reason this
 table exists: `image.css` hides a marked image immediately, so marking one you
@@ -86,7 +86,7 @@ Every bug it fixes is one you can't see in development.
 **`playing` is not when the picture appears.** The usual advice is to swap the
 poster for the video on the `playing` event. Measured on one machine in one run,
 H.264 presented its first frame **1.6 ms before** `playing` fired, while AV1
-presented **0.8 ms after**. It isn't early — it's _unordered_. Reveal on it and
+presented **0.8 ms after**. It isn't early, it's _unordered_. Reveal on it and
 you either flash (poster gone, nothing painted) or linger (poster held over a
 frame that already painted), depending on the codec, so no delay tunes it away.
 `requestVideoFrameCallback` is specified in terms of a frame reaching the
@@ -106,7 +106,7 @@ counter-example, so codec checks only _order_ the candidates here and the
 **Absence of `navigator.connection` means allow, not block.** Safari and Firefox
 never expose the Network Information API and Brave disables it as a
 fingerprinting surface. Read absence as "block" and you silently kill video for
-most of the web — and every test on Chrome still passes.
+most of the web, and every test on Chrome still passes.
 
 **Video comes back frozen after a back-navigation.** Scripts don't re-run on a
 bfcache restore, and mobile browsers pause video while the tab is hidden and
@@ -131,9 +131,9 @@ Measurements and citations: [`docs/findings.md`](docs/findings.md).
 
 **It never sets a width, height or aspect ratio.** It owns _when_ media appears;
 your CSS owns _where_. That's the whole reason it drops into an existing design
-at any video size — and it would be undone by one dimension declaration.
+at any video size, and it would be undone by one dimension declaration.
 
-It's also not an image pipeline (no srcset or poster generation — that's a build
+It's also not an image pipeline (no srcset or poster generation: that's a build
 step), not a lazy-loader for images (`loading="lazy"` is native), not a player,
 not a lightbox, and not a scroll-animation library.
 
@@ -240,7 +240,7 @@ against the root _including_ the margin, so a single observer made every
 threshold mean less than it said. See [`docs/findings.md`](docs/findings.md).
 
 `register(video, { until: promise })` holds a video back until the promise
-settles — for a splash screen, a consent dialog, or protecting your LCP. A hero
+settles: for a splash screen, a consent dialog, or protecting your LCP. A hero
 at scroll-top is reported visible in the observer's very first batch, so without
 this it starts before whatever the page is waiting on has finished.
 
@@ -261,8 +261,8 @@ register(video, {
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.
 
-`registerAll(target)` takes the same shapes `revealImages` does — a selector, an
-element, or any collection — and registers each. It does not accept `observe`:
+`registerAll(target)` takes the same shapes `revealImages` does (a selector, an
+element, or any collection) and registers each. It does not accept `observe`:
 each observed element maps to exactly one video, and `register` refuses a second
 video on a target it already watches, with a warning. Reach for `register` when a
 video needs its own gate or wrapper.
@@ -327,7 +327,7 @@ register(hero, { startWhen: 'interaction' }); // the LCP candidate may not
 `requireBuffered` is the separate axis: it holds playback until the video can
 play through without stalling, for thin connections where the alternative is a
 video that plays while it is still arriving. It raises `preload` to `'auto'` when
-it prepares — necessary, because `preload="none"` means the browser buffers
+it prepares, which is necessary because `preload="none"` means the browser buffers
 nothing until playback is requested, so waiting for `canplaythrough` without the
 promotion would wait forever. All three engines honour the promotion
 ([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
@@ -347,7 +347,7 @@ all of them, and a video waits for every gate that applies to it.
 `playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
 to clear `playAbove` to start; a running one keeps going until it drops to
 `pauseBelow`. Because the two crossings are in different places, a video parked near the
-boundary cannot oscillate — `pauseGraceMs` is left covering scroll wobble instead
+boundary cannot oscillate, so `pauseGraceMs` is left covering scroll wobble instead
 of doing this job.
 
 **`pauseBelow` ships at `0.5`**, and `playAbove` at `0`, which is a single line
@@ -398,7 +398,7 @@ cannot keep on its own. If you drive `pauseAll()` from your own UI instead, put
 and gets you `aria-pressed` maintenance for free.
 
 It must be a real `<button>`. The binding is a delegated `click`, and browsers
-only synthesise that from Enter and Space for a native button — a
+only synthesise that from Enter and Space for a native button. A
 `div[role="button"][tabindex="0"]` answers a mouse and ignores a keyboard, which
 is a WCAG 2.1.1 failure.
 
@@ -409,7 +409,7 @@ library keeps it current. Maintained rather than added, because `aria-pressed`
 suits a button whose label does not change.
 
 **A label that swaps between "Pause" and "Play".** Leave `aria-pressed` off
-entirely — a screen reader announcing "Play, pressed" is worse than either half —
+entirely (a screen reader announcing "Play, pressed" is worse than either half)
 and listen for the state instead:
 
 ```js
@@ -475,8 +475,8 @@ not a label.
    The trade is that `media` cannot mean "and otherwise play nothing".
    `atOnce: { small: 0 }` says that properly.
 
-6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative — the
-   poster's `alt` carries any meaning — and without this it lands in the tab
+6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative (the
+   poster's `alt` carries any meaning), and without this it lands in the tab
    order: measured in Firefox, twelve background videos sat ahead of the pause
    button, so a keyboard user reached it on the thirteenth Tab.
 
@@ -570,8 +570,8 @@ Two things that surprise people:
 
 ## Client-side routers
 
-If your pages are replaced without a reload — Astro's `<ClientRouter />`, or any
-SPA router — **registration has to be re-run on every navigation**, and that is
+If your pages are replaced without a reload (Astro's `<ClientRouter />`, or any
+SPA router), **registration has to be re-run on every navigation**, and that is
 your job rather than the library's.
 
 Astro's docs are explicit that ["bundled module scripts … are only ever executed
@@ -596,16 +596,15 @@ nodes are released rather than pinned by a strong reference.
 ## Status
 
 Framework-agnostic by construction, proven on Astro. It takes no framework
-dependency and uses only standard DOM, but everything so far has been tested
-against Astro projects and headless Chromium — treat other combinations as
-unexercised rather than unsupported.
+dependency and uses only standard DOM. The end-to-end suite runs on Playwright's
+Chromium, Firefox and WebKit; treat other combinations as unexercised rather
+than unsupported.
 
-Two gaps worth naming rather than implying coverage. **Real Safari and iOS have
-never run this**: Playwright's WebKit is not iOS Safari, and Low Power Mode is
-the most common autoplay blocker in the wild, so the gesture-retry path is the
-least exercised code in the package. And **`<ClientRouter />` itself is untested**
-— the disconnected-element cleanup above has unit coverage, but no test drives a
-real Astro view transition.
+**Real iOS has never run this.** Playwright's WebKit is not iOS Safari, so the
+retry after a refused `play()` is the least exercised path in the package. A
+refused `play()` rejects with `NotAllowedError`, and MDN's documented remedy is
+to surface a control or wait for a gesture, which is what this does. Whether it
+does so correctly on an iPhone is untested.
 
 **Unpublished.** `polite-media` is not registered on the npm registry yet
 (`https://registry.npmjs.org/polite-media` 404s), so there is deliberately no

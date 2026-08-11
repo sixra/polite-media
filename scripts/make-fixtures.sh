@@ -56,7 +56,7 @@ ffmpeg -y -hide_banner -loglevel error -i "$out/sample-h264.mp4" \
 # pictures shows nothing, which is exactly what the demo exists to show.
 #
 # This scores 0.639, against 0.994 for the frame-0 poster beside it. Not as far
-# apart as a real art-directed pair (dental's is 0.235), because SSIM plateaus
+# apart as a real art-directed pair (a measured one scores 0.235), because SSIM plateaus
 # around 0.6 to 0.7 for any two unrelated synthetic patterns: mandelbrot measured
 # 0.686 and a gradient 0.728. Bars against testsrc2's pattern is unmistakable to
 # look at, which is what this fixture is for.

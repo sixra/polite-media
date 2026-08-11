@@ -737,8 +737,8 @@ function armGestureRetry(): void {
 
 /**
  * `play()` rejects for reasons that are recoverable rather than final: autoplay
- * blocked until a gesture, iOS Low Power Mode, or nothing buffered yet under
- * `preload="none"`.
+ * refused until a gesture, which MDN reports as `NotAllowedError`, or nothing
+ * buffered yet under `preload="none"`.
  *
  * Two rungs, because they cover different failures. `canplay` covers the
  * not-yet-buffered case, where the element is below `HAVE_FUTURE_DATA` and will

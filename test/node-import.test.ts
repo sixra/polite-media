@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
  * The regression test for the rule that no module in this package may touch a
  * browser global at module scope.
  *
- * This is not hypothetical. Dental's MediaContainer.astro hoists
+ * This is not hypothetical. A consumer component this package replaced hoisted
  * `const isMobile = matchMedia('(max-width: 767px)')` to module scope, which is
  * correct inside an Astro component script and fatal in a published package:
  * any SSR render, prerender or Node test that imports it throws
