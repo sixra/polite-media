@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media — the interaction default</title>
+    <link rel="stylesheet" href="/dist/video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>The default: wait for the visitor</h1>
+      <p class="note">
+        Nothing is configured on this page, so it shows what a consumer gets out of the box. The
+        poster sits there until you scroll, tap or press a key, and only then does the video begin.
+        That is deliberate: the browser stops measuring Largest Contentful Paint on exactly those
+        signals, so a video revealed afterwards can never become the LCP element, and an audit that
+        never interacts never starts it at all. Set
+        <code>startWhen: 'page-loaded'</code> if you would rather it came alive on its own.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="frame hero" data-polite-media id="hero">
+        <img src="/demo/assets/sample-poster.avif" alt="" />
+        <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </main>
+
+    <div class="controls">
+      <button data-polite-pause type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { register } from '/dist/video.js';
+
+      register(document.querySelector('#hero video'));
+
+      window.__playing = () => !document.querySelector('#hero video').paused;
+    </script>
+  </body>
+</html>

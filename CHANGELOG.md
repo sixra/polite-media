@@ -44,12 +44,24 @@ First release.
   clip that ends by itself is never flagged. The package promises never to
   autoplay without a way to stop it, and that is the half it cannot keep alone.
 - `startWhen`, deciding how patient a video is about starting: `'visible'`,
-  `'page-loaded'` (the default) or `'buffered'`. The default closes a window
-  nothing else covers: a deferred script's video fetch lands inside page load,
-  and measured against a demo with one resource held back it took a 1.45 second
-  head start on bandwidth the page still needed. `'buffered'` additionally waits
-  for `canplaythrough`, for connections where a video would otherwise play while
-  it is still arriving.
+  `'page-loaded'`, or `'interaction'` (the default). A genuine ladder, each rung
+  waiting for everything the one before it did.
+
+  `'interaction'` waits for the visitor's first pointer, key or scroll, which is
+  exactly the signal on which the browser stops updating Largest Contentful
+  Paint. A video revealed afterwards can never become the LCP element, and an
+  audit that never interacts never starts it. Measured on a production hero: 89
+  and LCP 3.7s with the video counted, 100 and 1.4s without. The cost is a
+  visitor who never interacts seeing a still, which is why it is one line to opt
+  out of.
+
+  Overridable per video at `register()`, because usually only the hero can be the
+  LCP element and holding a below-fold grid to the same rule buys nothing.
+
+- `requireBuffered` holds playback until the video can play through without
+  stalling, for thin connections. Its own option rather than a fourth `startWhen`
+  value: as one it competed with `'interaction'`, so "wait for the visitor, and
+  also wait for the buffer" could not be said at all.
 - `atOnce` decides how many videos may run: `0`, `1`, `'all'`, or an object
   splitting the answer by viewport. Defaults to `{ small: 1, large: 'all' }`,
   because phones have far less decode headroom than desktops: three concurrent

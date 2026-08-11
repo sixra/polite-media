@@ -34,7 +34,13 @@
     </div>
 
     <script type="module">
-      import { register } from '/dist/video.js';
+      import { configure, register } from '/dist/video.js';
+
+      // startWhen: 'page-loaded' rather than the shipped 'interaction' default,
+      // because this page is about the reveal and a demo you have to poke
+      // before anything happens would only get in the way. demo/interaction.html
+      // is the one that shows the default.
+      configure({ startWhen: 'page-loaded' });
 
       const hero = document.getElementById('hero');
       const video = hero.querySelector('video');

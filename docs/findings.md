@@ -314,3 +314,44 @@ outside the zone where two cards are both past half visible at once. A mutant
 with arbitration disabled passed in 2 of 3 engines when cards were centred
 instead of stepped, which is why the stepped-scroll method is the one that
 counts.
+
+## A background video becomes the LCP element, and costs the score
+
+Measured 2026-08-11 with Lighthouse 13.4.1, mobile preset, applied throttling
+(`--throttling-method=devtools`) against a local build of a production hotel
+site. Three runs per condition, identical every time, so none of the spread
+below is noise. "Video blocked" is the same build with the video file refused
+via `--blocked-url-patterns`, which is the closest available proxy for the video
+never painting.
+
+| condition                                | score | LCP  | LCP element |
+| ---------------------------------------- | ----- | ---- | ----------- |
+| hand-rolled implementation               | 94    | 3.0s | `<video>`   |
+| this library, `startWhen: 'page-loaded'` | 89    | 3.7s | `<video>`   |
+| either, video blocked                    | 100   | 1.4s | `<img>`     |
+
+Three things follow.
+
+**The video is the LCP element, not the poster.** Both implementations assumed
+otherwise. The hand-rolled one says so in a comment: "an equal-size video painted
+later isn't a _larger_ candidate, so it can't replace it". The measurement
+disagrees, and the poster is never hidden in that page's CSS, so occlusion is not
+the explanation either. **The mechanism is unexplained and is recorded here as
+unexplained rather than guessed at.**
+
+**LCP therefore tracks whatever delays the video, one for one.** The library
+scored _worse_ than the code it replaced precisely because it was more patient:
+the video fetch began at 2732ms rather than 2233ms, and LCP moved from 3059ms to
+3698ms. Being more polite made the number worse, which is the wrong incentive to
+leave in a default.
+
+**Nobody actually waited longer.** First Contentful Paint was 0.9 to 1.0s in
+every condition and Total Blocking Time was 0ms throughout, and the video fetch
+begins after `load` either way. The poster appears at the same moment with or
+without the video. Speed Index also worsens, 1.6s to 2.6s, for the same reason
+LCP does: a looping video means the viewport never reaches a stable final frame.
+
+This is why `startWhen` ships at `'interaction'`. The browser stops reporting LCP
+entries on "a tap, scroll, or keypress" (<https://web.dev/articles/lcp>), so
+waiting for that same signal takes the video out of the measured window by
+construction rather than by tuning.

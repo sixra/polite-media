@@ -7,7 +7,7 @@ Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,743 B    | 194 B      | **3.8 KB** |
+| `polite-media/video` | 3,818 B    | 194 B      | **3.9 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 
 An image-only page never pays for the video coordinator.
@@ -190,16 +190,17 @@ than about one video, so it is dispatched on `document` with
 There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
 
-| option          | default                      |                                                        |
-| --------------- | ---------------------------- | ------------------------------------------------------ |
-| `rootMargin`    | `'0px'`                      | how far outside the viewport to start buffering        |
-| `pauseGraceMs`  | `400`                        | anti-flicker debounce at the viewport edge             |
-| `smallViewport` | `'(max-width: 767px)'`       | which viewports are "small"                            |
-| `atOnce`        | `{ small: 1, large: 'all' }` | how many videos may run at once: `0`, `1` or `'all'`   |
-| `hysteresis`    | `0.15`                       | how much more visible a rival must be to take the slot |
-| `pauseBelow`    | `0.5`                        | visible fraction at or below which a video stops       |
-| `startWhen`     | `'page-loaded'`              | how patient a video is about starting                  |
-| `playAbove`     | `0`                          | visible fraction a video must clear before it starts   |
+| option            | default                      |                                                        |
+| ----------------- | ---------------------------- | ------------------------------------------------------ |
+| `rootMargin`      | `'0px'`                      | how far outside the viewport to start buffering        |
+| `pauseGraceMs`    | `400`                        | anti-flicker debounce at the viewport edge             |
+| `smallViewport`   | `'(max-width: 767px)'`       | which viewports are "small"                            |
+| `atOnce`          | `{ small: 1, large: 'all' }` | how many videos may run at once: `0`, `1` or `'all'`   |
+| `hysteresis`      | `0.15`                       | how much more visible a rival must be to take the slot |
+| `pauseBelow`      | `0.5`                        | visible fraction at or below which a video stops       |
+| `startWhen`       | `'interaction'`              | how patient a video is about starting                  |
+| `requireBuffered` | `false`                      | hold playback until it can play through                |
+| `playAbove`       | `0`                          | visible fraction a video must clear before it starts   |
 
 A feed is `atOnce: 1` plus a margin to buffer the next card:
 
@@ -246,7 +247,8 @@ is patched while videos are registered. Those four are read when the observer an
 the lifecycle listeners are built, so a late change does not merely fail to
 apply: `pauseBelow` and `playAbove` half-apply, because eligibility reads them
 live while the threshold ladder does not. The other four (`pauseGraceMs`,
-`atOnce`, `hysteresis` and `startWhen`) take effect on the next pass.
+`atOnce`, `hysteresis`, `startWhen` and `requireBuffered`) take effect on the
+next pass.
 
 Only `atOnce` and `startWhen` are constrained by the type system, as unions.
 TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
@@ -261,37 +263,61 @@ recognisable -- Chromium echoes the text straight back and simply never matches.
 So `smallViewport: '(max-width: 767)'`, missing its unit, means arbitration
 silently never engages and phones behave like desktops. Check that value by eye.
 
-`startWhen` decides how patient a video is, as a ladder rather than a set of
-switches. Each rung is strictly more patient than the last.
+`startWhen` decides how patient a video is, as a genuine ladder: each rung waits
+for everything the one before it did, and then something more.
 
-| value           | fetch begins               | playback begins                           |
-| --------------- | -------------------------- | ----------------------------------------- |
-| `'visible'`     | as soon as it is on screen | as soon as the browser allows             |
-| `'page-loaded'` | after `window` `load`      | as soon as the browser allows             |
-| `'buffered'`    | after `window` `load`      | once it can play through without stalling |
+| value           | waits for                                       |
+| --------------- | ----------------------------------------------- |
+| `'visible'`     | nothing but being on screen                     |
+| `'page-loaded'` | + `window`'s `load` event                       |
+| `'interaction'` | + the first pointer, key or scroll. **Default** |
 
-**`'page-loaded'` is the default.** A deferred module script starts fetching
-shortly after the DOM is parsed, which on a real page is inside the tail of page
-load: measured on a demo with one resource held back, the eager setting began
-the video at 106ms against a `load` at 1560ms, taking 1.45 seconds of bandwidth
-the page still needed. The poster is already on screen, so waiting costs nothing
-visible.
+**`'interaction'` is the default, and it is the one setting with a real
+trade-off.** The browser stops updating Largest Contentful Paint on "a tap,
+scroll, or keypress", so a video revealed after that signal can never become the
+LCP element, and a synthetic audit, which never interacts, never starts it at
+all. Measured on a production hero: **89 and LCP 3.7s** with the video counted,
+**100 and LCP 1.4s** without ([`docs/findings.md`](docs/findings.md)).
 
-**`'buffered'` is for thin connections**, where the alternative is a video that
-plays while it is still arriving. It raises `preload` to `'auto'` when it decides
-to prepare — necessary, because `preload="none"` means the browser buffers
+The cost is yours to weigh: a visitor who lands and never scrolls or taps sees a
+still. On a phone that is usually a second; on a desktop it can be indefinite for
+someone reading without moving. Set `'page-loaded'` for autoplay on arrival, and
+keep in mind that a background video is decorative by this package's own markup
+contract.
+
+`'page-loaded'` still earns its place underneath. A deferred module script starts
+fetching shortly after the DOM is parsed, which on a real page lands inside the
+tail of page load: measured on a demo with one resource held back, `'visible'`
+began the video at 106ms against a `load` at 1560ms, taking 1.45 seconds of
+bandwidth the page still needed.
+
+**Override it per video** when one video is special, which is usually the hero,
+because only a video that can be the LCP element needs the strictest gate:
+
+```js
+configure({ startWhen: 'page-loaded' }); //  the grid may autoplay
+register(hero, { startWhen: 'interaction' }); // the LCP candidate may not
+```
+
+`requireBuffered` is the separate axis: it holds playback until the video can
+play through without stalling, for thin connections where the alternative is a
+video that plays while it is still arriving. It raises `preload` to `'auto'` when
+it prepares — necessary, because `preload="none"` means the browser buffers
 nothing until playback is requested, so waiting for `canplaythrough` without the
 promotion would wait forever. All three engines honour the promotion
 ([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
 stays, which is the same outcome as reduced motion or Save-Data.
 
+It is deliberately not a fourth `startWhen` value. As one it competed with
+`'interaction'`, so "wait for the visitor, and also wait for the buffer" could
+not be expressed at all.
+
 Two consequences worth knowing. A page whose `load` never fires never starts its
-videos, and `'buffered'` is not the one place the library changes markup you
-authored: it is one of two. `prefetch()` also promotes `preload` to `'auto'`, for
-any video within a configured `rootMargin`, once the page has loaded and its
-`until` gate has settled. `until` composes with all of this: that gates one video
-on your own promise, `startWhen` is the policy for all of them, and a video waits
-for both.
+videos, and `requireBuffered` is one of two places the library changes markup you
+authored: `prefetch()` also promotes `preload` to `'auto'`, for any video within
+a configured `rootMargin`, once its gates have settled. `until` composes with all
+of this: that gates one video on your own promise, `startWhen` is the policy for
+all of them, and a video waits for every gate that applies to it.
 
 `playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
 to clear `playAbove` to start; a running one keeps going until it drops to

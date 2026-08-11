@@ -163,6 +163,15 @@ function makeHarness(options: HarnessOptions = {}): Harness {
 let reduceMotion = false;
 let smallViewport = false;
 
+/**
+ * happy-dom reports `readyState: 'complete'`, so any test about the page gate
+ * has to say otherwise. Restored in the shared teardown, or one test leaves the
+ * page "loading" for every test after it.
+ */
+function setReadyState(value: DocumentReadyState): void {
+  Object.defineProperty(document, 'readyState', { value, configurable: true });
+}
+
 beforeEach(() => {
   reduceMotion = false;
   smallViewport = false;
@@ -182,9 +191,18 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
   }));
   Object.defineProperty(navigator, 'connection', { value: undefined, configurable: true });
+
+  // The shipped default is 'interaction', which almost none of these tests are
+  // about: they would each have to dispatch a scroll before asserting anything
+  // plays. Pinned to the previous default here so they stay about arbitration,
+  // reveal and sources. The gate has its own describe block, which opts back
+  // into 'interaction' explicitly rather than relying on the default reaching
+  // it through here.
+  configure({ startWhen: 'page-loaded' });
 });
 
 afterEach(() => {
+  setReadyState('complete');
   resetForTests();
   resetEnv();
   vi.unstubAllGlobals();
@@ -1682,12 +1700,6 @@ describe('the unreachable-start warning', () => {
  * rather than trusting the environment.
  */
 describe('startWhen', () => {
-  function setReadyState(value: DocumentReadyState): void {
-    Object.defineProperty(document, 'readyState', { value, configurable: true });
-  }
-
-  afterEach(() => setReadyState('complete'));
-
   it('holds a visible video until the page has loaded', () => {
     setReadyState('loading');
     const { video, play } = makeHarness();
@@ -1725,9 +1737,9 @@ describe('startWhen', () => {
     expect(() => configure({ startWhen: 'page-load' })).not.toThrow();
   });
 
-  describe('buffered', () => {
+  describe('requireBuffered', () => {
     it('promotes preload and waits for canplaythrough before playing', () => {
-      configure({ startWhen: 'buffered' });
+      configure({ requireBuffered: true, startWhen: 'visible' });
       const { video, play } = makeHarness();
       Object.defineProperty(video, 'readyState', { get: () => 1, configurable: true });
       register(video);
@@ -1743,7 +1755,7 @@ describe('startWhen', () => {
     });
 
     it('does not wait when the data is already there', () => {
-      configure({ startWhen: 'buffered' });
+      configure({ requireBuffered: true, startWhen: 'visible' });
       const { video, play } = makeHarness();
       Object.defineProperty(video, 'readyState', { get: () => 4, configurable: true });
       register(video);
@@ -2022,5 +2034,71 @@ describe('a handover under a single slot', () => {
     expect(pause).not.toHaveBeenCalled();
     vi.advanceTimersByTime(400);
     expect(pause).toHaveBeenCalled();
+  });
+});
+
+describe("the 'interaction' gate", () => {
+  const interact = (): void => {
+    window.dispatchEvent(new Event('scroll'));
+  };
+
+  it('is the shipped default', () => {
+    // Not inherited from the suite setup, which pins 'page-loaded': this asserts
+    // what a consumer who configures nothing actually gets.
+    resetForTests();
+    const { video, play } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).not.toHaveBeenCalled();
+
+    interact();
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('waits for the page as well as the visitor', () => {
+    resetForTests();
+    setReadyState('loading');
+    const { video, play } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    // Interacting first is the ordering that matters: a visitor can scroll
+    // before load, and starting then would be worse than 'page-loaded' rather
+    // than better.
+    interact();
+    expect(play).not.toHaveBeenCalled();
+
+    setReadyState('complete');
+    window.dispatchEvent(new Event('load'));
+    expect(play).toHaveBeenCalled();
+  });
+
+  it('lets one video hold out while the rest of the page does not', () => {
+    configure({ startWhen: 'page-loaded' });
+    const hero = makeHarness();
+    const card = makeHarness();
+    register(hero.video, { startWhen: 'interaction' });
+    register(card.video);
+
+    currentObserver().report([
+      [hero.video, 0.9],
+      [card.video, 0.9],
+    ]);
+
+    expect(card.play).toHaveBeenCalled();
+    expect(hero.play).not.toHaveBeenCalled();
+
+    interact();
+    expect(hero.play).toHaveBeenCalled();
+  });
+
+  it('lets one video start early while the page holds out', () => {
+    configure({ startWhen: 'interaction' });
+    const { video, play } = makeHarness();
+    register(video, { startWhen: 'page-loaded' });
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalled();
   });
 });

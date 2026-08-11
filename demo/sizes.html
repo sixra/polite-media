@@ -51,7 +51,9 @@
       // Arbitration off, because this page is about geometry: every box should
       // be running at once so the sizes can be compared. Everywhere, not just on
       // desktop, so the demo does not change shape on a phone.
-      configure({ atOnce: 'all' });
+      // startWhen: 'page-loaded' rather than the shipped default: this page is
+      // about geometry, not about when playback begins.
+      configure({ atOnce: 'all', startWhen: 'page-loaded' });
 
       const markup = `
         <img src="/demo/assets/sample-poster.avif" alt="" />

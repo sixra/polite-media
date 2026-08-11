@@ -32,7 +32,10 @@ const budgets = {
   // against, atOnce replacing the mobile-only switch, pausing an outgoing video
   // at once when another takes its slot, and holding the prefetch behind page
   // load so a margin cannot defeat startWhen.
-  'src/video.ts': 3780,
+  // Then +75 B for the startWhen work: an 'interaction' rung that is now the
+  // default, a per-video override so a hero can hold out while a grid does not,
+  // and requireBuffered split off as its own axis.
+  'src/video.ts': 3860,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a

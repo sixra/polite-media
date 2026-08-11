@@ -29,6 +29,15 @@ import { resolveTargets, type Target } from './targets.js';
 export type AtOnce = 0 | 1 | 'all';
 
 /**
+ * How patient a video is about starting, as a genuine ladder: each value waits
+ * for everything the one before it did, and then something more.
+ *
+ * Buffering is deliberately not a fourth value here. It is a different question
+ * and lives on {@link ConfigureOptions.requireBuffered}, so the two compose.
+ */
+export type StartWhen = 'visible' | 'page-loaded' | 'interaction';
+
+/**
  * Options for {@link configure}. Every field is optional; anything left out keeps
  * its default.
  *
@@ -135,18 +144,42 @@ export interface ConfigureOptions {
    * - `'visible'` starts fetching the moment the video is on screen. Module
    *   scripts are deferred, so on a real page that lands inside the tail of the
    *   page's own loading and competes with it.
-   * - `'page-loaded'` waits for `window`'s `load` event first. The default,
-   *   because the poster is already on screen so nothing is missing while it
-   *   waits, and it costs the page nothing.
-   * - `'buffered'` additionally holds playback until the video can play through
-   *   without stalling. For a thin connection, where the alternative is a video
-   *   that plays while it is still arriving.
+   * - `'page-loaded'` waits for `window`'s `load` event first, so the video
+   *   competes with nothing the page still needs.
+   * - `'interaction'` additionally waits for the visitor: the first
+   *   `pointerdown`, `keydown` or `scroll`. The default.
    *
-   * `until` composes with this rather than replacing it: that is a gate for one
-   * video (a splash, a consent dialog), this is a policy for all of them, and a
-   * video waits for both.
+   * `'interaction'` is the default because a background video is decorative by
+   * this package's own markup contract, and because the browser stops updating
+   * Largest Contentful Paint on exactly that signal. A video revealed afterwards
+   * can never become the LCP element, and a synthetic audit, which never
+   * interacts, never starts it at all. Measured on a production hero: 89 and
+   * 3.7s with the video counted, 100 and 1.4s without (docs/findings.md).
+   *
+   * The cost is real and is yours to weigh: a visitor who lands and never
+   * scrolls or taps sees a still. Set `'page-loaded'` for autoplay on arrival.
+   *
+   * Two things compose with this rather than replacing it.
+   * {@link ConfigureOptions.requireBuffered} asks for data as well as patience,
+   * and `until` gates one video on your own promise while this is the policy for
+   * all of them. A video waits for every gate that applies to it.
    */
-  startWhen?: 'visible' | 'page-loaded' | 'buffered';
+  startWhen?: StartWhen;
+  /**
+   * Hold playback until the video can play through without stalling.
+   *
+   * Separate from {@link ConfigureOptions.startWhen} because they answer
+   * different questions: that one is *when may it begin*, this one is *how much
+   * data first*. As a fourth `startWhen` value it competed with `'interaction'`,
+   * so "wait for the user, and also wait for the buffer" could not be said at
+   * all.
+   *
+   * Raises `preload` to `'auto'` when it prepares, which it has to: the markup
+   * contract says `preload="none"`, and a browser buffers nothing until playback
+   * is asked for, so waiting for `canplaythrough` without the promotion would
+   * wait forever.
+   */
+  requireBuffered?: boolean;
 }
 
 /**
@@ -163,7 +196,8 @@ const defaults: ResolvedConfig = {
   hysteresis: 0.15,
   pauseBelow: 0.5,
   playAbove: 0,
-  startWhen: 'page-loaded',
+  startWhen: 'interaction',
+  requireBuffered: false,
 };
 
 let config: ResolvedConfig = { ...defaults };
@@ -308,6 +342,14 @@ export interface RegisterOptions {
    * positioned inside a wrapper that carries the real layout box.
    */
   observe?: Element;
+  /**
+   * Override the page's {@link ConfigureOptions.startWhen} for this video.
+   *
+   * A page usually wants one policy, but not always: only a video that can be
+   * the LCP element needs the strictest gate, and holding a below-fold grid to
+   * the same rule buys nothing.
+   */
+  startWhen?: StartWhen;
 }
 
 interface Entry {
@@ -351,7 +393,9 @@ interface Entry {
   started: boolean;
   /** One pending play retry at a time, rather than a listener per rejection. */
   retryArmed: boolean;
-  /** Holding for `canplaythrough` under `startWhen: 'buffered'`. */
+  /** This video's own `startWhen`, when register() was given one. */
+  startWhen?: StartWhen;
+  /** Holding for `canplaythrough` under `requireBuffered`. */
   awaitingBuffer?: boolean;
   sources?: SourceManager;
   pauseTimer?: ReturnType<typeof setTimeout>;
@@ -392,6 +436,15 @@ let userPaused = false;
 
 /** Bumped by every reconcile, so a pass can tell that a newer one has overtaken it. */
 let generation = 0;
+
+/**
+ * The visitor has done something: pointer, key or scroll.
+ *
+ * Not filtered on `isTrusted`. A page that scrolls itself is in use, and the
+ * point of the gate is to keep video out of the window an audit measures, which
+ * a synthetic run never opens either way.
+ */
+let interacted = false;
 
 /**
  * The two environment gates. Not every reason a video may be stopped -- the
@@ -475,6 +528,22 @@ function cancelPause(entry: Entry): void {
 function pauseNow(entry: Entry): void {
   cancelPause(entry);
   entry.video.pause();
+}
+
+/**
+ * Everything `startWhen` is still waiting for, for this video.
+ *
+ * One function rather than the condition written out at each site: it was
+ * duplicated in reconcile() and prefetch(), and the prefetch copy was added a
+ * commit later than the other, having originally been forgotten.
+ */
+function waitingToStart(entry: Entry): boolean {
+  const startWhen = entry.startWhen ?? config.startWhen;
+  if (startWhen === 'visible') return false;
+  if (!pageLoaded()) return true;
+  // Deliberately load *and* interaction: a visitor can scroll before load, and
+  // starting the fetch then would be worse than 'page-loaded' rather than better.
+  return startWhen === 'interaction' && !interacted;
 }
 
 function pauseAfterGrace(entry: Entry): void {
@@ -675,7 +744,7 @@ function armGestureRetry(): void {
  * as `canplay`, so adding it would only look like defence in depth.
  */
 function tryPlay(entry: Entry): void {
-  // Held while the buffer fills under `startWhen: 'buffered'`. Guarded here
+  // Held while the buffer fills under `requireBuffered`. Guarded here
   // rather than at the call sites, because reconcile()'s resume path and both
   // retry rungs would otherwise start playback while it is still arriving.
   if (entry.awaitingBuffer) return;
@@ -755,7 +824,7 @@ function prefetch(entry: Entry): void {
   // startWhen entirely, because the fetch this triggers lands inside page load,
   // which is the contention `'page-loaded'` exists to avoid. Measured on
   // demo/feed.html: the video request went out before the load event.
-  if (config.startWhen !== 'visible' && !pageLoaded()) return;
+  if (waitingToStart(entry)) return;
   if (!prepare(entry)) return;
   if (entry.video.preload !== 'auto') entry.video.preload = 'auto';
 }
@@ -772,7 +841,7 @@ function start(entry: Entry): void {
   // Waiting for `canplaythrough` without promoting `preload` first would wait
   // forever, for the reason prefetch() describes.
   if (
-    config.startWhen === 'buffered' &&
+    config.requireBuffered &&
     !entry.awaitingBuffer &&
     entry.video.readyState < HAVE_ENOUGH_DATA
   ) {
@@ -854,13 +923,12 @@ export function reconcile(): void {
   // exactly as before; pull them apart and a video near the boundary can no
   // longer oscillate, because the two crossings are in different places.
   const startAt = Math.max(config.playAbove, config.pauseBelow);
-  // Nothing may start before the page has finished loading unless the host has
-  // asked for the eager rung. Checked here rather than at registration because
-  // `load` arrives later and has to re-run the arbiter.
-  const waitingForPage = config.startWhen !== 'visible' && !pageLoaded();
-
+  // Per video rather than per page, because `startWhen` is overridable at
+  // register(): a hero can hold out for the visitor while a below-fold grid does
+  // not. Checked here rather than at registration because load and the first
+  // interaction both arrive later and each has to re-run the arbiter.
   const eligible = [...entries.values()].filter((e) => {
-    if (e.gated || waitingForPage) return false;
+    if (e.gated || waitingToStart(e)) return false;
     if (!e.started && e.ratio > 0) warnIfStartUnreachable(e);
     return e.ratio > (e.started ? config.pauseBelow : startAt);
   });
@@ -902,12 +970,26 @@ export function reconcile(): void {
   }
 
   // Retried here because the prefetch observer reports a target once, and a
-  // refusal above may since have been lifted -- page load being the usual one.
+  // refusal may since have been lifted: page load, or the first interaction.
   // Last, so it can never influence the decisions this pass just made.
-  if (waitingForPage) return;
   for (const entry of [...entries.values()]) {
     if (entry.nearby && !entry.prepared) prefetch(entry);
   }
+}
+
+/**
+ * The visitor's first pointer, key or scroll, which opens the `'interaction'`
+ * gate for good.
+ *
+ * Distinct from the gesture retry below, which listens for a pointer to
+ * re-attempt a play() the browser refused. That one is about permission, this is
+ * about timing, and conflating them would start videos on a page whose autoplay
+ * was never blocked.
+ */
+function onInteraction(): void {
+  if (interacted) return;
+  interacted = true;
+  reconcile();
 }
 
 /**
@@ -964,6 +1046,15 @@ function attachLifecycle(): void {
 
   if (!pageLoaded()) {
     window.addEventListener('load', () => reconcile(), { once: true, signal });
+  }
+
+  // Once, then never again: the flag is sticky, so there is nothing to keep
+  // listening for. Passive because none of these are cancelled, and `scroll`
+  // especially must not be made to look cancellable.
+  if (!interacted) {
+    for (const type of ['pointerdown', 'keydown', 'scroll'] as const) {
+      window.addEventListener(type, onInteraction, { once: true, passive: true, signal });
+    }
   }
 
   window.addEventListener('pageshow', onPageShow, { signal });
@@ -1036,6 +1127,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     host: video.parentElement ?? video,
     ratio: 0,
     gated: Boolean(options.until),
+    startWhen: options.startWhen,
     seenConnected: video.isConnected,
     prepared: false,
     started: false,
@@ -1187,6 +1279,7 @@ export function unregisterAll(): void {
 export function resetForTests(): void {
   unregisterAll();
   config = { ...defaults };
+  interacted = false;
 }
 
 /** Internal view for tests. Not exported from the package entry point. */

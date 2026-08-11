@@ -605,3 +605,23 @@ test.describe('reveal failsafe', () => {
     await expect.poll(() => warnings.filter((text) => /revealImages/.test(text)).length).toBe(1);
   });
 });
+
+test.describe('the interaction default', () => {
+  // demo/interaction.html configures nothing, so this is what a consumer gets
+  // out of the box. Every other video demo opts into 'page-loaded' precisely
+  // because this gate would otherwise be in the way of what they demonstrate,
+  // which means this is the only place the shipped default is exercised.
+  test('holds the video until the visitor does something, then starts it', async ({ page }) => {
+    await page.goto('/demo/interaction.html');
+
+    // Absence cannot be polled for, so settle first and say so.
+    await settle(page);
+    expect(await page.evaluate(() => window.__playing())).toBe(false);
+
+    // A real key press rather than a synthesised event: the point is that a
+    // genuine visitor action opens the gate.
+    await page.keyboard.press('Shift');
+
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
+});

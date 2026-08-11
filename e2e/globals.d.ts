@@ -8,6 +8,7 @@ declare global {
     __preloadCount: () => number;
     __opacity: (id: string) => string;
     __isReady: (id: string) => boolean;
+    __playing: () => boolean;
     __marks: {
       ready: number | null;
       framesAtReveal: number | null;
