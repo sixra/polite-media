@@ -3,20 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>polite-media: the interaction default</title>
+    <title>polite-media: waiting for the visitor</title>
     <link rel="stylesheet" href="/dist/video.css" />
     <link rel="stylesheet" href="/demo/demo.css" />
   </head>
   <body>
     <header>
-      <h1>The default: wait for the visitor</h1>
+      <h1>Waiting for the visitor</h1>
       <p class="note">
-        Nothing is configured on this page, so it shows what a consumer gets out of the box. The
-        poster sits there until you scroll, tap or press a key, and only then does the video begin.
-        That is deliberate: the browser stops measuring Largest Contentful Paint on exactly those
-        signals, so a video revealed afterwards can never become the LCP element, and an audit that
-        never interacts never starts it at all. Set
-        <code>startWhen: 'page-loaded'</code> if you would rather it came alive on its own.
+        This page opts into <code>startWhen: 'interaction'</code>. The poster sits there until you
+        scroll, tap or press a key, and only then does the video begin. Reach for it when Largest
+        Contentful Paint matters: the browser stops measuring LCP on exactly those signals, so a
+        video revealed afterwards can never become the LCP element, and an audit that never
+        interacts never starts it at all.
+      </p>
+      <p class="note">
+        The shipped default is <code>'page-loaded'</code>, which plays without being asked. The
+        trade is that a visitor who lands and never moves sees a still, which on a desktop can last
+        as long as they read.
       </p>
       <nav><a href="/demo/">all demos</a></nav>
     </header>
@@ -28,6 +32,11 @@
           <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
         </video>
       </div>
+
+      <!-- The page has to be scrollable for scrolling to be one of the triggers
+           it demonstrates. Without this a wheel event produces no scroll at all,
+           which is engine-dependent and quietly made the scroll case untestable. -->
+      <div class="spacer">a scroll counts too, and so does any tap or key</div>
     </main>
 
     <div class="controls">
@@ -35,7 +44,9 @@
     </div>
 
     <script type="module">
-      import { register } from '/dist/video.js';
+      import { configure, register } from '/dist/video.js';
+
+      configure({ startWhen: 'interaction' });
 
       register(document.querySelector('#hero video'));
 

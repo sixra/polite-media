@@ -22,9 +22,9 @@
         <strong>Watch the network panel: the video is not requested either.</strong>
       </p>
       <p class="note">
-        <code>startWhen: 'page-loaded'</code> is set here on purpose. The shipped
-        <code>'interaction'</code> default would hold the video anyway, and a demo that cannot tell
-        you which gate did the holding is not showing you anything.
+        Nothing is configured here. On the shipped <code>'page-loaded'</code> default the video
+        would play as soon as the page finished loading, so anything still holding it is
+        <code>until</code> and nothing else.
       </p>
       <nav><a href="/demo/">all demos</a></nav>
     </header>
@@ -44,9 +44,7 @@
     </div>
 
     <script type="module">
-      import { configure, register } from '/dist/video.js';
-
-      configure({ startWhen: 'page-loaded' });
+      import { register } from '/dist/video.js';
 
       let dismiss;
       const splashDone = new Promise((resolve) => {

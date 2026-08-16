@@ -8,10 +8,10 @@ import { expect, test } from '@playwright/test';
  * (`until`) is what one of the projects this came out of uses to hold a hero
  * behind a splash screen.
  *
- * Each page here sets `startWhen: 'page-loaded'` deliberately. The shipped
- * 'interaction' default would hold playback on its own, so every assertion below
- * would pass with the option under test deleted, which is the exact way two
- * tests in this suite have already managed to assert nothing.
+ * None of these pages configures `startWhen`. On the shipped 'page-loaded'
+ * default nothing else is holding playback, so whatever these tests observe is
+ * the option under test and not a gate standing in for it. Each assertion below
+ * was checked by deleting its option and watching the test go red.
  */
 
 test.describe('until', () => {

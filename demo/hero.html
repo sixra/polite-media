@@ -34,13 +34,7 @@
     </div>
 
     <script type="module">
-      import { configure, register } from '/dist/video.js';
-
-      // startWhen: 'page-loaded' rather than the shipped 'interaction' default,
-      // because this page is about the reveal and a demo you have to poke
-      // before anything happens would only get in the way. demo/interaction.html
-      // is the one that shows the default.
-      configure({ startWhen: 'page-loaded' });
+      import { register } from '/dist/video.js';
 
       const hero = document.getElementById('hero');
       const video = hero.querySelector('video');
@@ -58,6 +52,9 @@
         marks.readyStateAtReveal = video.readyState;
       });
       window.__marks = marks;
+      // This page configures nothing, so it is where the shipped default is
+      // exercised: a hero that plays after load without anyone touching it.
+      window.__playing = () => !video.paused;
 
       register(video, { observe: hero });
     </script>

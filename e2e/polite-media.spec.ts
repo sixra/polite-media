@@ -567,11 +567,25 @@ test.describe('reveal failsafe', () => {
   });
 });
 
-test.describe('the interaction default', () => {
-  // demo/interaction.html configures nothing, so this is what a consumer gets
-  // out of the box. Every other video demo opts into 'page-loaded' precisely
-  // because this gate would otherwise be in the way of what they demonstrate,
-  // which means this is the only place the shipped default is exercised.
+test.describe('the shipped default', () => {
+  // demo/hero.html configures nothing at all, so this is what a consumer gets
+  // out of the box: a video that plays once the page has loaded, with nobody
+  // having touched anything.
+  test('plays after load with no interaction at all', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+
+    // Deliberately no click, key or scroll anywhere in this test. A phone-sized
+    // viewport because the case that prompted this default was a visitor who
+    // lands and never moves.
+    await page.setViewportSize({ width: 390, height: 780 });
+
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
+});
+
+test.describe("the 'interaction' gate", () => {
+  // demo/interaction.html opts into it, which is the only place this mode is
+  // driven in a browser. It is the setting to reach for when LCP matters.
   test('holds the video until the visitor does something, then starts it', async ({ page }) => {
     await page.goto('/demo/interaction.html');
 
@@ -582,6 +596,18 @@ test.describe('the interaction default', () => {
     // A real key press rather than a synthesised event: the point is that a
     // genuine visitor action opens the gate.
     await page.keyboard.press('Shift');
+
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
+
+  // The gate the earlier suite never covered: scroll is the trigger that matters
+  // most in practice, and only the keypress path had a test.
+  test('a scroll opens the gate too', async ({ page }) => {
+    await page.goto('/demo/interaction.html');
+    await settle(page);
+    expect(await page.evaluate(() => window.__playing())).toBe(false);
+
+    await page.mouse.wheel(0, 1);
 
     await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
   });

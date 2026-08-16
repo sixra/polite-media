@@ -59,9 +59,10 @@ First release.
 
 ### Defaults worth knowing
 
-- **`startWhen: 'interaction'`.** Video waits for the visitor's first pointer, key
-  or scroll, which keeps it out of Largest Contentful Paint. Set `'page-loaded'`
-  for autoplay on arrival.
+- **`startWhen: 'page-loaded'`.** Video fetches and plays once `window`'s `load`
+  event has fired, so its bytes never compete with the page's own. Set
+  `'interaction'` to additionally wait for the visitor's first pointer, key or
+  scroll, which keeps the video out of Largest Contentful Paint entirely.
 - **`--polite-fade: 0s` for video, a cut.** Images default to `350ms`. Scope the
   property to one container to give that video its own fade.
 - **`atOnce: { small: 1, large: 'all' }`.** One video at a time on small

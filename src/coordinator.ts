@@ -145,19 +145,24 @@ export interface ConfigureOptions {
    *   scripts are deferred, so on a real page that lands inside the tail of the
    *   page's own loading and competes with it.
    * - `'page-loaded'` waits for `window`'s `load` event first, so the video
-   *   competes with nothing the page still needs.
+   *   competes with nothing the page still needs. The default.
    * - `'interaction'` additionally waits for the visitor: the first
-   *   `pointerdown`, `keydown` or `scroll`. The default.
+   *   `pointerdown`, `keydown` or `scroll`.
    *
-   * `'interaction'` is the default because a background video is decorative by
-   * this package's own markup contract, and because the browser stops updating
-   * Largest Contentful Paint on exactly that signal: "a tap, scroll, or
-   * keypress" (https://web.dev/articles/lcp). A video revealed afterwards can
+   * `'page-loaded'` is the default because a video that never plays reads as
+   * broken. It keeps the part that matters most: the fetch happens after `load`,
+   * so those bytes never compete with the page's own.
+   *
+   * **Reach for `'interaction'` when Largest Contentful Paint matters.** The
+   * browser stops updating LCP on "a tap, scroll, or keypress"
+   * (https://web.dev/articles/lcp), so a video revealed after that signal can
    * never become the LCP element, and a synthetic audit, which never interacts,
-   * never starts it at all.
+   * never starts it at all. The cost is a visitor who lands and never scrolls,
+   * taps or types: they see a still.
    *
-   * The cost is real and is yours to weigh: a visitor who lands and never
-   * scrolls or taps sees a still. Set `'page-loaded'` for autoplay on arrival.
+   * Below the fold the choice barely matters, since a video down there cannot be
+   * seen without scrolling and scrolling is the interaction. It is a policy for
+   * whatever is on screen at load, which in practice means the hero.
    *
    * Two things compose with this rather than replacing it.
    * {@link ConfigureOptions.requireBuffered} asks for data as well as patience,
@@ -196,7 +201,7 @@ const defaults: ResolvedConfig = {
   hysteresis: 0.15,
   pauseBelow: 0.5,
   playAbove: 0,
-  startWhen: 'interaction',
+  startWhen: 'page-loaded',
   requireBuffered: false,
 };
 

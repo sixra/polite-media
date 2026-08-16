@@ -7,7 +7,7 @@ nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,953 B    | 194 B      | **4.1 KB** |
+| `polite-media/video` | 3,954 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 | `polite-media/warm`  | 643 B      | none       | **643 B**  |
 
@@ -65,9 +65,13 @@ than merely plausible.
 
 ### A hero video behind a title
 
-The poster is the Largest Contentful Paint element, so load it eagerly and let the
-video wait. Nothing needs configuring: by default the video holds until the visitor
-scrolls, taps or presses a key.
+The poster is the Largest Contentful Paint element, so load it eagerly. Nothing
+needs configuring: the video fetches once the page has loaded, so it never competes
+with the page's own bytes.
+
+If Lighthouse scores matter to you, add `{ startWhen: 'interaction' }` to the
+`register` call. The video then waits for the visitor's first scroll, tap or
+keypress, which keeps it out of the LCP measurement entirely.
 
 ```html
 <div class="hero" data-polite-media>
@@ -275,7 +279,7 @@ by putting the two crossings in different places.
 
 | option            | default         | reach for it when                                                             |
 | ----------------- | --------------- | ----------------------------------------------------------------------------- |
-| `startWhen`       | `'interaction'` | you want autoplay on arrival, and accept the LCP cost                         |
+| `startWhen`       | `'page-loaded'` | you want the video out of the LCP measurement, and accept it waiting          |
 | `requireBuffered` | `false`         | your visitors are on connections where video plays while it is still arriving |
 | `prefetchMargin`  | `'0px'`         | the next card should be buffered before it arrives                            |
 
@@ -343,25 +347,32 @@ silently never engages and phones behave like desktops. Check that value by eye.
 `startWhen` decides how patient a video is, as a genuine ladder: each rung waits
 for everything the one before it did, and then something more.
 
-| value           | waits for                                       |
-| --------------- | ----------------------------------------------- |
-| `'visible'`     | nothing but being on screen                     |
-| `'page-loaded'` | + `window`'s `load` event                       |
-| `'interaction'` | + the first pointer, key or scroll. **Default** |
+| value           | waits for                              |
+| --------------- | -------------------------------------- |
+| `'visible'`     | nothing but being on screen            |
+| `'page-loaded'` | + `window`'s `load` event. **Default** |
+| `'interaction'` | + the first pointer, key or scroll     |
 
-**`'interaction'` is the default, and it is the one setting with a real
-trade-off.** The browser stops updating Largest Contentful Paint on "a tap,
+**`'page-loaded'` is the default**, so a video plays on its own once the page has
+finished loading. Its fetch still waits for `load`, so those bytes never compete
+with the page's own.
+
+**`'interaction'` is the one setting with a real trade-off, and it is worth
+knowing about.** The browser stops updating Largest Contentful Paint on "a tap,
 scroll, or keypress" ([web.dev][lcp]), so a video revealed after that signal can
 never become the LCP element, and a synthetic audit, which never interacts, never
-starts it at all.
+starts it at all. On a hero that is the difference between the poster being your
+largest paint and the video being it.
 
 The cost is yours to weigh: a visitor who lands and never scrolls or taps sees a
-still. On a phone that is usually a second; on a desktop it can be indefinite for
-someone reading without moving. Set `'page-loaded'` for autoplay on arrival, and
-keep in mind that a background video is decorative by this package's own markup
-contract.
+still. On a phone that is usually a second, since any flick counts; on a desktop
+it can last as long as they read without moving.
 
-`'page-loaded'` still earns its place underneath. A deferred module script starts
+Below the fold it barely matters either way: a video down there cannot be seen
+without scrolling, and scrolling is the interaction. This is a policy for whatever
+is on screen at load, which in practice means the hero.
+
+`'page-loaded'` earns the default underneath. A deferred module script starts
 fetching shortly after the DOM is parsed, which on a real page lands inside the
 tail of page load: measured on a demo with one resource held back, `'visible'`
 began the video at 106ms against a `load` at 1560ms, taking 1.45 seconds of
@@ -371,8 +382,8 @@ bandwidth the page still needed.
 because only a video that can be the LCP element needs the strictest gate:
 
 ```js
-configure({ startWhen: 'page-loaded' }); //  the grid may autoplay
-register(hero, { startWhen: 'interaction' }); // the LCP candidate may not
+// The grid autoplays on the default; only the LCP candidate holds back.
+register(hero, { startWhen: 'interaction' });
 ```
 
 `requireBuffered` is the separate axis: it holds playback until the video can

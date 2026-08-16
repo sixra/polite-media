@@ -206,14 +206,6 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
   }));
   Object.defineProperty(navigator, 'connection', { value: undefined, configurable: true });
-
-  // The shipped default is 'interaction', which almost none of these tests are
-  // about: they would each have to dispatch a scroll before asserting anything
-  // plays. Pinned to the previous default here so they stay about arbitration,
-  // reveal and sources. The gate has its own describe block, which opts back
-  // into 'interaction' explicitly rather than relying on the default reaching
-  // it through here.
-  configure({ startWhen: 'page-loaded' });
 });
 
 afterEach(() => {
@@ -2040,17 +2032,15 @@ describe("the 'interaction' gate", () => {
     window.dispatchEvent(new Event('scroll'));
   };
 
-  it('is the shipped default', () => {
-    // Not inherited from the suite setup, which pins 'page-loaded': this asserts
-    // what a consumer who configures nothing actually gets.
+  it('is opt-in, so the shipped default plays without any interaction', () => {
+    // The shipped default is 'page-loaded'. This asserts what a consumer who
+    // configures nothing actually gets, which is a video that plays once the
+    // page has loaded and it is on screen, with nobody having touched anything.
     resetForTests();
     const { video, play } = makeHarness();
     register(video);
 
     currentObserver().report([[video, 0.9]]);
-    expect(play).not.toHaveBeenCalled();
-
-    interact();
     expect(play).toHaveBeenCalled();
   });
 

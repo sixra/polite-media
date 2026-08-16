@@ -79,12 +79,7 @@
     </div>
 
     <script type="module">
-      import { configure, registerAll } from '/dist/video.js';
-
-      // startWhen: 'page-loaded' rather than the shipped 'interaction' default,
-      // because this page is about what the swap looks like and a demo you have
-      // to poke first hides the moment it exists to show.
-      configure({ startWhen: 'page-loaded' });
+      import { registerAll } from '/dist/video.js';
 
       registerAll('[data-polite-media] video');
 

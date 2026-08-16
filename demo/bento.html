@@ -33,13 +33,7 @@
     </div>
 
     <script type="module">
-      import { configure, register } from '/dist/video.js';
-
-      // startWhen: 'page-loaded' rather than the shipped 'interaction' default,
-      // because this page is about arbitration and a demo you have to poke
-      // before anything happens would only get in the way. demo/interaction.html
-      // is the one that shows the default.
-      configure({ startWhen: 'page-loaded' });
+      import { register } from '/dist/video.js';
 
       // Twelve cards, matching the shape of a real bento grid: the count is the
       // point, since one video never exercises the arbiter.

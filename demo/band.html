@@ -65,7 +65,7 @@
       import { configure, register } from '/dist/video.js';
 
       // page-loaded, so the thresholds are the only thing gating playback here.
-      configure({ startWhen: 'page-loaded', playAbove: 0.6, pauseBelow: 0.3 });
+      configure({ playAbove: 0.6, pauseBelow: 0.3 });
 
       const box = document.getElementById('band');
       const video = box.querySelector('video');

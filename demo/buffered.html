@@ -46,9 +46,9 @@
     <script type="module">
       import { configure, register } from '/dist/video.js';
 
-      // page-loaded rather than the shipped 'interaction' default, so what is
-      // being demonstrated is the buffer gate and not the visitor gate.
-      configure({ startWhen: 'page-loaded', requireBuffered: true });
+      // Nothing gates this page but the buffer, so anything you see holding the
+      // video is requireBuffered and not a visitor gate standing in for it.
+      configure({ requireBuffered: true });
 
       const video = document.querySelector('#hero video');
       register(video);

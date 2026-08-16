@@ -76,10 +76,8 @@
     </div>
 
     <script type="module">
-      import { configure, registerAll } from '/dist/video.js';
+      import { registerAll } from '/dist/video.js';
 
-      // This page is about layout, not about when playback begins.
-      configure({ startWhen: 'page-loaded' });
       registerAll('[data-polite-media] video');
 
       // Both claims, because size alone is not stacking: two elements can each be
