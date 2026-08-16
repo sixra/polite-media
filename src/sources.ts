@@ -18,7 +18,7 @@ import { mediaQuery } from './env.js';
  * And `canPlayType` is only ever a claim. The HTML Standard sets the bar at the
  * user agent being "confident that the type represents a media resource that it
  * can render", and confidence is not a guarantee: in this project's own fixtures
- * (docs/findings.md) Chromium answered "probably" for AV1 and then failed at
+ * Chromium answered "probably" for AV1 and then failed at
  * `dav1d_send_data()`. So the codec check only drops the flat "no" answers;
  * among what survives, document order sets the try order and the `error` event
  * decides the outcome.

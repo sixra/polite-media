@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * The suite drives real media, so it needs a real browser. requestVideoFrameCallback
- * was confirmed to fire in headless Chromium with no compositor flags
- * (docs/findings.md), which is what lets these tests assert on genuinely
- * presented frames rather than on `playing`.
+ * was confirmed to fire in headless Chromium with no compositor flags, which is
+ * what lets these tests assert on genuinely presented frames rather than on
+ * `playing`.
  *
  * Serving the repo root rather than demo/ so the pages can import the built
  * package from /dist -- the tests exercise the shipped artifact, not the source.

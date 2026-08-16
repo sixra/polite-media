@@ -1,0 +1,82 @@
+# Publishes on a pushed v* tag. See RELEASING.md for what decides the version.
+#
+# The filename is load-bearing: npm's trusted publisher config names this file
+# explicitly, so renaming it silently breaks publishing rather than failing loudly.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# A tag is pushed once, but a re-run or a retagged push must not race a second
+# publish against the first.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Split from publish on purpose, and the reason is the token rather than tidiness.
+  # `pnpm dlx` fetches and runs the latest publint and attw at job time, unpinned. In
+  # a job holding `id-token: write` that is a path to the npm publishing credential,
+  # so the tools that need the network run where no such permission exists.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      # Same setup as ci.yml: pnpm/setup installs the runtime too, replacing
+      # actions/setup-node for pnpm v11 and newer.
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # Publishing is the one action a follow-up commit cannot undo, so nothing
+      # here is skipped for speed.
+      - run: pnpm verify
+      - run: pnpm dlx publint
+      - run: pnpm dlx @arethetypeswrong/cli --pack --ignore-rules no-resolution cjs-resolves-to-esm
+
+  publish:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # OIDC. This is what replaces a long-lived NPM_TOKEN and what lets npm
+      # attach the provenance attestation.
+      id-token: write
+      # write, not read: the last step creates the GitHub Release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+
+      # Trusted publishing needs npm 11.5.1 or newer. Node 24 bundles npm 11.x,
+      # but which patch is not guaranteed, so this checks rather than hopes.
+      - name: Ensure npm can do trusted publishing
+        run: |
+          need=11.5.1
+          have=$(npm --version)
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)" != "$need" ]; then
+            echo "npm $have is older than $need, upgrading"
+            npm install -g npm@latest
+          fi
+          npm --version
+
+      # No --provenance flag: with trusted publishing npm attaches the attestation
+      # on its own. No build step either, `prepack` runs `pnpm run build`.
+      - run: npm publish --access public
+
+      # Deliberately no `npm audit signatures`: it audits the installed dependency
+      # tree, not the artefact just published, so it would check the wrong thing and
+      # could fail this job *after* the publish succeeded. To confirm provenance
+      # landed, ask the registry: `npm view polite-media dist.attestations`.
+      - name: Create the GitHub Release from the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --notes-from-tag

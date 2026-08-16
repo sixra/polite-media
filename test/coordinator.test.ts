@@ -363,8 +363,7 @@ describe('source fallback', () => {
     currentObserver().report([[video, 1]]);
     expect(video.src).toContain('/av1.mp4');
 
-    // Code 3 is what Chromium reported for the truncated AV1 fixture
-    // (docs/findings.md).
+    // Code 3 is what Chromium reported for the truncated AV1 fixture.
     fail(3);
     expect(video.src).toContain('/h264.mp4');
   });
@@ -1142,8 +1141,8 @@ describe('the unstyled-markup warning', () => {
   });
 
   // A host that hides the video with its own CSS is a supported setup, and one
-  // of the two real consumers does exactly that. Nagging it would train people
-  // to ignore the warning that matters.
+  // of the two projects this was extracted from does exactly that. Nagging it
+  // would train people to ignore the warning that matters.
   it('stays quiet when the host hides the video itself', () => {
     const warn = warnings();
     const { video, container } = makeHarness();

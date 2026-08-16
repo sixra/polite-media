@@ -1,0 +1,41 @@
+# Git hooks, self-contained on purpose: what runs here is what you can read here.
+
+# eslint --fix then prettier --write, sequentially. Both rewrite the same files,
+# so running them in parallel races two writers. `stage_fixed` re-stages what
+# they change. Earns its place: two lint failures reached CI today that this
+# would have caught at commit time.
+pre-commit:
+  jobs:
+    - name: eslint
+      glob: '*.{js,mjs,ts}'
+      run: pnpm exec eslint --fix {staged_files}
+      stage_fixed: true
+    - name: prettier
+      glob: '*.{js,mjs,ts,json,md,css,yml,yaml,html}'
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+
+# Conventional Commits, and here this is load-bearing rather than tidiness: the
+# release automation reads `feat`, `fix` and the `!` marker out of these subjects
+# to decide the next version. A malformed subject silently produces the wrong
+# bump, or no release at all. `{1}` is the commit-message file path.
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}
+
+# The full gate before pushing main; other branches push freely. `follow` streams
+# output live so a multi-minute run does not look frozen.
+pre-push:
+  follow: true
+  jobs:
+    - name: verify-main
+      run: |
+        # A detached HEAD resolves to "detached" and still verifies: an unknown
+        # state must fail closed rather than silently skip the gate.
+        branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo detached)
+        if [ "$branch" != "main" ] && [ "$branch" != "detached" ]; then
+          echo "Skipping pre-push checks (not on main)"
+          exit 0
+        fi
+        pnpm verify

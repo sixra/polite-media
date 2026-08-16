@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media: holding a video behind a promise</title>
+    <link rel="stylesheet" href="/dist/video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Holding a hero until something else finishes</h1>
+      <p class="note">
+        A hero at the top of the page is reported visible in the observer's very first batch, so
+        without a gate it starts immediately. <code>until</code> takes any promise and holds
+        playback until it settles: a splash screen dismissing, a consent dialog answered, a font
+        loading, or anything else that should own the screen first.
+      </p>
+      <p class="note">
+        This page stands in for that with a button. Nothing has been fetched yet, and nothing will
+        be until you press it.
+        <strong>Watch the network panel: the video is not requested either.</strong>
+      </p>
+      <p class="note">
+        <code>startWhen: 'page-loaded'</code> is set here on purpose. The shipped
+        <code>'interaction'</code> default would hold the video anyway, and a demo that cannot tell
+        you which gate did the holding is not showing you anything.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="frame hero" data-polite-media id="hero">
+        <img src="/demo/assets/sample-poster.avif" alt="" />
+        <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </main>
+
+    <div class="controls">
+      <button type="button" id="dismiss">dismiss the "splash"</button>
+      <button data-polite-pause-control type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { configure, register } from '/dist/video.js';
+
+      configure({ startWhen: 'page-loaded' });
+
+      let dismiss;
+      const splashDone = new Promise((resolve) => {
+        dismiss = resolve;
+      });
+      document.getElementById('dismiss').addEventListener('click', () => dismiss());
+
+      register(document.querySelector('#hero video'), { until: splashDone });
+
+      const video = document.querySelector('#hero video');
+      window.__playing = () => !video.paused;
+      // Still "none" means the gate held the fetch, not just the playback: a
+      // gated entry returns from prefetch() before the promotion.
+      window.__preload = () => video.preload;
+    </script>
+  </body>
+</html>

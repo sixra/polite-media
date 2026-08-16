@@ -1,4 +1,10 @@
+# Which dependencies may run install scripts. Both are "no", and both are
+# verified rather than assumed: every local and CI build in this repo has run
+# with these scripts ignored, because both packages resolve a prebuilt binary
+# through optional platform dependencies instead.
+#
+# lefthook additionally does its real work from the `prepare` script, which
+# calls `lefthook install` to write .git/hooks.
 allowBuilds:
-  esbuild: true
-minimumReleaseAgeExclude:
-  - happy-dom@20.11.2
+  esbuild: false
+  lefthook: false

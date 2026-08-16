@@ -5,7 +5,7 @@ import { revealWhenPainted } from '../src/reveal.js';
  * Metadata the browser hands the rVFC callback. Built out in full rather than
  * cast, so it stays honest about the shape real callers receive. `mediaTime: 0`
  * and `presentedFrames: 1` are the values actually observed for a first frame in
- * the Playwright spike (docs/findings.md).
+ * the Playwright spike.
  */
 const FIRST_FRAME: VideoFrameCallbackMetadata = {
   expectedDisplayTime: 0,

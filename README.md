@@ -1,6 +1,6 @@
 # polite-media
 
-Background video and image reveals that behave themselves. No dependencies, no framework.
+Background video, image reveals and next-page image warming. No dependencies, no framework.
 
 Three independent entry points, imported separately, because they share almost
 nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
@@ -57,6 +57,95 @@ import 'polite-media/image.css';
 revealImages('.card img');
 ```
 
+## Recipes
+
+Four setups that cover most of what people build. Each one is a demo page in this
+repo that the end-to-end suite drives, so the markup below is known to work rather
+than merely plausible.
+
+### A hero video behind a title
+
+The poster is the Largest Contentful Paint element, so load it eagerly and let the
+video wait. Nothing needs configuring: by default the video holds until the visitor
+scrolls, taps or presses a key.
+
+```html
+<div class="hero" data-polite-media>
+  <img src="poster.avif" alt="" fetchpriority="high" decoding="async" />
+  <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+    <source src="hero.mp4" type="video/mp4" />
+  </video>
+</div>
+
+<button type="button" data-polite-pause-control aria-pressed="false">Pause background video</button>
+```
+
+```js
+import { register } from 'polite-media/video';
+import 'polite-media/video.css';
+import 'polite-media/layer.css'; // optional: stacks poster over video so you needn't
+
+register(document.querySelector('.hero video'));
+```
+
+### A grid or feed of videos
+
+Cap how many decode at once, and give the observer the card rather than the video,
+which is what you want when the video is `inset: 0` inside it.
+
+```js
+import { configure, register } from 'polite-media/video';
+import 'polite-media/video.css';
+
+configure({ atOnce: 1, prefetchMargin: '200px' });
+
+for (const card of document.querySelectorAll('.card')) {
+  register(card.querySelector('video'), { observe: card });
+}
+```
+
+`atOnce: 1` plays one video at a time everywhere; the default is one on small
+viewports and all of them elsewhere. `prefetchMargin` starts buffering the next one
+before it arrives.
+
+### Images that appear when they are actually decoded
+
+`load` fires before the pixels exist, so fading on it can hitch. This waits for
+`decode()`. The container needs its own `background-color`: unlike video, a lone
+image degrades to nothing.
+
+```html
+<div class="card">
+  <img src="photo.avif" alt="" loading="lazy" data-polite-reveal />
+</div>
+```
+
+```js
+import { revealImages } from 'polite-media/image';
+import 'polite-media/image.css';
+
+revealImages('.card img');
+```
+
+Above-the-fold images are revealed instantly rather than faded, because an element at
+`opacity: 0` is not an LCP candidate. Pass `{ allowEager: true }` if you would rather
+fade them anyway.
+
+### Warming the next page's hero
+
+Document prefetchers fetch the HTML and stop, so the image inside it is discovered
+only once that document parses. This fetches it on hover, focus or touch.
+
+```js
+import { warmOnIntent } from 'polite-media/warm';
+
+warmOnIntent('a[data-hero]', (link) => ({
+  sources: [{ type: 'image/avif', srcset: link.dataset.hero }],
+  src: '/fallback.jpg',
+  sizes: '(min-width: 50rem) 800px, 100vw',
+}));
+```
+
 ## The attributes
 
 Six in total, and they fall into three groups. The distinction that catches
@@ -80,91 +169,52 @@ names any image in that state, so widen the selector or drop the attribute.
 
 The bottom three are yours to style against and never to write yourself.
 
-## Why it exists
+## Markup contract
 
-Every bug it fixes is one you can't see in development.
+1. Poster and video share one box, arranged by your CSS.
+2. `data-polite-media` goes on that box **in your markup**, not from script. A
+   `<video preload="none">` paints an empty box, so if the hidden state only
+   arrived once JS ran, a page whose bundle failed would stack that over the
+   poster. Authored, the safe state is the default.
 
-**`playing` is not when the picture appears.** The usual advice is to swap the
-poster for the video on the `playing` event. Measured on one machine in one run,
-H.264 presented its first frame **1.6 ms before** `playing` fired, while AV1
-presented **0.8 ms after**. It isn't early, it's _unordered_. Reveal on it and
-you either flash (poster gone, nothing painted) or linger (poster held over a
-frame that already painted), depending on the codec, so no delay tunes it away.
-`requestVideoFrameCallback` is specified in terms of a frame reaching the
-compositor, so it's right by definition.
+   That box must be the video's **direct parent**. This is the one rule with a
+   silent failure mode, so it is worth stating twice: the library writes
+   `data-polite-ready` to `video.parentElement`, while the stylesheet matches
+   `[data-polite-media][data-polite-ready] > video`. Put the attribute a level
+   too high and the two never meet, every rule misses, and the video is simply
+   visible from the start with no error anywhere. The library warns on the
+   console when it can detect this.
 
-**`canPlayType` lies.** In this repo's own fixtures, Chromium answered
-`"probably"` for `sample-truncated-av1.mp4` and then failed with
-`PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22`. That's the bar
-the specification sets, not a quirk: the [HTML Standard][html-canplaytype] says
-the method returns `"probably"` only "if the user agent is confident that the type
-represents a media resource that it can render", and encourages implementers to
-"return `maybe` unless the type can be confidently established as being
-supported or not". Confidence is not a guarantee, and this measurement is the
-counter-example, so codec checks only _order_ the candidates here and the
-`error` event decides.
+3. The poster is ideally the video's **frame 0**, which is what makes the
+   handoff invisible. It buys less than it seems to on its own, though: what
+   makes it invisible is frame 0 _plus_ cutting rather than fading, because the
+   video advances while the poster does not. See [The fade](#the-fade).
+4. Poster and video are direct children of the box. The box may hold anything
+   else it likes -- a scrim, a caption, a pause control -- and those are left
+   alone. But **every** direct-child `img` or `picture` is treated as the poster
+   and hidden on reveal, so a logo or badge belongs deeper, not beside the video.
+5. If you use several `<source>` elements, order them narrowest first: the first
+   one that claims the viewport wins. **You do not need an unconditional
+   fallback.** Two queries meant to partition the viewport often do not quite
+   meet: `(max-width: 50rem)` beside `(min-width: 50.001rem)` leaves 0.016px
+   matching neither at a 16px root, and a different root font-size moves the
+   boundary again. Rather than make that your problem, `media` is treated as a
+   preference: when no source claims the current
+   viewport, every decodable one is a candidate and document order decides. The
+   console says so once when it happens, because the file it picks may well be
+   meant for a different screen.
 
-**Absence of `navigator.connection` means allow, not block.** Safari and Firefox
-never expose the Network Information API and Brave disables it as a
-fingerprinting surface. Read absence as "block" and you silently kill video for
-most of the web, and every test on Chrome still passes.
+   The trade is that `media` cannot mean "and otherwise play nothing".
+   `atOnce: { small: 0 }` says that properly.
 
-**Video comes back frozen after a back-navigation.** Scripts don't re-run on a
-bfcache restore, and mobile browsers pause video while the tab is hidden and
-leave it paused on return.
+6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative (the
+   poster's `alt` carries any meaning), and without this it lands in the tab
+   order: measured in Firefox, twelve background videos sat ahead of the pause
+   button, so a keyboard user reached it on the thirteenth Tab.
 
-Measurements and citations: [`docs/findings.md`](docs/findings.md).
-
-[html-canplaytype]: https://html.spec.whatwg.org/multipage/media.html
-
-## What it does
-
-- Reveals on a genuinely presented frame, never on `playing`.
-- Plays only what's on screen; stops what isn't.
-- Caps how many videos run at once, on any viewport, not just small ones.
-- Falls through to the next `<source>` when one can't be decoded.
-- Honours `prefers-reduced-motion` live, and Save-Data on the next reconcile.
-- Recovers from bfcache restores, tab refocus and blocked autoplay.
-- Ships a pause control hook for [WCAG 2.2.2][wcag].
-- Emits `polite-video:ready`, `polite-video:failed` and `polite-video:pausechange`.
-
-## What it deliberately doesn't do
-
-**It never sets a width, height or aspect ratio.** It owns _when_ media appears;
-your CSS owns _where_. That's the whole reason it drops into an existing design
-at any video size, and it would be undone by one dimension declaration.
-
-It's also not an image pipeline (no srcset or poster generation: that's a build
-step), not a lazy-loader for images (`loading="lazy"` is native), not a player,
-not a lightbox, and not a scroll-animation library. `polite-media/warm` is not an
-exception to that: it warms candidates you already build, and generates none.
-
-**Images are opt-in per image, not per container.** `data-polite-reveal` goes on
-the `<img>`. That placement is load-bearing: a container-wide rule hides every
-image inside it, including ones the library then declines to fade, so each one
-waits out the failsafe instead of fading.
-
-**Eager images are revealed instantly rather than faded.** LCP excludes elements
-at `opacity: 0` and revealing one doesn't restore its candidacy, so an
-above-the-fold image is shown at its first paint. Pass `{ allowEager: true }` to
-fade it anyway, which is a legitimate choice when a grid would otherwise cut from
-its backdrop to the photo on whatever frame the decode lands.
-
-**An image needs a backdrop.** Video degrades to its poster; a lone image
-degrades to nothing, so its container must carry a visible `background-color`.
-
-**Images are only hidden where scripting can reveal them.** Because that degraded
-state is nothing at all, `image.css` puts the hiding rule behind
-`@media (scripting: enabled)`, Baseline since December 2023. With scripting off
-the photos simply arrive unfaded instead of never arriving.
-
-**And nothing stays hidden forever.** No media query can see a bundle that fails
-to load while scripting is on, so the stylesheet reveals any marked image after
-`--polite-failsafe` (default `5s`) regardless. A missed selector or a bundle that
-never arrives costs you the fade, not the picture. Set the property to tune the
-delay; the failsafe applies to every marked image, including ones the library
-manages, because an earlier design that exempted them could send an
-already-revealed image back to hidden.
+Attributes set on the box: `data-polite-ready`, `data-polite-failed`. On
+`<html>`: `data-polite-paused`. Those are the public CSS API, along with
+`--polite-fade` and `--polite-failsafe`.
 
 ## API
 
@@ -196,8 +246,8 @@ There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
 
 Nine options, and they answer three questions. Nothing needs setting: the
-defaults were measured on real sites, and neither of the first two consumers
-calls `configure()` at all.
+defaults were measured rather than guessed, and neither of the two projects this
+was extracted from calls `configure()` at all.
 
 **How visible must it be?**
 
@@ -239,7 +289,7 @@ configure({ atOnce: 1, pauseBelow: 0.5, prefetchMargin: '200px' });
 desktop without pretending the viewport is small. `prefetchMargin` drives an observer
 of its own and no longer touches the thresholds: `intersectionRatio` is measured
 against the root _including_ the margin, so a single observer made every
-threshold mean less than it said. See [`docs/findings.md`](docs/findings.md).
+threshold mean less than it said.
 
 `register(video, { until: promise })` holds a video back until the promise
 settles: for a splash screen, a consent dialog, or protecting your LCP. A hero
@@ -301,10 +351,9 @@ for everything the one before it did, and then something more.
 
 **`'interaction'` is the default, and it is the one setting with a real
 trade-off.** The browser stops updating Largest Contentful Paint on "a tap,
-scroll, or keypress", so a video revealed after that signal can never become the
-LCP element, and a synthetic audit, which never interacts, never starts it at
-all. Measured on a production hero: **89 and LCP 3.7s** with the video counted,
-**100 and LCP 1.4s** without ([`docs/findings.md`](docs/findings.md)).
+scroll, or keypress" ([web.dev][lcp]), so a video revealed after that signal can
+never become the LCP element, and a synthetic audit, which never interacts, never
+starts it at all.
 
 The cost is yours to weigh: a visitor who lands and never scrolls or taps sees a
 still. On a phone that is usually a second; on a desktop it can be indefinite for
@@ -331,8 +380,7 @@ play through without stalling, for thin connections where the alternative is a
 video that plays while it is still arriving. It raises `preload` to `'auto'` when
 it prepares, which is necessary because `preload="none"` means the browser buffers
 nothing until playback is requested, so waiting for `canplaythrough` without the
-promotion would wait forever. All three engines honour the promotion
-([`docs/findings.md`](docs/findings.md)). If the buffer never fills, the poster
+promotion would wait forever. All three engines honour the promotion. If the buffer never fills, the poster
 stays, which is the same outcome as reduced motion or Save-Data.
 
 It is deliberately not a fourth `startWhen` value. As one it competed with
@@ -438,53 +486,6 @@ video is actually doing.
 
 That pairs with `aria-pressed` and a constant accessible name, since an icon is
 not a label.
-
-## Markup contract
-
-1. Poster and video share one box, arranged by your CSS.
-2. `data-polite-media` goes on that box **in your markup**, not from script. A
-   `<video preload="none">` paints an empty box, so if the hidden state only
-   arrived once JS ran, a page whose bundle failed would stack that over the
-   poster. Authored, the safe state is the default.
-
-   That box must be the video's **direct parent**. This is the one rule with a
-   silent failure mode, so it is worth stating twice: the library writes
-   `data-polite-ready` to `video.parentElement`, while the stylesheet matches
-   `[data-polite-media][data-polite-ready] > video`. Put the attribute a level
-   too high and the two never meet, every rule misses, and the video is simply
-   visible from the start with no error anywhere. The library warns on the
-   console when it can detect this.
-
-3. The poster is ideally the video's **frame 0**, which is what makes the
-   handoff invisible. It buys less than it seems to on its own, though: what
-   makes it invisible is frame 0 _plus_ cutting rather than fading, because the
-   video advances while the poster does not. See [The fade](#the-fade).
-4. Poster and video are direct children of the box. The box may hold anything
-   else it likes -- a scrim, a caption, a pause control -- and those are left
-   alone. But **every** direct-child `img` or `picture` is treated as the poster
-   and hidden on reveal, so a logo or badge belongs deeper, not beside the video.
-5. If you use several `<source>` elements, order them narrowest first: the first
-   one that claims the viewport wins. **You do not need an unconditional
-   fallback.** Two queries meant to partition the viewport often do not quite
-   meet: `(max-width: 50rem)` beside `(min-width: 50.001rem)` leaves 0.016px
-   matching neither at a 16px root, and a different root font-size moves the
-   boundary again. Rather than make that your problem, `media` is treated as a
-   preference: when no source claims the current
-   viewport, every decodable one is a candidate and document order decides. The
-   console says so once when it happens, because the file it picks may well be
-   meant for a different screen.
-
-   The trade is that `media` cannot mean "and otherwise play nothing".
-   `atOnce: { small: 0 }` says that properly.
-
-6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative (the
-   poster's `alt` carries any meaning), and without this it lands in the tab
-   order: measured in Firefox, twelve background videos sat ahead of the pause
-   button, so a keyboard user reached it on the thirteenth Tab.
-
-Attributes set on the box: `data-polite-ready`, `data-polite-failed`. On
-`<html>`: `data-polite-paused`. Those are the public CSS API, along with
-`--polite-fade` and `--polite-failsafe`.
 
 ## The fade
 
@@ -602,7 +603,8 @@ listeners on `document` survive a `<ClientRouter />` swap.
 
 **Why not a `<link>` hint.** `imagesrcset` and `imagesizes` do responsive
 selection, but only for `rel="preload"` with `as="image"`, and preload is for
-resources "your page will need very soon" rather than the next page's. `prefetch`
+resources "[your page will need very soon][preload]" rather than the next
+page's. `prefetch`
 has the right timing and ignores those attributes. `type` gates on format support
 but has no first-supported-wins rule, so a browser handling both AVIF and WebP
 fetches both.
@@ -610,7 +612,7 @@ fetches both.
 A preload link injected on hover does select correctly in all three engines,
 measured, so this is a real alternative rather than a broken one. What it costs is
 a console warning in Chromium, because the resource is by definition never used by
-the page that preloaded it ([`docs/findings.md`](docs/findings.md)). Going the
+the page that preloaded it. Going the
 other way, to `prefetch`, is
 worse still: Safari doesn't support `<link rel="prefetch">` and Firefox aborts it
 with `NS_BINDING_ABORTED` without an explicit cache header. A detached image both
@@ -650,12 +652,97 @@ registered twice. Videos that did not survive need no cleanup: the coordinator d
 entry whose element has left the document on its next pass, so the discarded
 nodes are released rather than pinned by a strong reference.
 
+## What it does
+
+- Reveals on a genuinely presented frame, never on `playing`.
+- Plays only what's on screen; stops what isn't.
+- Caps how many videos run at once, on any viewport, not just small ones.
+- Falls through to the next `<source>` when one can't be decoded.
+- Honours `prefers-reduced-motion` live, and Save-Data on the next reconcile.
+- Recovers from bfcache restores, tab refocus and blocked autoplay.
+- Ships a pause control hook for [WCAG 2.2.2][wcag].
+- Emits `polite-video:ready`, `polite-video:failed` and `polite-video:pausechange`.
+
+## What it deliberately doesn't do
+
+**It never sets a width, height or aspect ratio.** It owns _when_ media appears;
+your CSS owns _where_. That's the whole reason it drops into an existing design
+at any video size, and it would be undone by one dimension declaration.
+
+It's also not an image pipeline (no srcset or poster generation: that's a build
+step), not a lazy-loader for images (`loading="lazy"` is native), not a player,
+not a lightbox, and not a scroll-animation library. `polite-media/warm` is not an
+exception to that: it warms candidates you already build, and generates none.
+
+**Images are opt-in per image, not per container.** `data-polite-reveal` goes on
+the `<img>`. That placement is load-bearing: a container-wide rule hides every
+image inside it, including ones the library then declines to fade, so each one
+waits out the failsafe instead of fading.
+
+**Eager images are revealed instantly rather than faded.** LCP excludes elements
+at `opacity: 0` and revealing one doesn't restore its candidacy, so an
+above-the-fold image is shown at its first paint. Pass `{ allowEager: true }` to
+fade it anyway, which is a legitimate choice when a grid would otherwise cut from
+its backdrop to the photo on whatever frame the decode lands.
+
+**An image needs a backdrop.** Video degrades to its poster; a lone image
+degrades to nothing, so its container must carry a visible `background-color`.
+
+**Images are only hidden where scripting can reveal them.** Because that degraded
+state is nothing at all, `image.css` puts the hiding rule behind
+`@media (scripting: enabled)`, Baseline since December 2023. With scripting off
+the photos simply arrive unfaded instead of never arriving.
+
+**And nothing stays hidden forever.** No media query can see a bundle that fails
+to load while scripting is on, so the stylesheet reveals any marked image after
+`--polite-failsafe` (default `5s`) regardless. A missed selector or a bundle that
+never arrives costs you the fade, not the picture. Set the property to tune the
+delay; the failsafe applies to every marked image, including ones the library
+manages, because an earlier design that exempted them could send an
+already-revealed image back to hidden.
+
+## Why it exists
+
+Every bug it fixes is one you can't see in development.
+
+**`playing` is not when the picture appears.** The usual advice is to swap the
+poster for the video on the `playing` event. Measured on one machine in one run,
+H.264 presented its first frame **1.6 ms before** `playing` fired, while AV1
+presented **0.8 ms after**. It isn't early, it's _unordered_. Reveal on it and
+you either flash (poster gone, nothing painted) or linger (poster held over a
+frame that already painted), depending on the codec, so no delay tunes it away.
+`requestVideoFrameCallback` is specified in terms of a frame reaching the
+compositor, so it's right by definition.
+
+**`canPlayType` lies.** In this repo's own fixtures, Chromium answered
+`"probably"` for `sample-truncated-av1.mp4` and then failed with
+`PIPELINE_ERROR_DECODE: dav1d_send_data() failed with error -22`. That's the bar
+the specification sets, not a quirk: the [HTML Standard][html-canplaytype] says
+the method returns `"probably"` only "if the user agent is confident that the type
+represents a media resource that it can render", and encourages implementers to
+"return `maybe` unless the type can be confidently established as being
+supported or not". Confidence is not a guarantee, and this measurement is the
+counter-example, so codec checks only _order_ the candidates here and the
+`error` event decides.
+
+**Absence of `navigator.connection` means allow, not block.** Safari and Firefox
+never expose the Network Information API and Brave disables it as a
+fingerprinting surface. Read absence as "block" and you silently kill video for
+most of the web, and every test on Chrome still passes.
+
+**Video comes back frozen after a back-navigation.** Scripts don't re-run on a
+bfcache restore, and mobile browsers pause video while the tab is hidden and
+leave it paused on return.
+
 ## Status
 
-Framework-agnostic by construction, proven on Astro. It takes no framework
-dependency and uses only standard DOM. The end-to-end suite runs on Playwright's
-Chromium, Firefox and WebKit; treat other combinations as unexercised rather
-than unsupported.
+Framework-agnostic by construction, and developed against Astro projects. It
+takes no framework dependency and uses only standard DOM. The end-to-end suite
+runs on Playwright's Chromium, Firefox and WebKit; treat other combinations as
+unexercised rather than unsupported.
+
+**Nothing runs this in production yet.** It was extracted from two sites, but
+neither has shipped it.
 
 **Real iOS has never run this.** Playwright's WebKit is not iOS Safari, so the
 retry after a refused `play()` is the least exercised path in the package. A
@@ -666,9 +753,6 @@ does so correctly on an iPhone is untested.
 **Unpublished.** `polite-media` is not registered on the npm registry yet
 (`https://registry.npmjs.org/polite-media` 404s), so there is deliberately no
 install line above. Depend on it by path or git until that changes.
-
-[astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-re-execution
-[prerender]: https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API
 
 ## Development
 
@@ -682,4 +766,9 @@ pnpm test:e2e     # real browser, real media
 
 MIT.
 
+[astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-re-execution
+[html-canplaytype]: https://html.spec.whatwg.org/multipage/media.html
+[prerender]: https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API
+[lcp]: https://web.dev/articles/lcp
+[preload]: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload
 [wcag]: https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html

@@ -1,7 +1,7 @@
 {
   "name": "polite-media",
   "version": "0.2.0",
-  "description": "Background video and image reveals that behave themselves: reveal on the frame that actually painted, play only what is on screen, respect data and motion.",
+  "description": "Background video, image reveals and next-page image warming. Reveals on the frame that actually painted, plays only what is on screen, respects data and motion.",
   "keywords": [
     "video",
     "background-video",
@@ -12,7 +12,9 @@
     "intersection-observer",
     "requestVideoFrameCallback",
     "performance",
-    "lcp"
+    "lcp",
+    "prefetch",
+    "srcset"
   ],
   "license": "MIT",
   "author": "sixra",
@@ -63,14 +65,18 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prepack": "pnpm run build",
+    "prepare": "lefthook install",
     "size": "node scripts/size-check.js",
     "test": "vitest run",
     "test:e2e": "pnpm run build && playwright test",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm size"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.0.0",
@@ -78,6 +84,7 @@
     "eslint": "^10.8.0",
     "globals": "^17.9.0",
     "happy-dom": "^20.11.2",
+    "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.66.0",

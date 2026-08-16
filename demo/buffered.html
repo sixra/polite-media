@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media: waiting for the buffer</title>
+    <link rel="stylesheet" href="/dist/video.css" />
+    <link rel="stylesheet" href="/demo/demo.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Waiting until it can play through</h1>
+      <p class="note">
+        <code>requireBuffered</code> holds playback until the browser reports it can play the video
+        to the end without stalling. It is for thin connections, where the alternative is a video
+        that starts and then hitches its way through the first few seconds.
+      </p>
+      <p class="note">
+        It has to raise <code>preload</code> from <code>none</code> to <code>auto</code> to do that.
+        Under <code>preload="none"</code> the browser buffers nothing until playback is requested,
+        so waiting for <code>canplaythrough</code> without the promotion would wait forever. The
+        markup below still ships <code>preload="none"</code>; the value on the live element is the
+        library's doing.
+      </p>
+      <p class="note">
+        On a fast local server this resolves almost at once. Throttle the network in devtools to
+        watch the poster hold. If the buffer never fills, the poster simply stays, which is the same
+        outcome as reduced motion or Save-Data.
+      </p>
+      <nav><a href="/demo/">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="frame hero" data-polite-media id="hero">
+        <img src="/demo/assets/sample-poster.avif" alt="" />
+        <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </main>
+
+    <div class="controls">
+      <button data-polite-pause-control type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { configure, register } from '/dist/video.js';
+
+      // page-loaded rather than the shipped 'interaction' default, so what is
+      // being demonstrated is the buffer gate and not the visitor gate.
+      configure({ startWhen: 'page-loaded', requireBuffered: true });
+
+      const video = document.querySelector('#hero video');
+      register(video);
+
+      window.__playing = () => !video.paused;
+
+      /*
+       * The order these two land in is what requireBuffered actually decides, and
+       * the only thing that separates it from the default. `preload` reaching
+       * 'auto' does not: prefetch() promotes it for any nearby video whether or
+       * not this option is on.
+       *
+       * On: playback is held for canplaythrough, so that lands first. Off: play()
+       * is called as soon as the video is on screen, and the browser starts at
+       * HAVE_FUTURE_DATA, one readyState below canplaythrough.
+       */
+      window.__order = [];
+      const record = (name) => () => {
+        if (!window.__order.includes(name)) window.__order.push(name);
+      };
+      video.addEventListener('canplaythrough', record('canplaythrough'));
+      video.addEventListener('playing', record('playing'));
+    </script>
+  </body>
+</html>

@@ -4,7 +4,7 @@
  *
  * The obvious signal, the `playing` event, is wrong -- and measurably wrong in
  * both directions rather than merely early. On one machine in one run
- * (docs/findings.md) H.264 presented its first frame 1.6 ms *before* `playing`,
+ * H.264 presented its first frame 1.6 ms *before* `playing`,
  * while AV1 presented 0.8 ms *after*. So revealing on `playing` either flashes
  * (poster removed before anything painted) or lingers (poster held over a frame
  * that already painted), and which one you get depends on the codec, so no delay

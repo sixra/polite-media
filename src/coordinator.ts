@@ -151,10 +151,10 @@ export interface ConfigureOptions {
    *
    * `'interaction'` is the default because a background video is decorative by
    * this package's own markup contract, and because the browser stops updating
-   * Largest Contentful Paint on exactly that signal. A video revealed afterwards
-   * can never become the LCP element, and a synthetic audit, which never
-   * interacts, never starts it at all. Measured on a production hero: 89 and
-   * 3.7s with the video counted, 100 and 1.4s without (docs/findings.md).
+   * Largest Contentful Paint on exactly that signal: "a tap, scroll, or
+   * keypress" (https://web.dev/articles/lcp). A video revealed afterwards can
+   * never become the LCP element, and a synthetic audit, which never interacts,
+   * never starts it at all.
    *
    * The cost is real and is yours to weigh: a visitor who lands and never
    * scrolls or taps sees a still. Set `'page-loaded'` for autoplay on arrival.
@@ -604,7 +604,7 @@ function armReveal(entry: Entry): void {
  * cannot reach means it never starts, and nothing else would ever say so -- the
  * poster simply stays. With no margin on the playback observer the ceiling is
  * exactly `viewport / height`: measured in Chromium at a 953px viewport, 1.5x
- * viewport height peaks at 0.667 and 3x at 0.333 (docs/findings.md).
+ * viewport height peaks at 0.667 and 3x at 0.333.
  *
  * Checked against the ceiling rather than the observed ratio, so it fires on the
  * first report instead of waiting for a scroll that can never help.
@@ -821,7 +821,7 @@ function prepare(entry: Entry): boolean {
  * The promotion is what does the work: `preload="none"` keeps the poster alone
  * on first paint but also means the browser buffers nothing at all, so choosing
  * a source without it fetches nothing. Measured: all three engines begin
- * fetching on the promotion alone (docs/findings.md).
+ * fetching on the promotion alone.
  */
 function prefetch(entry: Entry): void {
   if (entry.gated || !videoAllowed()) return;

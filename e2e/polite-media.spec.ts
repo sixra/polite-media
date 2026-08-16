@@ -112,7 +112,7 @@ test.describe('hero', () => {
   });
 
   // Not expressed as "ready came after playing": those two are unordered by codec
-  // (H.264 painted 1.6 ms before, AV1 0.8 ms after, docs/findings.md), so that
+  // (H.264 painted 1.6 ms before, AV1 0.8 ms after), so that
   // comparison would be flaky in exactly the way the measurement warns about.
   //
   // Nor on the frame counter, which was tried and does not survive contact with
@@ -131,7 +131,7 @@ test.describe('hero', () => {
   // has not even resolved its stream. The strong claim is not testable from
   // outside -- rVFC is definitionally the presentation signal, so every available
   // oracle is weaker than the thing itself, and the guarantee rests on the API
-  // contract plus the ordering measurement in docs/findings.md.
+  // contract plus the codec-ordering measurement noted earlier in this file.
   test('never reveals before the element has resolved its media', async ({ page }) => {
     await page.goto('/demo/hero.html');
     await expect.poll(() => page.evaluate(() => window.__marks.ready !== null)).toBe(true);

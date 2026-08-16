@@ -67,7 +67,7 @@ ffmpeg -y -hide_banner -loglevel error -f lavfi -i "smptebars=s=$size" \
 # A truncated AV1 file, for exercising error-driven source fallback without an
 # Apple device that claims AV1 it cannot decode.
 #
-# Verified in Chromium (docs/findings.md): raises a media `error` after ~17 ms
+# Verified in Chromium: raises a media `error` after ~17 ms
 # with code 3, MEDIA_ERR_DECODE -- the same class of failure as the real Apple
 # case, not merely a stall. Re-check if the encoder or truncation size changes:
 # a fixture that stalls instead of erroring would make fallback tests pass for
