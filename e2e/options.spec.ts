@@ -1,17 +1,15 @@
-import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 /**
- * The three options that shipped with unit tests and nothing else: `until`,
- * `requireBuffered` and `playAbove`. happy-dom implements no media playback, so
- * until now none of them had ever been exercised in a browser, and one of them
- * (`until`) is what one of the projects this came out of uses to hold a hero
- * behind a splash screen.
+ * The two options that shipped with unit tests and nothing else: `until` and
+ * `requireBuffered`. happy-dom implements no media playback, so until now neither
+ * had ever been exercised in a browser, and `until` is what one of the projects
+ * this came out of uses to hold a hero behind a splash screen.
  *
- * None of these pages configures `startWhen`. On the shipped 'page-loaded'
- * default nothing else is holding playback, so whatever these tests observe is
- * the option under test and not a gate standing in for it. Each assertion below
- * was checked by deleting its option and watching the test go red.
+ * Neither page configures `startWhen`. On the shipped 'page-loaded' default
+ * nothing else is holding playback, so whatever these tests observe is the option
+ * under test and not a gate standing in for it. Each assertion below was checked
+ * by deleting its option and watching the test go red.
  */
 
 test.describe('until', () => {
@@ -95,56 +93,5 @@ test.describe('requireBuffered', () => {
     release();
     await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
     expect(await page.evaluate(() => window.__order[0])).toBe('canplaythrough');
-  });
-});
-
-test.describe('the playAbove and pauseBelow band', () => {
-  /** Scroll so `target` of the box shows, then confirm it actually landed there. */
-  async function scrollTo(page: Page, target: number): Promise<void> {
-    await page.evaluate((t) => window.__scrollToRatio(t), target);
-    await expect.poll(() => page.evaluate(() => window.__visibleRatio())).toBeCloseTo(target, 1);
-    // One reconcile is driven by the observer, which reports asynchronously.
-    await page.waitForTimeout(400);
-  }
-
-  test('needs playAbove to start, but only pauseBelow to keep going', async ({ page }) => {
-    await page.goto('/demo/band.html');
-    await page.waitForFunction(() => typeof window.__scrollToRatio === 'function');
-
-    // 40% is between the two thresholds, which is the only place the band shows:
-    // over pauseBelow, under playAbove. Coming up from below, a stopped video has
-    // not cleared playAbove, so it stays stopped.
-    await scrollTo(page, 0.4);
-    expect(await page.evaluate(() => window.__playing())).toBe(false);
-
-    // 70% clears playAbove.
-    await scrollTo(page, 0.7);
-    expect(await page.evaluate(() => window.__playing())).toBe(true);
-
-    // Back to the same 40%, and now the answer is the opposite one. This is the
-    // band: the crossing that starts it and the crossing that stops it are in
-    // different places, so a video parked here cannot oscillate.
-    await scrollTo(page, 0.4);
-    expect(await page.evaluate(() => window.__playing())).toBe(true);
-
-    // Below pauseBelow it finally stops.
-    await scrollTo(page, 0.2);
-    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(false);
-  });
-
-  test('warns about nothing, because the box can reach the threshold', async ({ page }) => {
-    // The library warns when a box is too tall for its highest possible visible
-    // fraction to clear playAbove. Silence is the assertion that this demo is
-    // sized honestly rather than accidentally demonstrating the warning.
-    const warnings: string[] = [];
-    page.on('console', (message) => {
-      if (message.type() === 'warning') warnings.push(message.text());
-    });
-
-    await page.goto('/demo/band.html');
-    await page.waitForFunction(() => typeof window.__scrollToRatio === 'function');
-    await page.waitForTimeout(500);
-
-    expect(warnings).toHaveLength(0);
   });
 });

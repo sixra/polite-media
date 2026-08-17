@@ -7,7 +7,7 @@ nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,954 B    | 194 B      | **4.1 KB** |
+| `polite-media/video` | 3,826 B    | 194 B      | **4.0 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 | `polite-media/warm`  | 643 B      | none       | **643 B**  |
 
@@ -249,31 +249,22 @@ than about one video, so it is dispatched on `document` with
 There is no root import. Use `polite-media/video` or `polite-media/image`; the
 resolution error for the bare package name does not name them.
 
-Nine options, and they answer three questions. Nothing needs setting: the
-defaults were measured rather than guessed, and neither of the two projects this
-was extracted from calls `configure()` at all.
+Six options, and they answer three questions. Nothing needs setting: the defaults
+were measured rather than guessed, and neither of the two projects this was
+extracted from calls `configure()` at all.
 
 **How visible must it be?**
 
-| option         | default | reach for it when                                                                                 |
-| -------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `pauseBelow`   | `0.5`   | a video should run longer, or stop sooner, than "half on screen"                                  |
-| `playAbove`    | `0`     | a video parked at the boundary cycles, or should start only when it is really the thing on screen |
-| `pauseGraceMs` | `400`   | a jittery scroll makes videos stutter, or you want stopping to feel instant                       |
-
-`playAbove` and `pauseGraceMs` are not alternatives, though both reduce cycling.
-One is a position that gates starting, the other a duration that delays stopping.
-The grace period absorbs fast jitter and does nothing for slow oscillation, since
-crossing upward starts playback immediately; `playAbove` makes cycling impossible
-by putting the two crossings in different places.
+| option       | default | reach for it when                                                |
+| ------------ | ------- | ---------------------------------------------------------------- |
+| `pauseBelow` | `0.5`   | a video should run longer, or stop sooner, than "half on screen" |
 
 **How many may run?**
 
-| option          | default                      | reach for it when                                                      |
-| --------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| `atOnce`        | `{ small: 1, large: 'all' }` | a feed wants one at a time everywhere, or phones want none             |
-| `smallViewport` | `'(max-width: 767px)'`       | your breakpoint is not ours, which it usually is not                   |
-| `hysteresis`    | `0.15`                       | with one slot, a carousel's peeking neighbour steals it back and forth |
+| option          | default                      | reach for it when                                          |
+| --------------- | ---------------------------- | ---------------------------------------------------------- |
+| `atOnce`        | `{ small: 1, large: 'all' }` | a feed wants one at a time everywhere, or phones want none |
+| `smallViewport` | `'(max-width: 767px)'`       | your breakpoint is not ours, which it usually is not       |
 
 **When may it begin?**
 
@@ -282,6 +273,14 @@ by putting the two crossings in different places.
 | `startWhen`       | `'page-loaded'` | you want the video out of the LCP measurement, and accept it waiting          |
 | `requireBuffered` | `false`         | your visitors are on connections where video plays while it is still arriving |
 | `prefetchMargin`  | `'0px'`         | the next card should be buffered before it arrives                            |
+
+Two numbers that shape playback are deliberately not options. A video leaving the
+viewport waits 400ms before stopping, so a jittery scroll cannot stutter it, and
+an incumbent holding the single slot keeps it until a rival is 15% more visible,
+so a carousel's peeking neighbour cannot flap it back and forth. Both are
+tolerances that make the behaviour stable rather than policies anyone has a view
+on, and a value picked without watching a real carousel does not fail loudly, it
+just reintroduces the flapping.
 
 A feed is `atOnce: 1` plus a margin to buffer the next card:
 
@@ -323,18 +322,17 @@ each observed element maps to exactly one video, and `register` refuses a second
 video on a target it already watches, with a warning. Reach for `register` when a
 video needs its own gate or wrapper.
 
-`configure()` throws if `prefetchMargin`, `pauseBelow`, `playAbove` or `smallViewport`
-is patched while videos are registered. Those four are read when the observer and
-the lifecycle listeners are built, so a late change does not merely fail to
-apply: `pauseBelow` and `playAbove` half-apply, because eligibility reads them
-live while the threshold ladder does not. The other four (`pauseGraceMs`,
-`atOnce`, `hysteresis`, `startWhen` and `requireBuffered`) take effect on the
-next pass.
+`configure()` throws if `prefetchMargin`, `pauseBelow` or `smallViewport` is
+patched while videos are registered. Those three are read when the observer and
+the lifecycle listeners are built, so a late change does not merely fail to apply:
+`pauseBelow` half-applies, because eligibility reads it live while the threshold
+ladder does not. The other three (`atOnce`, `startWhen` and `requireBuffered`)
+take effect on the next pass.
 
 Only `atOnce` and `startWhen` are constrained by the type system, as unions.
-TypeScript cannot express "a number between 0 and 1", so `pauseBelow`,
-`hysteresis` and `pauseGraceMs` are range-checked by `configure()` instead, which
-throws at the call that caused the mistake rather than later inside the observer.
+TypeScript cannot express "a number between 0 and 1", so `pauseBelow` is
+range-checked by `configure()` instead, which throws at the call that caused the
+mistake rather than later inside the observer.
 `atOnce` is checked at runtime too, for JavaScript callers: a `2` would otherwise
 fall through to the single-slot branch and quietly mean `1`.
 
@@ -405,26 +403,16 @@ a configured `prefetchMargin`, once its gates have settled. `until` composes wit
 of this: that gates one video on your own promise, `startWhen` is the policy for
 all of them, and a video waits for every gate that applies to it.
 
-`playAbove` and `pauseBelow` are a band rather than a line. A stopped video has
-to clear `playAbove` to start; a running one keeps going until it drops to
-`pauseBelow`. Because the two crossings are in different places, a video parked near the
-boundary cannot oscillate, so `pauseGraceMs` is left covering scroll wobble instead
-of doing this job.
-
-**`pauseBelow` ships at `0.5`**, and `playAbove` at `0`, which is a single line
-rather than a band: a video runs while more than half of it is on screen and
-stops once less is. Set `pauseBelow` to `0` to play while any part shows at all,
+**`pauseBelow` ships at `0.5`**: a video runs while more than half of it is on
+screen and stops once less is. Set it to `0` to play while any part shows at all,
 which means "stop only when entirely gone" and in practice means a video hanging
 on by a sliver never stops.
 
 ```js
-configure({ pauseBelow: 0 }); //                 play while any part shows
-configure({ playAbove: 0.75, pauseBelow: 0.5 }); // a band, for extra stability
+configure({ pauseBelow: 0 }); // play while any part shows
 ```
 
-A `playAbove` at or below `pauseBelow` is simply no band rather than an error.
-
-**A tall video may never reach a high `playAbove`.** `intersectionRatio` is a
+**A tall video may never reach a high `pauseBelow`.** `intersectionRatio` is a
 fraction of the _element_, so a box taller than the viewport can never be fully
 intersecting. Measured in Chromium at a 953px viewport, with the observer that
 decides playback carrying no margin:
@@ -435,15 +423,14 @@ decides playback carrying no margin:
 | 1.5x viewport  | 0.667                    |
 | 3x viewport    | 0.333                    |
 
-This is the main reason the start threshold ships at `0` and the stop threshold
-at `0.5` rather than something higher: the ceiling is `viewport / height`, so
-`0.5` is out of reach only past twice the viewport, where `0.75` already fails at
-one and a half. **The library warns on the console when it detects a threshold a
-box can never reach**, rather than leaving you to wonder why a video never
-plays.
+This is the main reason it ships at `0.5` rather than something higher: the
+ceiling is `viewport / height`, so `0.5` is out of reach only past twice the
+viewport, where `0.75` already fails at one and a half. **The library warns on the
+console when it detects a threshold a box can never reach**, rather than leaving
+you to wonder why a video never plays.
 
-Whatever you set for either is also added to the playback observer's threshold
-list, because the browser only reports at crossings it was told about.
+Whatever you set is also added to the playback observer's threshold list, because
+the browser only reports at crossings it was told about.
 
 A `<button>` carrying `data-polite-pause-control` toggles playback. You supply it and its
 styling; this ships no markup and no CSS for it. Put it anywhere on the page --

@@ -261,7 +261,6 @@ describe('playback arbitration', () => {
   it('pauses after the grace period once fully offscreen', () => {
     vi.useFakeTimers();
     const { video, pause } = makeHarness();
-    configure({ pauseGraceMs: 400 });
     register(video);
 
     currentObserver().report([[video, 0.9]]);
@@ -770,29 +769,17 @@ describe('pauseBelow', () => {
 });
 
 describe('configure validation', () => {
-  // Only pauseBelow reaches a platform API among these, and not until the first
-  // register(). hysteresis is library-internal arithmetic, so this check is the
-  // only thing that will ever reject it.
-  it.each([
-    ['pauseBelow', 1.5],
-    ['pauseBelow', -0.1],
-    ['hysteresis', 2],
-    ['pauseBelow', Number.NaN],
-    ['hysteresis', Number.POSITIVE_INFINITY],
-  ])('rejects %s: %s at the point of configuring', (key, value) => {
-    expect(() => configure({ [key]: value })).toThrow(RangeError);
-  });
+  // pauseBelow does reach a platform API, but not until the first register(), so
+  // this check is what moves the error to the call that caused it.
+  it.each([1.5, -0.1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects pauseBelow: %s at the point of configuring',
+    (value) => {
+      expect(() => configure({ pauseBelow: value })).toThrow(RangeError);
+    }
+  );
 
   it.each([0, 0.5, 1])('accepts the fraction %s', (value) => {
     expect(() => configure({ pauseBelow: value })).not.toThrow();
-  });
-
-  it('rejects a negative grace period', () => {
-    expect(() => configure({ pauseGraceMs: -1 })).toThrow(RangeError);
-  });
-
-  it('accepts a zero grace period, which just means stop immediately', () => {
-    expect(() => configure({ pauseGraceMs: 0 })).not.toThrow();
   });
 
   it('rejects an empty smallViewport', () => {
@@ -974,11 +961,11 @@ describe('configure() after the first register', () => {
     }
   );
 
-  it.each(['pauseGraceMs', 'atOnce', 'hysteresis'])('still accepts a late %s', (key) => {
+  it.each(['atOnce', 'startWhen', 'requireBuffered'])('still accepts a late %s', (key) => {
     const patches: Record<string, unknown> = {
-      pauseGraceMs: 900,
       atOnce: 0,
-      hysteresis: 0.3,
+      startWhen: 'visible',
+      requireBuffered: true,
     };
     const { video } = makeHarness();
     register(video);
@@ -1504,125 +1491,38 @@ describe('the missing-pause-control warning', () => {
   });
 });
 
-/**
- * The band. `pauseBelow` alone is a line, and a video sitting on it depends on
- * the debounce to behave; pulling the two apart puts the start and stop
- * crossings in different places, so oscillation stops being possible rather than
- * being smoothed over.
- */
-describe('playAbove after a scroll-away', () => {
-  // `started` means "has ever started", so nothing reset it when a video was
-  // paused for leaving the viewport -- eligibility then fell to `pauseBelow`
-  // permanently and the start threshold applied only once per video.
-  it('applies the start threshold again, not just the first time', () => {
+describe('a video that fell out of view', () => {
+  // The grace pause is the one path that resets `started`, so the video's return
+  // goes through start() rather than straight to tryPlay(). Asserted through
+  // requireBuffered because that is the only gate start() owns and tryPlay() does
+  // not: a play count alone cannot tell the two paths apart, since both play.
+  it('faces the buffer gate again rather than resuming straight away', () => {
     vi.useFakeTimers();
+    configure({ requireBuffered: true, startWhen: 'visible' });
     const { video, play, pause } = makeHarness();
-    configure({ playAbove: 0.75, pauseBelow: 0.25 });
+    Object.defineProperty(video, 'readyState', { get: () => 1, configurable: true });
     register(video);
 
-    currentObserver().report([[video, 0.8]]);
+    currentObserver().report([[video, 0.9]]);
+    video.dispatchEvent(new Event('canplaythrough'));
     expect(play).toHaveBeenCalledTimes(1);
 
     currentObserver().report([[video, 0]]);
     vi.advanceTimersByTime(1000);
     expect(pause).toHaveBeenCalled();
 
-    // Above the stop threshold but below the start threshold: it must stay put.
     play.mockClear();
-    currentObserver().report([[video, 0.5]]);
+    currentObserver().report([[video, 0.9]]);
     expect(play).not.toHaveBeenCalled();
 
-    currentObserver().report([[video, 0.9]]);
+    video.dispatchEvent(new Event('canplaythrough'));
     expect(play).toHaveBeenCalledTimes(1);
-  });
-
-  // The tempting fix -- judging eligibility on `!video.paused` instead -- breaks
-  // this, because a user-paused video is paused and would never be allowed back.
-  it('still lets resumeAll() restart a video below the start threshold', () => {
-    const { video, play } = makeHarness();
-    configure({ playAbove: 0.75, pauseBelow: 0.25 });
-    register(video);
-
-    currentObserver().report([[video, 0.9]]);
-    pauseAll();
-    play.mockClear();
-
-    currentObserver().report([[video, 0.5]]);
-    resumeAll();
-    expect(play).toHaveBeenCalled();
-  });
-});
-
-describe('playAbove', () => {
-  it('holds a video back until it clears the start threshold', () => {
-    const { video, play } = makeHarness();
-    configure({ playAbove: 0.75, pauseBelow: 0.25 });
-    register(video);
-
-    currentObserver().report([[video, 0.5]]);
-    expect(play).not.toHaveBeenCalled();
-
-    currentObserver().report([[video, 0.8]]);
-    expect(play).toHaveBeenCalled();
-  });
-
-  // The point of the band: once running, it is judged by the lower threshold, so
-  // scrolling back through the middle does not stop it.
-  it('keeps a running video alive down to the stop threshold', () => {
-    vi.useFakeTimers();
-    const { video, pause } = makeHarness();
-    configure({ playAbove: 0.75, pauseBelow: 0.25 });
-    register(video);
-
-    currentObserver().report([[video, 0.8]]);
-    currentObserver().report([[video, 0.5]]);
-    vi.advanceTimersByTime(1000);
-    expect(pause).not.toHaveBeenCalled();
-
-    currentObserver().report([[video, 0.2]]);
-    vi.advanceTimersByTime(1000);
-    expect(pause).toHaveBeenCalled();
-  });
-
-  // 0.62 on purpose: the static ladder already carries 0.75, so asserting that
-  // one would pass whether or not playAbove reached the observer at all. The
-  // browser reports only at crossings it was given, so a missing threshold means
-  // the start fires at the nearest one below instead.
-  it('makes the observer report at the start threshold', () => {
-    const { video } = makeHarness();
-    configure({ playAbove: 0.62 });
-    register(video);
-    expect(currentObserver().options?.threshold).toContain(0.62);
-  });
-
-  // Nobody can mean "start at less visibility than you stop at", so it is no
-  // band rather than an error.
-  it('ignores a start threshold at or below the stop threshold', () => {
-    const { video, play } = makeHarness();
-    configure({ playAbove: 0.1, pauseBelow: 0.5 });
-    register(video);
-
-    currentObserver().report([[video, 0.3]]);
-    expect(play).not.toHaveBeenCalled();
-
-    currentObserver().report([[video, 0.6]]);
-    expect(play).toHaveBeenCalled();
-  });
-
-  it('is rejected outside 0 to 1, at the call that caused it', () => {
-    expect(() => configure({ playAbove: 1.5 })).toThrow(RangeError);
-  });
-
-  it('cannot be changed once the observer exists', () => {
-    const { video } = makeHarness();
-    register(video);
-    expect(() => configure({ playAbove: 0.5 })).toThrow(/before the first register/);
   });
 });
 
 /**
- * The safety net for the 0.75 default. A box taller than the viewport cannot be
- * fully intersecting, so a high start threshold is unreachable and the video
+ * The safety net for the `pauseBelow` default. A box taller than the viewport
+ * cannot be fully intersecting, so the threshold is unreachable and the video
  * simply never plays -- silently, which is the one outcome this library treats
  * as a bug rather than a preference.
  */
@@ -1631,7 +1531,7 @@ describe('the unreachable-start warning', () => {
     video.getBoundingClientRect = (() => ({ height, width: 100 })) as unknown as () => DOMRect;
   }
 
-  it('warns when the box is too tall to ever clear the start threshold', () => {
+  it('warns when the box is too tall to ever clear pauseBelow', () => {
     const warn = warnings();
     const { video } = makeHarness();
     // Ten viewports tall, so the ceiling is 0.1 against the default pauseBelow of
@@ -1643,21 +1543,9 @@ describe('the unreachable-start warning', () => {
     currentObserver().report([[video, 0.05]]);
 
     expect(warn).toHaveBeenCalledTimes(1);
-    // Names whichever threshold is actually doing the blocking, so the fix the
-    // message asks for is the one that helps.
+    // Names the threshold doing the blocking, so the fix the message asks for is
+    // the one that helps.
     expect(warn.mock.calls[0]?.[0]).toContain('pauseBelow');
-  });
-
-  it('names playAbove when that is the threshold out of reach', () => {
-    const warn = warnings();
-    configure({ playAbove: 0.9, pauseBelow: 0.2 });
-    const { video } = makeHarness();
-    withHeight(video, window.innerHeight * 2);
-    register(video);
-
-    currentObserver().report([[video, 0.4]]);
-
-    expect(warn.mock.calls[0]?.[0]).toContain('playAbove');
   });
 
   it('stays quiet for a box that can reach it', () => {
@@ -1670,10 +1558,10 @@ describe('the unreachable-start warning', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  // With no start threshold there is nothing to be unreachable.
-  it('stays quiet when the band is switched off', () => {
+  // With no threshold at all there is nothing to be unreachable.
+  it('stays quiet when the threshold is switched off', () => {
     const warn = warnings();
-    configure({ playAbove: 0, pauseBelow: 0 });
+    configure({ pauseBelow: 0 });
     const { video } = makeHarness();
     withHeight(video, window.innerHeight * 10);
     register(video);
@@ -1803,11 +1691,12 @@ describe('unregisterAll', () => {
   // property of the page's setup rather than of the videos currently on it.
   // Resetting it here silently reverted a host's settings on the first swap.
   it('keeps the configuration a host set', () => {
-    configure({ pauseBelow: 0.6, playAbove: 0.9 });
+    configure({ pauseBelow: 0.8 });
     unregisterAll();
 
     const { video, play } = makeHarness();
     register(video);
+    // Under the 0.5 default this would play, so it fails if the patch was lost.
     currentObserver().report([[video, 0.7]]);
 
     expect(play).not.toHaveBeenCalled();
@@ -1986,7 +1875,7 @@ describe('prefetchMargin drives a second observer', () => {
 
 describe('a handover under a single slot', () => {
   // Measured on demo/feed.html before this: an outgoing card kept decoding for
-  // the full pauseGraceMs while the incoming one played, so a stepped scroll
+  // the full grace period while the incoming one played, so a stepped scroll
   // found two running at once in all three engines.
   it('stops the outgoing video at once when it fell below the threshold as the next rose', () => {
     vi.useFakeTimers();
@@ -1999,8 +1888,8 @@ describe('a handover under a single slot', () => {
     currentObserver().report([[a.video, 0.9]]);
     expect(a.play).toHaveBeenCalled();
 
-    // a is now below pauseBelow, so it is not merely outranked, it is out of the
-    // band entirely -- and b takes the slot in the same pass.
+    // a is now below pauseBelow, so it is not merely outranked, it is ineligible
+    // -- and b takes the slot in the same pass.
     currentObserver().report([
       [a.video, 0.4],
       [b.video, 0.9],

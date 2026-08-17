@@ -426,9 +426,9 @@ test.describe('contracts', () => {
       // silence there was vacuous.
       //
       // Centred on the media rather than scrolled to the page bottom, because
-      // `playAbove` now means partial visibility is not enough: at the bottom of
-      // bento.html the grid is clipped and no card clears the threshold, where
-      // centred all twelve reach 0.93 or better.
+      // partial visibility is not enough to clear `pauseBelow`: at the bottom of
+      // bento.html the grid is clipped and no card qualifies, where centred all
+      // twelve reach 0.93 or better.
       await page.evaluate(() =>
         document.querySelector('[data-polite-media]')?.scrollIntoView({ block: 'center' })
       );

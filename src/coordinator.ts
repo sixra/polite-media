@@ -24,7 +24,7 @@ import { resolveTargets, type Target } from './targets.js';
  * Deliberately three cases rather than a number. These are the ones that exist,
  * the type system does the checking a bare `number` would invite (`0.5`), and it
  * avoids inventing an answer to which of several incumbents a rival displaces --
- * {@link ConfigureOptions.hysteresis} has clean semantics only for a single slot.
+ * the incumbent's hysteresis has clean semantics only for a single slot.
  */
 export type AtOnce = 0 | 1 | 'all';
 
@@ -66,12 +66,6 @@ export interface ConfigureOptions {
    */
   prefetchMargin?: string;
   /**
-   * Anti-flicker debounce for a video wobbling at the viewport edge. Not a
-   * window in which offscreen video is meant to keep decoding: leaving the
-   * viewport should read as stopping immediately.
-   */
-  pauseGraceMs?: number;
-  /**
    * Which viewports count as small. Configurable because 767px is one project's
    * breakpoint, not a fact about phones.
    */
@@ -97,11 +91,6 @@ export interface ConfigureOptions {
    */
   atOnce?: AtOnce | { small: AtOnce; large: AtOnce };
   /**
-   * How much more visible a rival must be before it takes the single slot.
-   * Without it, a carousel's peeking neighbour flaps the slot back and forth.
-   */
-  hysteresis?: number;
-  /**
    * Visible fraction, 0 to 1, at or below which a video stops.
    *
    * Defaults to `0.5`: a video runs while it is the thing you are looking at and
@@ -116,27 +105,6 @@ export interface ConfigureOptions {
    * video, or shorten the box.
    */
   pauseBelow?: number;
-  /**
-   * Visible fraction, 0 to 1, a video must exceed before it may *start*.
-   *
-   * Together with {@link ConfigureOptions.pauseBelow} this is a band rather than
-   * a line: start once mostly on screen, keep running until mostly gone. The gap
-   * between the two is what makes a video sitting near the boundary stable, so
-   * `pauseGraceMs` is left covering scroll wobble rather than doing the work.
-   *
-   * Defaults to 0, which collapses the band back to a single threshold and is
-   * the behaviour with no surprises: anything visible plays. A value at or below
-   * `pauseBelow` is simply no band rather than an error, since starting at a
-   * lower visibility than you stop at is not a thing anyone can mean.
-   *
-   * **A tall video may never reach a high value.** `intersectionRatio` is a
-   * fraction of the *element*, so a box taller than the viewport cannot be fully
-   * intersecting. Measured in Chromium at a 953px viewport: 1.5x viewport height
-   * peaks at 0.667 and 3x at 0.333, so a `playAbove` of 0.75 would leave both of
-   * those permanently stopped. Keep it comfortably under
-   * `viewport / tallest video`.
-   */
-  playAbove?: number;
   /**
    * How patient a video is about starting. Each rung is strictly more patient
    * than the last.
@@ -195,15 +163,34 @@ type ResolvedConfig = Required<ConfigureOptions>;
 
 const defaults: ResolvedConfig = {
   prefetchMargin: '0px',
-  pauseGraceMs: 400,
   smallViewport: '(max-width: 767px)',
   atOnce: { small: 1, large: 'all' },
-  hysteresis: 0.15,
   pauseBelow: 0.5,
-  playAbove: 0,
   startWhen: 'page-loaded',
   requireBuffered: false,
 };
+
+/**
+ * How much more visible a rival must be before it takes the single slot. Without
+ * it, a carousel's peeking neighbour flaps the slot back and forth.
+ *
+ * A constant rather than an option: it is the tolerance that makes arbitration
+ * stable, not a policy anyone has a view on, and a value chosen without watching
+ * a carousel does not fail loudly -- it just reintroduces the flapping. Only
+ * live when {@link ConfigureOptions.atOnce} limits to a single slot.
+ */
+const HYSTERESIS = 0.15;
+
+/**
+ * Anti-flicker debounce for a video wobbling at the viewport edge. Not a window
+ * in which offscreen video is meant to keep decoding: leaving the viewport
+ * should read as stopping immediately, which is why only the fell-out-of-view
+ * path waits and a video that lost its slot stops at once.
+ *
+ * A constant for the same reason as {@link HYSTERESIS}. Raising it does not read
+ * as a setting, it reads as offscreen video that keeps decoding.
+ */
+const PAUSE_GRACE_MS = 400;
 
 let config: ResolvedConfig = { ...defaults };
 
@@ -235,27 +222,20 @@ const HAVE_ENOUGH_DATA = 4;
  *   ladder was fixed at construction, so a late 0.4 takes effect at 0.25, the
  *   nearest crossing the observer still reports. That is the exact silent lie
  *   `thresholds()` exists to prevent, reached through a second door.
- * - `playAbove` sits in the same threshold ladder as `pauseBelow`, fixed at the
- *   same moment, so a late patch half-applies the same way.
  * - `smallViewport` used to strand a listener. `mediaQuery` memoises by string,
  *   so detaching would resolve a different MediaQueryList than attaching did.
  * - `prefetchMargin` builds the prefetch observer, at that same first `register()`.
  *   A late patch would not reach the one already built.
  */
-const CONSTRUCTION_TIME_KEYS = [
-  'prefetchMargin',
-  'pauseBelow',
-  'playAbove',
-  'smallViewport',
-] as const;
+const CONSTRUCTION_TIME_KEYS = ['prefetchMargin', 'pauseBelow', 'smallViewport'] as const;
 
 /**
  * Call before the first `register`.
  *
- * Anything read on every reconcile -- `pauseGraceMs`, `atOnce`, `hysteresis` --
- * can be changed at any time and takes effect on the next pass. The three keys
- * in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while videos
- * are registered. Unregister everything first, or configure earlier.
+ * `atOnce`, `startWhen` and `requireBuffered` are read on every reconcile, so
+ * they can be changed at any time and take effect on the next pass. The three
+ * keys in {@link CONSTRUCTION_TIME_KEYS} cannot, and throw if patched while
+ * videos are registered. Unregister everything first, or configure earlier.
  */
 export function configure(patch: ConfigureOptions): void {
   validate(patch);
@@ -274,18 +254,12 @@ export function configure(patch: ConfigureOptions): void {
 }
 
 /**
- * Checked here because for two of the four the platform never complains at all.
- *
- * Only `pauseBelow` and `prefetchMargin` reach a platform API, through the threshold
+ * `pauseBelow` and `prefetchMargin` do reach a platform API, through the threshold
  * ladder and the observer options. Chromium rejects both -- a RangeError outside
  * 0..1, a TypeError for NaN or Infinity, a SyntaxError for a malformed margin --
  * but not until the IntersectionObserver constructor runs at the first
- * `register()`, arbitrarily far from the `configure()` call responsible.
- *
- * `hysteresis` and `pauseGraceMs` never leave this module: one is arithmetic in
- * `pickWinners`, the other a `setTimeout` argument. Nothing would reject an
- * absurd value for either, so these checks are not relocating an error, they are
- * the only error there is.
+ * `register()`, arbitrarily far from the `configure()` call responsible. So these
+ * checks relocate the browser's own error to the call that caused it.
  *
  * `smallViewport` is the one that cannot be checked. An invalid media query does
  * not throw and does not normalise to something recognisable: Chromium echoes
@@ -295,20 +269,14 @@ export function configure(patch: ConfigureOptions): void {
  * obviously empty case is caught; the rest is a documentation problem.
  */
 function validate(patch: ConfigureOptions): void {
-  for (const key of ['pauseBelow', 'hysteresis', 'playAbove'] as const) {
-    const value = patch[key];
-    if (value === undefined) continue;
-    if (!Number.isFinite(value) || value < 0 || value > 1) {
-      throw new RangeError(`polite-media: ${key} must be a fraction between 0 and 1, got ${value}`);
-    }
-  }
-
-  if (patch.pauseGraceMs !== undefined) {
-    if (!Number.isFinite(patch.pauseGraceMs) || patch.pauseGraceMs < 0) {
-      throw new RangeError(
-        `polite-media: pauseGraceMs must be a non-negative number of milliseconds, got ${patch.pauseGraceMs}`
-      );
-    }
+  const { pauseBelow } = patch;
+  if (
+    pauseBelow !== undefined &&
+    (!Number.isFinite(pauseBelow) || pauseBelow < 0 || pauseBelow > 1)
+  ) {
+    throw new RangeError(
+      `polite-media: pauseBelow must be a fraction between 0 and 1, got ${pauseBelow}`
+    );
   }
 
   // A `2` would otherwise behave as 1: it is neither 'all' nor 0, so it falls
@@ -429,7 +397,7 @@ let observer: IntersectionObserver | null = null;
  * Decides when to start buffering, and exists only when `prefetchMargin` asks for it.
  * Separate because one observer cannot serve both jobs: its margin dilates the
  * root that every ratio is measured against, so a margin big enough to be useful
- * for prefetch would quietly rescale `pauseBelow` and `playAbove`.
+ * for prefetch would quietly rescale `pauseBelow`.
  */
 let prefetchObserver: IntersectionObserver | null = null;
 /** Owns every page-level listener, so teardown is one abort rather than six removes. */
@@ -524,7 +492,7 @@ function wantsPrefetch(): boolean {
  * setting would silently mean something other than what it says.
  */
 function thresholds(): number[] {
-  const ladder = [0, 0.1, 0.25, 0.5, 0.75, 1, config.pauseBelow, config.playAbove];
+  const ladder = [0, 0.1, 0.25, 0.5, 0.75, 1, config.pauseBelow];
   return [...new Set(ladder)].sort((a, b) => a - b);
 }
 
@@ -562,11 +530,11 @@ function pauseAfterGrace(entry: Entry): void {
     entry.pauseTimer = undefined;
     pauseNow(entry);
     // It fell out of view rather than losing the slot or being paused by the
-    // user, so the next start has to clear `playAbove` again. Resetting here
+    // user, so the next arrival goes through start() again. Resetting here
     // rather than at the eligibility check is what keeps `resumeAll()` working:
     // a user-paused video is also `paused`, and judging on that would strand it.
     entry.started = false;
-  }, config.pauseGraceMs);
+  }, PAUSE_GRACE_MS);
 }
 
 /**
@@ -605,11 +573,11 @@ function armReveal(entry: Entry): void {
 
 /**
  * A video taller than the viewport can never be fully intersecting, because
- * `intersectionRatio` is a fraction of the *element*. So a start threshold it
- * cannot reach means it never starts, and nothing else would ever say so -- the
- * poster simply stays. With no margin on the playback observer the ceiling is
- * exactly `viewport / height`: measured in Chromium at a 953px viewport, 1.5x
- * viewport height peaks at 0.667 and 3x at 0.333.
+ * `intersectionRatio` is a fraction of the *element*. So a `pauseBelow` it cannot
+ * reach means it never starts, and nothing else would ever say so -- the poster
+ * simply stays. With no margin on the playback observer the ceiling is exactly
+ * `viewport / height`: measured in Chromium at a 953px viewport, 1.5x viewport
+ * height peaks at 0.667 and 3x at 0.333.
  *
  * Checked against the ceiling rather than the observed ratio, so it fires on the
  * first report instead of waiting for a scroll that can never help.
@@ -617,8 +585,8 @@ function armReveal(entry: Entry): void {
 function warnIfStartUnreachable(entry: Entry): void {
   if (warnedUnreachable) return;
 
-  const startAt = Math.max(config.playAbove, config.pauseBelow);
-  if (startAt === 0) return;
+  const { pauseBelow } = config;
+  if (pauseBelow === 0) return;
 
   const height = entry.target.getBoundingClientRect().height;
   if (height === 0) return;
@@ -626,14 +594,14 @@ function warnIfStartUnreachable(entry: Entry): void {
   // The prefetch margin is deliberately absent: it belongs to that observer,
   // and the one that reports these ratios has no margin to grow the root by.
   const ceiling = Math.min(1, window.innerHeight / height);
-  if (ceiling > startAt) return;
+  if (ceiling > pauseBelow) return;
 
   warnedUnreachable = true;
-  const name = config.playAbove > config.pauseBelow ? 'playAbove' : 'pauseBelow';
   console.warn(
-    `polite-media: this video is too tall to reach its start threshold, ${name} ` +
-      `(${startAt}); its highest possible visible fraction is about ${ceiling.toFixed(2)}, ` +
-      `so it will never start. Lower ${name}, or make the box shorter than the viewport.`,
+    'polite-media: this video is too tall to ever be visible enough to play. ' +
+      `pauseBelow is ${pauseBelow}, but its highest possible visible fraction is ` +
+      `about ${ceiling.toFixed(2)}. Lower pauseBelow, or make the box shorter than ` +
+      'the viewport.',
     entry.video
   );
 }
@@ -888,7 +856,7 @@ function pickWinners(candidates: Entry[]): Set<Entry> {
   // The incumbent keeps the slot unless a rival is *clearly* more visible, so a
   // carousel's peeking neighbour cannot flap it back and forth.
   const holder = candidates.find((entry) => entry.started && !entry.video.paused);
-  const keepsSlot = holder && holder.ratio >= leader.ratio - config.hysteresis;
+  const keepsSlot = holder && holder.ratio >= leader.ratio - HYSTERESIS;
 
   return new Set([keepsSlot ? holder : leader]);
 }
@@ -927,12 +895,6 @@ export function reconcile(): void {
     return;
   }
 
-  // Eligible to play at all, as a band rather than a line: a stopped video has
-  // to clear `playAbove` to start, while a running one only has to stay above
-  // `pauseBelow`. With the defaults equal this is one threshold and behaves
-  // exactly as before; pull them apart and a video near the boundary can no
-  // longer oscillate, because the two crossings are in different places.
-  const startAt = Math.max(config.playAbove, config.pauseBelow);
   // Per video rather than per page, because `startWhen` is overridable at
   // register(): a hero can hold out for the visitor while a below-fold grid does
   // not. Checked here rather than at registration because load and the first
@@ -940,7 +902,7 @@ export function reconcile(): void {
   const eligible = [...entries.values()].filter((e) => {
     if (e.gated || waitingToStart(e)) return false;
     if (!e.started && e.ratio > 0) warnIfStartUnreachable(e);
-    return e.ratio > (e.started ? config.pauseBelow : startAt);
+    return e.ratio > config.pauseBelow;
   });
   const winners = pickWinners(eligible);
   const wasEligible = new Set(eligible);

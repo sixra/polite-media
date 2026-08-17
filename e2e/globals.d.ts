@@ -27,9 +27,6 @@ declare global {
     __preload: () => string;
     /** buffered.html: canplaythrough and playing, in the order they fired. */
     __order: string[];
-    /** band.html: measured visibility, and a scroll that targets a given fraction. */
-    __visibleRatio: () => number;
-    __scrollToRatio: (target: number) => void;
     __state: () => {
       recoversSrc: string;
       recoversReady: boolean;
