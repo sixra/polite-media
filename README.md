@@ -7,7 +7,7 @@ nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
 
 |                      | JavaScript | stylesheet | total      |
 | -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,826 B    | 194 B      | **4.0 KB** |
+| `polite-media/video` | 3,926 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
 | `polite-media/warm`  | 643 B      | none       | **643 B**  |
 
@@ -436,6 +436,15 @@ A `<button>` carrying `data-polite-pause-control` toggles playback. You supply i
 styling; this ships no markup and no CSS for it. Put it anywhere on the page --
 the listener is delegated on `document`, so it does not have to live near the
 video, and several controls stay in step with each other automatically.
+
+**A pause follows the visitor to the next page.** It is kept in `sessionStorage`,
+so on a static multi-page site the motion stays stopped as they click through, and
+a declared `aria-pressed` comes back in the right state. Without this the control
+would be a per-document suggestion: someone who stopped the motion once would be
+asked to stop it again on every navigation. `sessionStorage` rather than
+`localStorage` deliberately, so it lasts the visit rather than silently outliving
+it by weeks. Where storage is denied, which throws rather than returning nothing,
+the pause still applies to the current page and simply does not carry.
 
 **If you forget it, the console says so.** Five seconds after a looping video
 starts -- WCAG 2.2.2's own threshold, so a short clip that ends by itself is

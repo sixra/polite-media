@@ -1427,6 +1427,102 @@ describe('the pause-state event', () => {
 });
 
 /**
+ * A pause has to outlive the document. Navigation on a static multi-page site is
+ * cross-document, so without this a visitor who stopped the motion is asked to
+ * stop it again on every click -- which makes the pause control a suggestion.
+ */
+describe('a pause across a navigation', () => {
+  const PAUSE_KEY = 'polite-media:paused';
+
+  it('remembers a pause, and forgets it again on resume', () => {
+    const { video } = makeHarness();
+    register(video);
+
+    pauseAll();
+    expect(sessionStorage.getItem(PAUSE_KEY)).toBe('1');
+    resumeAll();
+    expect(sessionStorage.getItem(PAUSE_KEY)).toBeNull();
+  });
+
+  // setPaused returns early when the flag already matches, so writing the record
+  // there meant this call did nothing and the restore below overrode the host.
+  it('lets resumeAll() clear a stored pause before anything is registered', () => {
+    sessionStorage.setItem(PAUSE_KEY, '1');
+    resumeAll();
+
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+
+    expect(play).toHaveBeenCalled();
+    expect(sessionStorage.getItem(PAUSE_KEY)).toBeNull();
+  });
+
+  it('holds a video on its poster when the previous page was paused', () => {
+    // Standing in for the next document in the visit: storage survives, the
+    // module does not.
+    sessionStorage.setItem(PAUSE_KEY, '1');
+
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+
+    expect(play).not.toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute('data-polite-paused')).toBe(true);
+  });
+
+  it('puts a declared control in the pressed state it was left in', () => {
+    sessionStorage.setItem(PAUSE_KEY, '1');
+    const button = document.createElement('button');
+    button.setAttribute('data-polite-pause-control', '');
+    button.setAttribute('aria-pressed', 'false');
+    document.body.append(button);
+
+    const { video } = makeHarness();
+    register(video);
+
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // A restore is not a transition: the visitor did nothing on this page. Firing
+  // it would also only reach hosts that bound a listener before register().
+  it('announces nothing on restore', () => {
+    sessionStorage.setItem(PAUSE_KEY, '1');
+    const seen: boolean[] = [];
+    const onChange = (event: Event): void => {
+      seen.push((event as CustomEvent<{ paused: boolean }>).detail.paused);
+    };
+    document.addEventListener('polite-video:pausechange', onChange);
+
+    const { video } = makeHarness();
+    register(video);
+    document.removeEventListener('polite-video:pausechange', onChange);
+
+    expect(seen).toEqual([]);
+  });
+
+  // Denied storage raises SecurityError rather than returning nothing. Losing the
+  // memory is acceptable; losing the video is not.
+  it('still works when storage throws', () => {
+    const boom = (): never => {
+      throw new Error('storage disabled');
+    };
+    // The whole global, not a spy on Storage.prototype: whether the environment's
+    // sessionStorage even inherits from it is an implementation detail, and a spy
+    // that silently attaches to nothing made this test pass with the try/catch
+    // deleted.
+    vi.stubGlobal('sessionStorage', { getItem: boom, setItem: boom, removeItem: boom });
+
+    const { video, play } = makeHarness();
+    expect(() => register(video)).not.toThrow();
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalled();
+
+    expect(() => pauseAll()).not.toThrow();
+  });
+});
+
+/**
  * The claim the library cannot keep on its own: it ships the hook, the host
  * ships the button, and forgetting it is silent. Deferred by WCAG 2.2.2's own
  * five-second threshold, so these use fake timers.

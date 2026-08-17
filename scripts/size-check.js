@@ -42,7 +42,12 @@ const budgets = {
   // became constants. All three fought oscillation, playAbove was the only one
   // that shipped disabled, and its band also paid for a threshold-ladder entry
   // and a branch choosing which option to name in the warning.
-  'src/video.ts': 3900,
+  // And +100 B to remember a pause in sessionStorage. Without it the pause control
+  // was per-document, so a visitor who stopped the motion was asked again on every
+  // navigation, which made the headline accessibility claim only half true. Most
+  // of the cost is the two try/catch blocks: denied storage throws rather than
+  // returning nothing, and it is absent entirely under SSR.
+  'src/video.ts': 4000,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a

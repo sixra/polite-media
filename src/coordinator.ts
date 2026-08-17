@@ -1016,6 +1016,9 @@ function attachLifecycle(): void {
   lifecycle = new AbortController();
   const { signal } = lifecycle;
 
+  // Before anything is observed, so the first batch already knows it is paused.
+  restorePaused();
+
   if (!pageLoaded()) {
     window.addEventListener('load', () => reconcile(), { once: true, signal });
   }
@@ -1063,6 +1066,61 @@ function reflectPaused(): void {
       control.setAttribute('aria-pressed', String(userPaused));
     }
   }
+}
+
+/**
+ * Where a pause is remembered across a navigation.
+ *
+ * `sessionStorage` rather than `localStorage`: the defect this fixes is a pause
+ * being forgotten on the visitor's very next click, which is one visit. A
+ * preference that silently outlived the visit by weeks would be a different and
+ * larger promise, and not one a visitor made.
+ */
+const PAUSE_KEY = 'polite-media:paused';
+
+/**
+ * Storage is wrapped because it throws rather than degrading. Access raises
+ * `SecurityError` where a policy denies it, which covers storage turned off in
+ * the browser's settings and a page embedded in a context where third-party
+ * storage is blocked; `setItem` additionally throws once a quota is reached. The
+ * global is also simply absent under SSR, which the same `catch` covers.
+ *
+ * A remembered pause is worth strictly less than the page working, so every
+ * failure here is silent and the pause just stays page-local.
+ */
+function readStoredPause(): boolean {
+  try {
+    return sessionStorage.getItem(PAUSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredPause(paused: boolean): void {
+  try {
+    if (paused) sessionStorage.setItem(PAUSE_KEY, '1');
+    else sessionStorage.removeItem(PAUSE_KEY);
+  } catch {
+    // Deliberately empty: the pause still applies to this page, it just will not
+    // survive the next navigation.
+  }
+}
+
+/**
+ * Re-applies a pause the visitor set before navigating here.
+ *
+ * Deliberately not routed through `setPaused`: nothing has changed from the
+ * visitor's point of view, so there is no transition to announce, and a
+ * `pausechange` fired during the first `register()` would reach only the hosts
+ * that happened to bind a listener before it. No `reconcile()` either, because
+ * no video is observed yet -- the observer's first batch reads `userPaused` and
+ * holds every video on its poster, which is the outcome this wants.
+ */
+function restorePaused(): void {
+  if (userPaused || !readStoredPause()) return;
+  userPaused = true;
+  document.documentElement.setAttribute('data-polite-paused', '');
+  reflectPaused();
 }
 
 /**
@@ -1223,12 +1281,26 @@ function setPaused(paused: boolean): void {
   );
 }
 
+/*
+ * The stored value is written here rather than inside `setPaused`, which returns
+ * early when the flag already matches. Two things depend on that:
+ *
+ * - `resumeAll()` on a page that is already playing can still clear a pause the
+ *   visitor set earlier. Inside `setPaused` it wrote nothing, so a host calling
+ *   it before the first `register()` was silently overridden by the restore.
+ * - `unregisterAll()` resumes as it tears down, and that must not be read as the
+ *   visitor changing their mind. Leaving the record intact is what carries a pause
+ *   across a client-side router's unregister/register cycle as well as a real
+ *   navigation.
+ */
 export function pauseAll(): void {
+  writeStoredPause(true);
   setPaused(true);
 }
 
 /** Lets playback resume, undoing {@link pauseAll}. */
 export function resumeAll(): void {
+  writeStoredPause(false);
   setPaused(false);
 }
 
@@ -1253,6 +1325,10 @@ export function resetForTests(): void {
   unregisterAll();
   config = { ...defaults };
   interacted = false;
+  // unregisterAll resumes, which clears the key on the way through, but only when
+  // it was actually paused: a restored pause that no test ever toggled would
+  // otherwise leak into the next one.
+  writeStoredPause(false);
 }
 
 /** Internal view for tests. Not exported from the package entry point. */

@@ -259,6 +259,45 @@ test.describe('pause control (WCAG 2.2.2)', () => {
     await page.click('[data-polite-pause-control]');
     await expect.poll(() => page.evaluate(() => window.__playingCount())).toBe(1);
   });
+
+  /**
+   * The reason the pause is persisted at all. A real cross-document navigation,
+   * not a reload: this is what every click on a static multi-page site does, and
+   * a module-level flag does not survive it. Asserted on a second page rather
+   * than the same one, so a `sessionStorage` scoped per document would fail.
+   */
+  test('stays paused after navigating to another page', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+
+    await page.click('[data-polite-pause-control]');
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(false);
+
+    await page.goto('/demo/sizes.html');
+    await settle(page);
+    // Counted off the elements rather than a demo helper: this page defines none,
+    // and the claim is about the videos, not about the harness.
+    expect(
+      await page.evaluate(
+        () => [...document.querySelectorAll('video')].filter((video) => !video.paused).length
+      )
+    ).toBe(0);
+    expect(
+      await page.evaluate(() => document.documentElement.hasAttribute('data-polite-paused'))
+    ).toBe(true);
+  });
+
+  test('resuming is remembered too, so the next page plays', async ({ page }) => {
+    await page.goto('/demo/hero.html');
+    const control = page.locator('[data-polite-pause-control]');
+    await control.click();
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(false);
+    await control.click();
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+
+    await page.goto('/demo/hero.html');
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
 });
 
 test.describe('the pause-state event', () => {
