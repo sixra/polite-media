@@ -4,9 +4,9 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * Standalone. The rule block is lifted from @sixra/devkit/eslint, which is being
- * retired, minus everything site-shaped: no Astro, no service worker, no
- * Cloudflare functions. None of those files exist in a browser library.
+ * Deliberately narrower than the config the sites use: no Astro, no service
+ * worker, no Cloudflare functions, because none of those files exist in a
+ * browser library.
  *
  * Requires TypeScript 5.x. typescript-eslint peers on `>=4.8.4 <6.1.0`, and
  * TypeScript 7 moved the compiler API behind `./unstable/*` -- its main export is
