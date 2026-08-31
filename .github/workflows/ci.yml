@@ -17,7 +17,7 @@ jobs:
       # same step, replacing actions/setup-node.
       - uses: pnpm/setup@v2
         with:
-          runtime: node@24
+          runtime: node@26
           cache: true
 
       - run: pnpm lint
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
         with:
-          runtime: node@24
+          runtime: node@26
           cache: true
 
       # Fixtures are generated, not committed. Keyed on the generator so a changed

@@ -2,7 +2,7 @@
 
 ## Getting set up
 
-Node 24 and pnpm. `pnpm install` also installs the git hooks.
+Node 26 and pnpm. `pnpm install` also installs the git hooks.
 
 ```sh
 pnpm install

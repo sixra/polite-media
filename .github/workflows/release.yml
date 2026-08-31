@@ -30,7 +30,7 @@ jobs:
       # actions/setup-node for pnpm v11 and newer.
       - uses: pnpm/setup@v2
         with:
-          runtime: node@24
+          runtime: node@26
           cache: true
 
       # Publishing is the one action a follow-up commit cannot undo, so nothing
@@ -53,10 +53,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
         with:
-          runtime: node@24
+          runtime: node@26
           cache: true
 
-      # Trusted publishing needs npm 11.5.1 or newer. Node 24 bundles npm 11.x,
+      # Trusted publishing needs npm 11.5.1 or newer. Node 26 bundles npm 11.x,
       # but which patch is not guaranteed, so this checks rather than hopes.
       - name: Ensure npm can do trusted publishing
         run: |
