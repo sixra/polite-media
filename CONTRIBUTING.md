@@ -2,7 +2,8 @@
 
 ## Getting set up
 
-Node 26 and pnpm. `pnpm install` also installs the git hooks.
+Node 24 or newer, which is what `devEngines` enforces. CI and `.nvmrc` use 26.
+`pnpm install` also installs the git hooks.
 
 ```sh
 pnpm install
