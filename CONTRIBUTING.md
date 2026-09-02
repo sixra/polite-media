@@ -7,10 +7,18 @@ Node 26 and pnpm. `pnpm install` also installs the git hooks.
 ```sh
 pnpm install
 pnpm verify     # lint, format, typecheck, unit tests, build, size budgets
+pnpm fixtures   # synthetic demo media, needed by the demos and the e2e suite
 pnpm test:e2e   # Playwright, all three engines
 ```
 
 `pnpm verify` runs automatically before you push to `main`.
+
+The demo media is generated rather than committed, so a fresh clone has none
+of it and both the demo pages and `pnpm test:e2e` need `pnpm fixtures` first.
+It requires ffmpeg with the `libx264` and `libsvtav1` encoders; `libsvtav1` is
+a separate build option a distro ffmpeg may lack, and the AV1 fixture is what
+the source-fallback tests rest on. The script checks both up front and names
+whichever is missing.
 
 ## Commits
 
