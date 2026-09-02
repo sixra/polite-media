@@ -51,22 +51,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+
+      # pnpm first, because `prepack` builds with it. `cache: false` because npm's
+      # trusted-publishing guidance is not to cache in a release build.
       - uses: pnpm/setup@v2
         with:
           runtime: node@26
-          cache: true
+          cache: false
 
-      # Trusted publishing needs npm 11.5.1 or newer. Node 26 bundles npm 11.x,
-      # but which patch is not guaranteed, so this checks rather than hopes.
+      # setup-node last, so its npm is the one on PATH. The first attempt to publish
+      # 0.3.1 ran npm 10.9.8, which predates OIDC entirely, so npm never attempted
+      # trusted publishing and reported ENEEDAUTH. This is the shape npm's own
+      # trusted-publishing guidance prescribes, registry-url included.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      # Assert rather than upgrade. The previous version of this step ran
+      # `npm install -g npm@latest` and carried on when the new binary did not take
+      # effect, which turned a fixable setup error into a failed publish.
       - name: Ensure npm can do trusted publishing
         run: |
           need=11.5.1
           have=$(npm --version)
+          echo "npm $have"
           if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)" != "$need" ]; then
-            echo "npm $have is older than $need, upgrading"
-            npm install -g npm@latest
+            echo "npm $have is older than the $need trusted publishing requires" >&2
+            exit 1
           fi
-          npm --version
 
       # No --provenance flag: with trusted publishing npm attaches the attestation
       # on its own. No build step either, `prepack` runs `pnpm run build`.
