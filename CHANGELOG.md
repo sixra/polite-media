@@ -3,7 +3,36 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## Unreleased
+
+### Changed
+
+- **Breaking: `playAbove`, `hysteresis` and `pauseGraceMs` are no longer
+  options.** All three tuned the same thing, oscillation, and none was a policy a
+  caller has a view on. `playAbove` is gone outright; it shipped disabled at `0`.
+  The other two keep working at their previous defaults as constants: a video
+  leaving the viewport still waits 400ms before stopping, and an incumbent still
+  holds the single slot until a rival is 15% more visible. Nine options become
+  six.
+
+### Fixed
+
+- **A pause now survives a navigation.** It is kept in `sessionStorage`, so on a
+  multi-page site the motion stays stopped as the visitor clicks through. It was
+  a module-level flag, which died with the document, so someone who stopped the
+  motion was asked to stop it again on every page.
+
 ## 0.2.0 (2026-08-11)
+
+### Changed
+
+- **Breaking: `startWhen` now defaults to `'page-loaded'`, was `'interaction'`.**
+  A video plays on its own once `window`'s `load` event has fired, rather than
+  waiting for the visitor's first pointer, key or scroll. The old default meant a
+  visitor who read a desktop page without scrolling saw a still poster for as
+  long as they stayed. The cost is that a hero is once again a Largest Contentful
+  Paint candidate; set `startWhen: 'interaction'`, per video or globally, to take
+  that back.
 
 ### Added
 
@@ -25,7 +54,8 @@ this is `0.x`, a minor bump may still break things and will say so here.
   without a cache header.
 - Skipped on Save-Data and 2g, deduped per candidate set, and fetched at
   `fetchpriority="low"`.
-- Nothing else changed. The video and image entry points are untouched.
+- The image entry point is untouched. The only video change is the `startWhen`
+  default above.
 
 ## 0.1.0 (2026-08-11)
 
@@ -59,10 +89,9 @@ First release.
 
 ### Defaults worth knowing
 
-- **`startWhen: 'page-loaded'`.** Video fetches and plays once `window`'s `load`
-  event has fired, so its bytes never compete with the page's own. Set
-  `'interaction'` to additionally wait for the visitor's first pointer, key or
-  scroll, which keeps the video out of Largest Contentful Paint entirely.
+- **`startWhen: 'interaction'`.** Video fetches once `window`'s `load` event has
+  fired and plays once the visitor's first pointer, key or scroll follows, which
+  keeps it out of Largest Contentful Paint entirely. (Changed in 0.2.0.)
 - **`--polite-fade: 0s` for video, a cut.** Images default to `350ms`. Scope the
   property to one container to give that video its own fade.
 - **`atOnce: { small: 1, large: 'all' }`.** One video at a time on small

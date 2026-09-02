@@ -18,9 +18,10 @@ It is wider than the function signatures:
 | **defaults**                      | `startWhen`, `--polite-fade: 0s`                  | rendering changes with no code change    |
 | the markup contract               | direct-parent rule, unconditional last `<source>` | works until it does not                  |
 
-The last two are the ones that get missed. Both have already shipped here:
+The last two are the ones that get missed, and both have already shipped here.
 `feat!: default the video fade to 0s` changed no signature at all, and
-`refactor!: data-polite-pause-control` was "just a rename". Both broke consumers.
+`refactor!: rename the pause control attribute and event constant` was "just a
+rename". Both broke consumers.
 
 ## The rule
 
@@ -35,9 +36,8 @@ The last two are the ones that get missed. Both have already shipped here:
 bumps the version from inside a changelog section that is hidden, which produces a
 release whose notes explain nothing.
 
-`commitlint` enforces the format at commit time, through the lefthook `commit-msg`
-hook. That is a correctness gate, not a style one: the version is derived from these
-subjects.
+The format is enforced at commit time; see
+[`CONTRIBUTING.md`](CONTRIBUTING.md#commits).
 
 ## While the package is below 1.0.0
 
@@ -97,18 +97,18 @@ npmjs.com shows the same thing as a "Provenance" panel naming the commit and the
 workflow that built it.
 
 (`npm audit signatures` is the other command in npm's docs, but it audits whatever
-project you run it in, so in this repo it would report on the 398 devDependencies
-and say nothing about polite-media.)
+project you run it in, so in this repo it reports on the devDependency tree and
+says nothing about polite-media.)
 
 ## What is deliberately not automated
 
-- **The README byte figures.** `scripts/size-check.js` fails the build unless every
-  measured size appears verbatim in the README table. It has already caught a real
-  drift. Anything that updated those numbers automatically would defeat the check.
+- **The README byte figures.** `pnpm size` already fails when they drift, and it
+  has caught a real one. Anything that updated them automatically would defeat the
+  check.
 - **The changelog wording.** Written by a person, in plain language: what is new,
   what changed, what was fixed.
 
-## Going public, and the first publish
+## Before the repo goes public
 
 Four things are true only while this is private and unpublished:
 
