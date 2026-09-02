@@ -9,7 +9,7 @@ nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
 | -------------------- | ---------- | ---------- | ---------- |
 | `polite-media/video` | 3,926 B    | 194 B      | **4.1 KB** |
 | `polite-media/image` | 630 B      | 202 B      | **830 B**  |
-| `polite-media/warm`  | 643 B      | none       | **643 B**  |
+| `polite-media/warm`  | 615 B      | none       | **615 B**  |
 
 `polite-media/layer.css` is a third, optional stylesheet: **137 B** for the
 standard poster-over-video stack. An image-only page never pays for the video

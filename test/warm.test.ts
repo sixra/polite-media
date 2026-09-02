@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetEnv } from '../src/env.js';
-import { resetWarmed, warm, warmOnIntent } from '../src/warm.js';
+import { resetWarmed, warm, warmOnIntent } from '../src/warming.js';
 
 /**
  * happy-dom implements no image loading, so what the browser *selects* is
