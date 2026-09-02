@@ -3,7 +3,7 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
-## Unreleased
+## 0.3.0 (2026-09-02)
 
 ### Changed
 
@@ -14,6 +14,11 @@ this is `0.x`, a minor bump may still break things and will say so here.
   leaving the viewport still waits 400ms before stopping, and an incumbent still
   holds the single slot until a rival is 15% more visible. Nine options become
   six.
+
+- **`resetWarmed` is no longer exported from `polite-media/warm`.** It clears the
+  dedup record for a test and had no caller outside the suite; the entry point is
+  a barrel now, the way `polite-media/video` already was. No published version
+  ever carried it.
 
 ### Fixed
 

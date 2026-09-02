@@ -19,6 +19,10 @@ It doesn't flash, doesn't hog the decoder, doesn't eat data on a metered
 connection, doesn't ignore reduced motion, and doesn't autoplay without giving
 anyone a way to stop it.
 
+```sh
+npm install polite-media
+```
+
 ```html
 <!-- data-polite-media goes on the video's direct parent -->
 <div class="your-own-box" data-polite-media>
@@ -658,8 +662,8 @@ for it. The path that rests on it is the retry after a refused `play()`, which
 rejects with `NotAllowedError`; the library follows MDN's documented remedy of
 surfacing a control and waiting for a gesture.
 
-**`0.x`, and not on the npm registry yet**, so depend on it by path or git.
-Nothing runs it in production so far.
+**`0.x`**, so a minor bump may still change behaviour; `CHANGELOG.md` says when
+it does. Nothing runs it in production so far.
 
 Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 
