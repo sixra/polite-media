@@ -45,11 +45,9 @@ A breaking change bumps the **minor**, not the major: 0.2.0 to 0.3.0. Semver cla
 allows it, "Major version zero (0.y.z) is for initial development. Anything MAY change
 at any time."
 
-**Go to 1.0.0 when real Safari on a real iPhone has exercised the refused-`play()`
-retry path.** That is the one part of the library no automated test covers, because
-Playwright's WebKit is not iOS Safari, and it is the likeliest source of a breaking
-fix. Once it has been exercised, the API has no known soft spots and the version
-numbers start meaning something to anyone upgrading.
+**Go to 1.0.0 once iOS Safari has exercised the refused-`play()` retry path.**
+Playwright's WebKit does not stand in for it, so that is the one path the test
+matrix cannot reach, and the likeliest source of a breaking fix.
 
 At 1.0.0, delete the sentence in `CHANGELOG.md` that says a minor may still break
 things.

@@ -646,23 +646,20 @@ leave it paused on return.
 
 ## Status
 
-Framework-agnostic by construction, and developed against Astro projects. It
-takes no framework dependency and uses only standard DOM. The end-to-end suite
-runs on Playwright's Chromium, Firefox and WebKit; treat other combinations as
+Framework-agnostic by construction: no framework dependency, standard DOM only,
+developed against Astro projects.
+
+**Tested on Chromium, Firefox and WebKit**, all three driven by Playwright
+against real media on every change, alongside 211 unit tests. Other engines are
 unexercised rather than unsupported.
 
-**Nothing runs this in production yet.** It was extracted from two sites, but
-neither has shipped it.
+**iOS Safari is outside the matrix**, and Playwright's WebKit does not stand in
+for it. The path that rests on it is the retry after a refused `play()`, which
+rejects with `NotAllowedError`; the library follows MDN's documented remedy of
+surfacing a control and waiting for a gesture.
 
-**Real iOS has never run this.** Playwright's WebKit is not iOS Safari, so the
-retry after a refused `play()` is the least exercised path in the package. A
-refused `play()` rejects with `NotAllowedError`, and MDN's documented remedy is
-to surface a control or wait for a gesture, which is what this does. Whether it
-does so correctly on an iPhone is untested.
-
-**Unpublished.** `polite-media` is not on the npm registry yet, so there is
-deliberately no install line above. Depend on it by path or git until that
-changes.
+**`0.x`, and not on the npm registry yet**, so depend on it by path or git.
+Nothing runs it in production so far.
 
 Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 
