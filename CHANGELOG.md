@@ -3,6 +3,11 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.3.1 (2026-09-02)
+
+Documentation only. `src/` is identical to 0.3.0; this republishes so the npm
+page carries the rewritten README.
+
 ## 0.3.0 (2026-09-02)
 
 ### Changed

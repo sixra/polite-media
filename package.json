@@ -1,6 +1,6 @@
 {
   "name": "polite-media",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Background video, image reveals and next-page image warming. Reveals on the frame that actually painted, plays only what is on screen, respects data and motion.",
   "keywords": [
     "video",
