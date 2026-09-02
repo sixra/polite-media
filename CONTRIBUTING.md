@@ -49,9 +49,9 @@ than stating it flatly. Quote a source and link it in the same place.
 ## Size budgets
 
 `pnpm size` measures each entry point bundled, minified and gzipped, and fails if a
-budget is exceeded **or if the README quotes a different number**. If a change costs
-bytes, raise the budget and update the README table in the same commit, and say in
-the message what the bytes bought.
+budget is exceeded, and also when one has more than 20% headroom, since a limit
+nothing approaches constrains nothing. Either way, move the budget in the same
+commit and say in the message what changed.
 
 ## What this package deliberately is not
 

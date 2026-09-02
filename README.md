@@ -2,19 +2,6 @@
 
 Background video, image reveals and next-page image warming. No dependencies, no framework.
 
-Three independent entry points, imported separately, because they share almost
-nothing. Bundled, minified and gzipped, which is what `pnpm size` enforces:
-
-|                      | JavaScript | stylesheet | total      |
-| -------------------- | ---------- | ---------- | ---------- |
-| `polite-media/video` | 3,926 B    | 194 B      | **4.1 KB** |
-| `polite-media/image` | 630 B      | 202 B      | **830 B**  |
-| `polite-media/warm`  | 615 B      | none       | **615 B**  |
-
-`polite-media/layer.css` is a third, optional stylesheet: **137 B** for the
-standard poster-over-video stack. An image-only page never pays for the video
-coordinator.
-
 It doesn't flash, doesn't hog the decoder, doesn't eat data on a metered
 connection, doesn't ignore reduced motion, and doesn't autoplay without giving
 anyone a way to stop it.
@@ -59,6 +46,18 @@ import 'polite-media/image.css';
 
 revealImages('.card img');
 ```
+
+## What it costs
+
+Three independent entry points, imported separately, because they share almost
+nothing. Gzipped and including its stylesheet, `polite-media/video` is around
+4 KB, and `polite-media/image` and `polite-media/warm` are under 1 KB each.
+`polite-media/layer.css` is a third, optional stylesheet for the standard
+poster-over-video stack.
+
+An image-only page never pays for the video coordinator, and nothing here has a
+runtime dependency. Each entry point is held to a budget by `pnpm size`, which
+prints the exact figures.
 
 ## Recipes
 

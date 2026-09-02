@@ -100,9 +100,6 @@ says nothing about polite-media.)
 
 ## What is deliberately not automated
 
-- **The README byte figures.** `pnpm size` already fails when they drift, and it
-  has caught a real one. Anything that updated them automatically would defeat the
-  check.
 - **The changelog wording.** Written by a person, in plain language: what is new,
   what changed, what was fixed.
 
