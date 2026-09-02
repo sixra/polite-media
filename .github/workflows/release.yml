@@ -1,24 +1,20 @@
 # Publishes on a pushed v* tag. See RELEASING.md for what decides the version.
 #
-# The filename is load-bearing: npm's trusted publisher config names this file
-# explicitly, so renaming it silently breaks publishing rather than failing loudly.
+# npm's trusted publisher config names this filename explicitly, so renaming it
+# stops publishing silently rather than loudly.
 name: Release
 
 on:
   push:
     tags: ['v*']
 
-# A tag is pushed once, but a re-run or a retagged push must not race a second
-# publish against the first.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # Split from publish on purpose, and the reason is the token rather than tidiness.
-  # `pnpm dlx` fetches and runs the latest publint and attw at job time, unpinned. In
-  # a job holding `id-token: write` that is a path to the npm publishing credential,
-  # so the tools that need the network run where no such permission exists.
+  # Separate from publish because `pnpm dlx` fetches publint and attw unpinned at
+  # job time, which must not happen beside the `id-token: write` credential.
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -26,15 +22,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      # Same setup as ci.yml: pnpm/setup installs the runtime too, replacing
-      # actions/setup-node for pnpm v11 and newer.
       - uses: pnpm/setup@v2
         with:
           runtime: node@26
           cache: true
 
-      # Publishing is the one action a follow-up commit cannot undo, so nothing
-      # here is skipped for speed.
       - run: pnpm verify
       - run: pnpm dlx publint
       - run: pnpm dlx @arethetypeswrong/cli --pack --ignore-rules no-resolution cjs-resolves-to-esm
@@ -44,34 +36,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      # OIDC. This is what replaces a long-lived NPM_TOKEN and what lets npm
-      # attach the provenance attestation.
-      id-token: write
-      # write, not read: the last step creates the GitHub Release.
-      contents: write
+      id-token: write # OIDC, in place of a long-lived token
+      contents: write # the last step creates the GitHub Release
     steps:
       - uses: actions/checkout@v7
 
-      # pnpm first, because `prepack` builds with it. `cache: false` because npm's
-      # trusted-publishing guidance is not to cache in a release build.
+      # Installs the dependencies `prepack` builds with.
       - uses: pnpm/setup@v2
         with:
           runtime: node@26
           cache: false
 
-      # setup-node last, so its npm is the one on PATH. The first attempt to publish
-      # 0.3.1 ran npm 10.9.8, which predates OIDC entirely, so npm never attempted
-      # trusted publishing and reported ENEEDAUTH. This is the shape npm's own
-      # trusted-publishing guidance prescribes, registry-url included.
+      # Last, so its npm wins the PATH. No `registry-url`: that writes an .npmrc
+      # holding `_authToken=${NODE_AUTH_TOKEN}`, and with no secret to fill in, npm
+      # sends the placeholder as a credential and never reaches OIDC.
       - uses: actions/setup-node@v6
         with:
           node-version: '26'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
-      # Assert rather than upgrade. The previous version of this step ran
-      # `npm install -g npm@latest` and carried on when the new binary did not take
-      # effect, which turned a fixable setup error into a failed publish.
       - name: Ensure npm can do trusted publishing
         run: |
           need=11.5.1
@@ -82,14 +65,9 @@ jobs:
             exit 1
           fi
 
-      # No --provenance flag: with trusted publishing npm attaches the attestation
-      # on its own. No build step either, `prepack` runs `pnpm run build`.
+      # Trusted publishing attaches the provenance attestation, so no --provenance.
       - run: npm publish --access public
 
-      # Deliberately no `npm audit signatures`: it audits the installed dependency
-      # tree, not the artefact just published, so it would check the wrong thing and
-      # could fail this job *after* the publish succeeded. To confirm provenance
-      # landed, ask the registry: `npm view polite-media dist.attestations`.
       - name: Create the GitHub Release from the tag
         env:
           GH_TOKEN: ${{ github.token }}
