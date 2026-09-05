@@ -14,7 +14,13 @@
     "performance",
     "lcp",
     "prefetch",
-    "srcset"
+    "srcset",
+    "hero-video",
+    "video-background",
+    "accessibility",
+    "wcag",
+    "reduced-motion",
+    "autoplay-policy"
   ],
   "license": "MIT",
   "author": "sixra",

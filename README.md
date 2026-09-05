@@ -179,6 +179,31 @@ stop something that was never registered, and nothing else lets CSS answer that:
 The bottom four are yours to style against and never to write yourself. They are
 the public CSS API, along with `--polite-fade` and `--polite-failsafe`.
 
+### Composing your own animation with the reveal
+
+Gating an animation of your own on `data-polite-ready` works, and needs one thing
+you have to add yourself:
+
+```css
+/* the card waits for a decoded picture before it fades up */
+.card.is-visible:has(img[data-polite-reveal]:not([data-polite-ready])) {
+  opacity: 0;
+  /* yours, not the library's: see below */
+  animation: your-failsafe 0s linear 5s forwards;
+}
+```
+
+`data-polite-ready` is written only by JavaScript, while the failsafe in
+`image.css` is CSS-only and reveals **the image**, not a wrapper around it. So a
+bundle that never arrives leaves your wrapper hidden for good even though the
+library's own failsafe fired. Give any rule of yours that hides on
+`:not([data-polite-ready])` its own failsafe on the same delay.
+
+One limit worth knowing: a skipped `content-visibility: auto` subtree runs no
+animations, so neither failsafe fires there until the section is scrolled into
+view. It resolves itself the moment anyone looks at it, which is the only moment
+it could have mattered.
+
 ## Markup contract
 
 1. Poster and video share one box, arranged by your CSS.
@@ -661,13 +686,25 @@ most of the web, while every test on Chrome still passes.
 bfcache restore, and mobile browsers pause video while the tab is hidden and
 leave it paused on return.
 
+**None of this is hypothetical.** The two sites this was extracted from had each
+hand-rolled it, by the same author, and each got it wrong differently. One shipped
+no `IntersectionObserver` at all, so its hero decoded for the length of the page,
+and warmed the next page with `<link rel="prefetch">`, which Safari ignores and
+Firefox aborts. The other cross-faded a one-second dissolve over posters cut from
+frame 0, which is a double exposure of a still against a frame that has already
+moved, checked `prefers-reduced-motion` once at startup, could not recover from a
+refused `play()`, and left twelve background videos in the tab order. Both
+autoplayed looping video with no way to stop it, which [WCAG 2.2.2][wcag]
+requires. Writing this yourself is not hard; writing it correctly is, and nothing
+tells you when you haven't.
+
 ## Status
 
 Framework-agnostic by construction: no framework dependency, standard DOM only,
 developed against Astro projects.
 
 **Tested on Chromium, Firefox and WebKit**, all three driven by Playwright
-against real media on every change, alongside 211 unit tests. Other engines are
+against real media on every change, alongside 222 unit tests. Other engines are
 unexercised rather than unsupported.
 
 **iOS Safari is outside the matrix**, and Playwright's WebKit does not stand in
@@ -676,7 +713,8 @@ rejects with `NotAllowedError`; the library follows MDN's documented remedy of
 surfacing a control and waiting for a gesture.
 
 **`0.x`**, so a minor bump may still change behaviour; `CHANGELOG.md` says when
-it does. Nothing runs it in production so far.
+it does. It runs in production on the two sites it was extracted from, which is
+where every fix above came from.
 
 Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 
