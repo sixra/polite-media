@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: images</title>
-    <link rel="stylesheet" href="/dist/image.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/image.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       /* The backdrop is the host's job and is REQUIRED: an image has no poster
          behind it, so without a visible container a hidden image shows nothing
@@ -24,7 +24,7 @@
         <code>allowEager</code> says otherwise: an eager image may be the LCP element, and LCP
         excludes anything at <code>opacity: 0</code>.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -36,11 +36,11 @@
     </main>
 
     <script type="module">
-      import { revealImages } from '/dist/image.js';
+      import { revealImages } from '../dist/image.js';
 
       const card = (loading, i) => `
         <div class="frame card" data-polite-media>
-          <img src="/demo/assets/sample-poster.avif?v=${loading}${i}" alt="" loading="${loading}" data-polite-reveal />
+          <img src="./assets/sample-poster.avif?v=${loading}${i}" alt="" loading="${loading}" data-polite-reveal />
         </div>`;
 
       document.getElementById('lazy').innerHTML = [0, 1, 2, 3].map((i) => card('lazy', i)).join('');

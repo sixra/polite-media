@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: warming a destination image</title>
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       .cards {
         display: grid;
@@ -41,26 +41,26 @@
         Narrow the window below 50rem and reload: the warmed URL changes with it, because
         <code>sizes</code> is passed through untouched rather than reimplemented.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
       <div class="cards">
         <a
           class="card"
-          href="/demo/warm-destination.html"
-          data-warm-avif="/demo/assets/sample-poster.avif?v=480 480w, /demo/assets/sample-poster.avif?v=800 800w"
+          href="./warm-destination.html"
+          data-warm-avif="./assets/sample-poster.avif?v=480 480w, /demo/assets/sample-poster.avif?v=800 800w"
         >
           The destination, warmed on intent
         </a>
-        <a class="card" href="/demo/warm-destination.html" data-warm-plain>
+        <a class="card" href="./warm-destination.html" data-warm-plain>
           The same page, not warmed
         </a>
       </div>
     </main>
 
     <script type="module">
-      import { warmOnIntent } from '/dist/warm.js';
+      import { warmOnIntent } from '../dist/warm.js';
 
       // The one string that must match the destination's <picture>. It is passed
       // through as data, never interpreted here, which is the whole reason it
@@ -69,7 +69,7 @@
 
       warmOnIntent('[data-warm-avif]', (link) => ({
         sources: [{ type: 'image/avif', srcset: link.dataset.warmAvif }],
-        src: '/demo/assets/sample-poster.jpg',
+        src: './assets/sample-poster.jpg',
         sizes: SIZES,
       }));
 

@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: an art-directed poster</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       /*
        * The whole point of the page: --polite-fade is an ordinary inherited
@@ -47,7 +47,7 @@
         get a double exposure of one scene. Between two genuinely different pictures it is an
         ordinary dissolve.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -55,18 +55,18 @@
         <div>
           <p class="note"><code>--polite-fade: 0s</code> (default, a cut)</p>
           <div class="frame" data-polite-media id="cut">
-            <img src="/demo/assets/sample-poster-art.avif" alt="" />
+            <img src="./assets/sample-poster-art.avif" alt="" />
             <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-              <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+              <source src="./assets/sample-h264.mp4" type="video/mp4" />
             </video>
           </div>
         </div>
         <div>
           <p class="note"><code>--polite-fade: 600ms</code> (a crossfade)</p>
           <div class="frame" data-polite-media id="faded">
-            <img src="/demo/assets/sample-poster-art.avif" alt="" />
+            <img src="./assets/sample-poster-art.avif" alt="" />
             <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-              <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+              <source src="./assets/sample-h264.mp4" type="video/mp4" />
             </video>
           </div>
         </div>
@@ -79,7 +79,7 @@
     </div>
 
     <script type="module">
-      import { registerAll } from '/dist/video.js';
+      import { registerAll } from '../dist/video.js';
 
       registerAll('[data-polite-media] video');
 

@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: grid</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
     <header>
@@ -14,7 +14,7 @@
         The hard case. On a small viewport only the most visible card plays; on a large one they all
         do. Scroll to hand the slot along.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -33,7 +33,7 @@
     </div>
 
     <script type="module">
-      import { register } from '/dist/video.js';
+      import { register } from '../dist/video.js';
 
       // Twelve cards, matching the shape of a real bento grid: the count is the
       // point, since one video never exercises the arbiter.
@@ -44,10 +44,10 @@
         frame.setAttribute('data-polite-media', '');
         frame.dataset.card = String(i);
         frame.innerHTML = `
-          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <img src="./assets/sample-poster.avif" alt="" />
           <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-            <source src="/demo/assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
-            <source src="/demo/assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
+            <source src="./assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
+            <source src="./assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
           </video>`;
         grid.append(frame);
       }

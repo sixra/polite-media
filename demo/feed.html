@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: feed</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       /* Full-viewport cards, so exactly one can ever be past half visible and the
          handover happens at a single point rather than a fuzzy band. */
@@ -29,7 +29,7 @@
         card passes half visible. <code>prefetchMargin</code> buffers the next card 200px out, so it
         plays as it lands instead of showing its poster and catching up.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -43,7 +43,7 @@
     </div>
 
     <script type="module">
-      import { configure, register } from '/dist/video.js';
+      import { configure, register } from '../dist/video.js';
 
       // The whole recipe. atOnce: 1 rather than the default { small: 1, large:
       // 'all' } because a feed is a feed on a desktop too, and prefetchMargin is the
@@ -57,10 +57,10 @@
         frame.setAttribute('data-polite-media', '');
         frame.dataset.card = String(i);
         frame.innerHTML = `
-          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <img src="./assets/sample-poster.avif" alt="" />
           <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-            <source src="/demo/assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
-            <source src="/demo/assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
+            <source src="./assets/sample-av1.mp4" type="video/mp4; codecs=&quot;av01.0.08M.08&quot;" />
+            <source src="./assets/sample-h264.mp4" type="video/mp4; codecs=&quot;avc1.42E01E&quot;" />
           </video>`;
         feed.append(frame);
       }

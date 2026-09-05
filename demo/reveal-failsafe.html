@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: reveal failsafe</title>
-    <link rel="stylesheet" href="/dist/image.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/image.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       /* Shortened so the demo is watchable and the e2e is quick. Production
          pages should leave the 5s default alone. */
@@ -27,7 +27,7 @@
         permanently. It now appears after <code>--polite-failsafe</code>, unfaded, and the console
         names it.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -35,7 +35,7 @@
         <div class="frame card" data-polite-media>
           <img
             id="managed"
-            src="/demo/assets/sample-poster.avif?managed"
+            src="./assets/sample-poster.avif?managed"
             alt=""
             loading="lazy"
             data-polite-reveal
@@ -44,7 +44,7 @@
         <div class="frame card" data-polite-media>
           <img
             id="stray"
-            src="/demo/assets/sample-poster.avif?stray"
+            src="./assets/sample-poster.avif?stray"
             alt=""
             loading="lazy"
             data-polite-reveal
@@ -54,7 +54,7 @@
     </main>
 
     <script type="module">
-      import { revealImages } from '/dist/image.js';
+      import { revealImages } from '../dist/image.js';
 
       // Only the first one. The second is the point of the page.
       revealImages('#managed');

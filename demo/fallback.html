@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: source fallback</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
     <header>
@@ -15,27 +15,27 @@
         AV1, then fails at decode, and the next source takes over. Right: nothing decodable at all,
         so the poster stays for good.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
       <div class="sizes">
         <div class="frame wide" data-polite-media id="recovers">
-          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <img src="./assets/sample-poster.avif" alt="" />
           <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
             <source
-              src="/demo/assets/sample-truncated-av1.mp4"
+              src="./assets/sample-truncated-av1.mp4"
               type='video/mp4; codecs="av01.0.08M.08"'
             />
-            <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+            <source src="./assets/sample-h264.mp4" type="video/mp4" />
           </video>
         </div>
 
         <div class="frame wide" data-polite-media id="exhausts">
-          <img src="/demo/assets/sample-poster.avif" alt="" />
+          <img src="./assets/sample-poster.avif" alt="" />
           <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
             <source
-              src="/demo/assets/sample-truncated-av1.mp4"
+              src="./assets/sample-truncated-av1.mp4"
               type='video/mp4; codecs="av01.0.08M.08"'
             />
           </video>
@@ -51,7 +51,7 @@
     </div>
 
     <script type="module">
-      import { register } from '/dist/video.js';
+      import { register } from '../dist/video.js';
 
       const events = [];
       for (const id of ['recovers', 'exhausts']) {

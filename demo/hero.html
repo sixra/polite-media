@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: hero</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
     <header>
@@ -14,14 +14,14 @@
         The poster is the LCP candidate, so it is preloaded and never starts hidden. Only the video
         layer cuts in, once a frame has actually painted.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
       <div class="frame hero" data-polite-media id="hero">
-        <img src="/demo/assets/sample-poster.avif" alt="" fetchpriority="high" decoding="async" />
+        <img src="./assets/sample-poster.avif" alt="" fetchpriority="high" decoding="async" />
         <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+          <source src="./assets/sample-h264.mp4" type="video/mp4" />
         </video>
       </div>
     </main>
@@ -34,7 +34,7 @@
     </div>
 
     <script type="module">
-      import { register } from '/dist/video.js';
+      import { register } from '../dist/video.js';
 
       const hero = document.getElementById('hero');
       const video = hero.querySelector('video');

@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>polite-media: any size</title>
-    <link rel="stylesheet" href="/dist/video.css" />
-    <link rel="stylesheet" href="/demo/demo.css" />
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="./demo.css" />
   </head>
   <body>
     <header>
@@ -15,7 +15,7 @@
         640×90 strip. The library sets no width, height or aspect ratio (the page does all of it),
         which is the whole reason it drops into an existing design.
       </p>
-      <nav><a href="/demo/">all demos</a></nav>
+      <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
@@ -36,7 +36,7 @@
     </div>
 
     <script type="module">
-      import { configure, POLITE_VIDEO_PAUSECHANGE, register } from '/dist/video.js';
+      import { configure, POLITE_VIDEO_PAUSECHANGE, register } from '../dist/video.js';
 
       // The label-swapping control, which is only buildable because the library
       // announces the change. Watching data-polite-paused on <html> instead would
@@ -54,9 +54,9 @@
       configure({ atOnce: 'all' });
 
       const markup = `
-        <img src="/demo/assets/sample-poster.avif" alt="" />
+        <img src="./assets/sample-poster.avif" alt="" />
         <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-          <source src="/demo/assets/sample-h264.mp4" type="video/mp4" />
+          <source src="./assets/sample-h264.mp4" type="video/mp4" />
         </video>`;
 
       for (const frame of document.getElementById('sizes').children) {
