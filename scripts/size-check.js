@@ -61,7 +61,15 @@ const budgets = {
   // marked image on a page whose bundle failed. The stylesheet now reveals on a
   // delay (~32 B) and the module names the stray element on the console
   // (~157 B). The CSS half is the fix; the JS half is what makes it findable.
-  'src/image.ts': 680,
+  //
+  // Then 680 to 850 for the other half of the same story: image.css is the only
+  // thing that hides a marked image, and a bundler makes its absence invisible in
+  // one direction, folding every component stylesheet together for a build while
+  // serving them apart in dev. The fade then works in a build and is missing in
+  // dev, which is how it shipped once. The check runs against a throwaway element:
+  // reading computed style off an image mid-reveal forced a style flush that left
+  // Firefox holding it at opacity 0 for the whole failsafe delay.
+  'src/image.ts': 850,
   // warm: the detached <picture> that lets the browser pick the variant, the
   // save-data gate, dedup, and the delegated intent binding. Almost all of it is
   // element plumbing, because the selection it replaces is the browser's own.

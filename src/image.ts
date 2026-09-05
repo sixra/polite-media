@@ -85,7 +85,49 @@ function scheduleUnmanagedCheck(): void {
       );
       return;
     }
+    warnIfUnstyled();
   }, 1000);
+}
+
+let warnedNoStylesheet = false;
+
+/**
+ * image.css is the only thing that hides a marked image. Without it `data-polite-reveal` is inert:
+ * the image is never hidden, so it never fades and everything this module does is invisible.
+ *
+ * Bundlers make that easy to get wrong in one direction. A production build usually bundles every
+ * component's CSS site-wide, so a stylesheet imported anywhere covers everywhere, while a dev
+ * server serves it per component and does not. The result is a fade that works in a build and is
+ * missing in dev, on exactly the pages that do not render whichever component happened to import
+ * it.
+ *
+ * Measured on a throwaway element rather than on a real one, which is not a detail. Reading
+ * computed style off an image the library is mid-way through revealing forces a style flush before
+ * `data-polite-ready` lands, and Firefox then holds the failsafe animation's pre-delay value and
+ * leaves the image at `opacity: 0` for five seconds. A diagnostic must not be able to change what
+ * the page does.
+ */
+function warnIfUnstyled(): void {
+  if (warnedNoStylesheet) return;
+
+  // Attached, because computed style against a stylesheet needs the element in the document, and
+  // removed in this same task so nothing paints it and no scan above ever sees it.
+  const probe = document.createElement('img');
+  probe.setAttribute('data-polite-reveal', '');
+  document.body.appendChild(probe);
+  const opacity = getComputedStyle(probe).opacity;
+  probe.remove();
+
+  // Only an explicit '1' is evidence of absence. An environment that reports '' knows nothing about
+  // the cascade -- happy-dom does, and does not implement `@media (scripting: enabled)` either --
+  // and a warning nobody can act on is worse than a missing one.
+  if (opacity !== '1') return;
+
+  warnedNoStylesheet = true;
+  console.warn(
+    'polite-media: image.css is not in effect, so data-polite-reveal does nothing and marked ' +
+      "images will not fade. Import 'polite-media/image.css' from wherever the attribute is emitted."
+  );
 }
 
 /**

@@ -424,6 +424,41 @@ test.describe('contracts', () => {
    * wrong element, since either way the box the library writes to is not the box
    * the stylesheet reads.
    */
+  /**
+   * image.css is the only thing that hides a marked image, so without it the attribute is inert and
+   * nothing this library does is visible. Blocking the stylesheet reproduces the real mistake,
+   * which is importing it from a component the page does not render: a bundler folds every
+   * component stylesheet into one file for a build and serves them separately in dev, so the fade
+   * works in one and is missing in the other.
+   *
+   * A browser test for the same reason as the one below: happy-dom reports '' for an unstyled
+   * opacity, so only a real engine supplies the '1' that proves the reveal is a no-op.
+   */
+  test('warns when image.css never arrived', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+
+    await page.route('**/image.css', (route) => route.abort());
+    await page.goto('/demo/images.html');
+
+    await expect.poll(() => warnings.filter((w) => w.includes('image.css'))).not.toEqual([]);
+  });
+
+  /** And stays quiet when it did arrive, or the warning above is noise on every correct page. */
+  test('stays quiet when image.css is in effect', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+
+    await page.goto('/demo/images.html');
+    await page.waitForTimeout(1500);
+
+    expect(warnings.filter((w) => w.includes('image.css'))).toEqual([]);
+  });
+
   test('warns when the markup gives the reveal nothing to act on', async ({ page }) => {
     const warnings: string[] = [];
     page.on('console', (message) => {
