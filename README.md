@@ -143,7 +143,7 @@ warmOnIntent('a[data-hero]', (link) => ({
 
 ## The attributes
 
-Six in total. The distinction that catches people is the middle column: two of
+Seven in total. The distinction that catches people is the middle column: two of
 the ones you write are live on their own, and one is inert until you call
 something.
 
@@ -155,6 +155,7 @@ something.
 | `data-polite-ready`         | the box, or the image       | written by the library                                    |
 | `data-polite-failed`        | the box                     | written by the library                                    |
 | `data-polite-paused`        | `<html>`                    | written by the library                                    |
+| `data-polite-active`        | `<html>`                    | written by the library                                    |
 
 `data-polite-reveal` is the one to be careful with. `image.css` hides a marked
 image immediately, so marking one you never pass to `revealImages()` leaves it
@@ -162,7 +163,20 @@ hidden until the failsafe shows it, five seconds later and without a fade. The
 console names any image in that state, so widen the selector or drop the
 attribute.
 
-The bottom three are yours to style against and never to write yourself. They are
+`data-polite-active` is on `<html>` for as long as at least one video is
+registered. A pause control is markup on every page, but it must not offer to
+stop something that was never registered, and nothing else lets CSS answer that:
+
+```css
+[data-polite-pause-control] {
+  display: none;
+}
+[data-polite-active] [data-polite-pause-control] {
+  display: inline-flex;
+}
+```
+
+The bottom four are yours to style against and never to write yourself. They are
 the public CSS API, along with `--polite-fade` and `--polite-failsafe`.
 
 ## Markup contract

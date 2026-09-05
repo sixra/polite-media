@@ -12,7 +12,7 @@ It is wider than the function signatures:
 | exported functions and options    | `register`, `configure`, `warm`                   | a signature or option removed or renamed |
 | event names and constants         | `polite-video:ready`                              | a listener silently stops firing         |
 | attributes consumers **write**    | `data-polite-media`, `data-polite-reveal`         | their markup stops working               |
-| attributes the library **writes** | `data-polite-paused`                              | their CSS stops matching                 |
+| attributes the library **writes** | `data-polite-paused`, `data-polite-active`        | their CSS stops matching                 |
 | CSS custom properties             | `--polite-fade`, `--polite-failsafe`              | their tuning is ignored                  |
 | published stylesheet selectors    | `layer.css`'s `> :is(img, video)`                 | their layout breaks                      |
 | **defaults**                      | `startWhen`, `--polite-fade: 0s`                  | rendering changes with no code change    |

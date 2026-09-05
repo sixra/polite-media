@@ -1208,6 +1208,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
 
   entries.set(video, entry);
   byTarget.set(target, entry);
+  reflectActive();
   attachLifecycle();
   getObserver().observe(target);
   getPrefetchObserver()?.observe(target);
@@ -1270,6 +1271,7 @@ export function unregister(video: HTMLVideoElement): void {
   prefetchObserver?.unobserve(entry.target);
   entries.delete(video);
   byTarget.delete(entry.target);
+  reflectActive();
 
   // Releasing the observers and listeners on the last video is what stops a
   // client-router site accumulating one of each per page visited.
@@ -1304,6 +1306,20 @@ export function unregister(video: HTMLVideoElement): void {
  * `pauseAll()` twice is idempotent, and announcing a transition that did not
  * happen would make a host's own state wrong.
  */
+/**
+ * Marks the document while at least one video is managed.
+ *
+ * A pause control is markup on every page, but it must not offer to stop something that was never
+ * registered, and a host cannot answer that in CSS on its own. Both known consumers had invented
+ * the same attribute in their own namespace to do it, which is what makes this the library's job.
+ *
+ * Driven from the only two places `entries` changes, so it cannot drift from what is tracked.
+ */
+function reflectActive(): void {
+  if (entries.size > 0) document.documentElement.setAttribute('data-polite-active', '');
+  else document.documentElement.removeAttribute('data-polite-active');
+}
+
 function setPaused(paused: boolean): void {
   if (userPaused === paused) return;
   userPaused = paused;

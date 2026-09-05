@@ -51,7 +51,11 @@ const budgets = {
   // right for a router re-running the same call and wrong when the values differ:
   // a host believed a gate was in force, and the only symptom was a video that
   // started when it should have waited.
-  'src/video.ts': 4150,
+  //
+  // Then +50 B for data-polite-active, so a pause control can hide itself on a
+  // page where nothing was ever registered. Both known consumers had invented the
+  // same attribute in their own namespace to do exactly that.
+  'src/video.ts': 4200,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a

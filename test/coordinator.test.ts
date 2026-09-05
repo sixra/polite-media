@@ -2150,3 +2150,31 @@ describe('a second register() for a video already tracked', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe('data-polite-active', () => {
+  const active = (): boolean => document.documentElement.hasAttribute('data-polite-active');
+
+  it('marks the document while a video is managed, and only while', () => {
+    const { video } = makeHarness();
+    expect(active()).toBe(false);
+
+    register(video);
+    expect(active()).toBe(true);
+
+    unregister(video);
+    expect(active()).toBe(false);
+    expect(inspect().tracked).toBe(0);
+  });
+
+  it('stays set while any video remains', () => {
+    const first = makeHarness().video;
+    const second = makeHarness().video;
+    register(first);
+    register(second);
+
+    unregister(first);
+
+    expect(active()).toBe(true);
+    expect(inspect().tracked).toBe(1);
+  });
+});
