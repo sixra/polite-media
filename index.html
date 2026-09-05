@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media</title>
+    <meta
+      name="description"
+      content="Background video, image reveals and next-page image warming. No dependencies, no framework."
+    />
+    <link rel="stylesheet" href="./dist/video.css" />
+    <link rel="stylesheet" href="./dist/layer.css" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --ink: #14171a;
+        --paper: #fbfbf9;
+        --muted: #5c6469;
+        --line: #e3e3de;
+        --accent: #1d4ed8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e9eaec;
+          --paper: #121417;
+          --muted: #99a1a8;
+          --line: #2a2e33;
+          --accent: #93b4ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          16px/1.6 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 0 1.25rem 5rem;
+      }
+
+      /* The hero is the demonstration: a still, then the video cutting in on the
+         frame that actually painted. Exactly the arrangement the library is for. */
+      .hero {
+        position: relative;
+        min-height: min(62svh, 30rem);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        isolation: isolate;
+        background: #101214;
+      }
+      .hero__scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: linear-gradient(#000000a6, #000000d9);
+      }
+      /* The fixture is a generated test pattern and reads as one at full saturation.
+         Treating it the way a real background video would be treated is both more
+         legible and more representative of the thing being demonstrated. */
+      .hero img,
+      .hero video {
+        filter: saturate(0.4) brightness(0.55) contrast(0.95);
+      }
+      .hero__content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        padding: 2rem 1.25rem;
+        color: #fff;
+      }
+      .hero__content h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(2rem, 7vw, 3.25rem);
+        letter-spacing: -0.02em;
+      }
+      .hero__content p {
+        margin: 0 auto;
+        max-width: 34rem;
+        font-size: clamp(1rem, 2.4vw, 1.15rem);
+        text-shadow: 0 1px 6px #0009;
+      }
+      .hero video,
+      .hero picture,
+      .hero img {
+        z-index: 0;
+      }
+
+      .pause {
+        position: absolute;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        z-index: 3;
+        display: none;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 0.8rem;
+        border: 0;
+        border-radius: 999px;
+        background: #000000a6;
+        color: #fff;
+        font: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      /* Written by the library while anything is registered, so the control never
+         offers to stop a video that does not exist. */
+      [data-polite-active] .pause {
+        display: inline-flex;
+      }
+      .pause:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+
+      .lede {
+        font-size: 1.15rem;
+        margin: 2.5rem 0 0;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      h2 {
+        margin: 2.5rem 0 0.75rem;
+        font-size: 1.15rem;
+        letter-spacing: -0.01em;
+      }
+      pre {
+        margin: 0.75rem 0;
+        padding: 0.9rem 1rem;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        background: color-mix(in srgb, var(--ink) 4%, transparent);
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      a {
+        color: var(--accent);
+      }
+      ul {
+        padding-left: 1.1rem;
+      }
+      li {
+        margin: 0.3rem 0;
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 3rem;
+        padding-top: 1.25rem;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- data-polite-media goes on the video's direct parent. -->
+    <section class="hero" data-polite-media id="hero">
+      <img src="./demo/assets/sample-poster.avif" alt="" fetchpriority="high" decoding="async" />
+      <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+        <source src="./demo/assets/sample-h264.mp4" type="video/mp4" />
+      </video>
+      <div class="hero__scrim"></div>
+      <div class="hero__content">
+        <h1>polite-media</h1>
+        <p>
+          The still above was replaced by video on the frame that actually painted, after the page
+          finished loading, and it stops when you scroll away.
+        </p>
+      </div>
+      <button class="pause" type="button" data-polite-pause-control aria-pressed="false">
+        Pause background video
+      </button>
+    </section>
+
+    <main>
+      <p class="lede">
+        Background video, image reveals and next-page image warming. No dependencies, no framework,
+        about 4 KB gzipped for the video half.
+      </p>
+      <p class="muted">
+        It doesn't flash, doesn't hog the decoder, doesn't eat data on a metered connection, doesn't
+        ignore reduced motion, and doesn't autoplay without giving anyone a way to stop it.
+      </p>
+
+      <h2>Install</h2>
+      <pre><code>npm install polite-media</code></pre>
+
+      <h2>The whole thing</h2>
+      <pre><code>&lt;div class="your-own-box" data-polite-media&gt;
+  &lt;img src="poster.avif" alt="" /&gt;
+  &lt;video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true"&gt;
+    &lt;source src="hero.mp4" type="video/mp4" /&gt;
+  &lt;/video&gt;
+&lt;/div&gt;
+
+&lt;button type="button" data-polite-pause-control aria-pressed="false"&gt;
+  Pause background video
+&lt;/button&gt;</code></pre>
+      <pre><code>import { register } from 'polite-media/video';
+import 'polite-media/video.css';
+
+register(document.querySelector('[data-polite-media] video'));</code></pre>
+
+      <h2>What that bought you</h2>
+      <ul>
+        <li>The poster is swapped on a genuinely presented frame, not on the `playing` event.</li>
+        <li>The video is fetched after the page has loaded, so it competes with nothing.</li>
+        <li>It stops once it is mostly scrolled past, instead of decoding for the whole page.</li>
+        <li>A refused autoplay recovers on the first gesture rather than staying stuck.</li>
+        <li>Reduced motion is followed live, and the pause survives a navigation.</li>
+        <li>
+          A looping video without a stop control is reported, because WCAG 2.2.2 requires one.
+        </li>
+      </ul>
+
+      <h2>See it break, on purpose</h2>
+      <p>
+        Sixteen pages covering the awkward cases: grids that arbitrate between videos, art-directed
+        posters, codec fallback, save-data, no-JS, and the reveal failsafe.
+      </p>
+      <p><a href="./demo/">Browse the demos →</a></p>
+
+      <footer class="muted">
+        <a href="https://github.com/sixra/polite-media">Source and README on GitHub</a> ·
+        <a href="https://www.npmjs.com/package/polite-media">npm</a> · MIT
+        <br />
+        The clip above is a generated test pattern, so this page needs no stock footage.
+      </footer>
+    </main>
+
+    <script type="module">
+      import { register } from './dist/video.js';
+
+      const hero = document.getElementById('hero');
+      register(hero.querySelector('video'), { observe: hero });
+    </script>
+  </body>
+</html>

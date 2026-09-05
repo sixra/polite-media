@@ -1,0 +1,73 @@
+# Publishes the landing page and the demos.
+#
+# The demos are the only place the behaviour can be seen rather than read about,
+# and they need three things a checkout does not have: the built package, the
+# generated fixture media, and paths that work under a project site's prefix.
+# The first two are made here; the third is why demo pages reference each other
+# relatively.
+#
+# Pages must already be enabled in repository settings with the source set to
+# GitHub Actions. This workflow deploys to it and cannot turn it on.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never cancel a half-finished deploy, but never queue two either.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write # deploy to Pages
+      id-token: write # the OIDC token deploy-pages verifies the origin with
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@26
+          cache: true
+
+      # Same cache and key as the e2e job: fixtures are generated rather than
+      # committed, and the generator is what invalidates them.
+      - uses: actions/cache@v6
+        id: fixtures
+        with:
+          path: demo/assets
+          key: fixtures-${{ hashFiles('scripts/make-fixtures.sh') }}
+
+      - name: Install ffmpeg
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Generate fixtures
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: pnpm fixtures
+
+      - run: pnpm build
+
+      # Assembled rather than published from the repo root, so the site carries
+      # the three things it needs and nothing else.
+      - name: Assemble the site
+        run: |
+          mkdir -p site
+          cp index.html site/
+          cp -r demo site/demo
+          cp -r dist site/dist
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v5
