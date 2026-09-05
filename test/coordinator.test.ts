@@ -2100,3 +2100,53 @@ describe('the once-per-page warnings and a client-side router', () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('a second register() for a video already tracked', () => {
+  it('warns when it would drop a gate the first call never had', () => {
+    const { video } = makeHarness();
+    register(video);
+    const warn = warnings();
+
+    register(video, { until: new Promise(() => {}) });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('already registered');
+  });
+
+  it('warns when it would drop a different startWhen', () => {
+    const { video } = makeHarness();
+    register(video, { startWhen: 'visible' });
+    const warn = warnings();
+
+    register(video, { startWhen: 'interaction' });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The documented setup: gate the one video that needs it, then sweep up the rest. `registerAll`
+   * reaches the gated video too and must skip it in silence, or every correct integration warns and
+   * the warning stops being read.
+   */
+  it('stays silent for a gated register followed by a bare registerAll', () => {
+    const { video, container } = makeHarness();
+    register(video, { until: new Promise(() => {}) });
+    const warn = warnings();
+
+    registerAll([video], {});
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(container).toBeTruthy();
+  });
+
+  /** A client-side router re-running the same call on a surviving element changes nothing. */
+  it('stays silent when the options match what is already in force', () => {
+    const { video } = makeHarness();
+    register(video, { startWhen: 'visible' });
+    const warn = warnings();
+
+    register(video, { startWhen: 'visible' });
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

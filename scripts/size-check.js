@@ -46,7 +46,12 @@ const budgets = {
   // navigation, which made the headline accessibility claim only half true. Most
   // of the cost is the two try/catch blocks: denied storage throws rather than
   // returning nothing, and it is absent entirely under SSR.
-  'src/video.ts': 4000,
+  // Then +150 B to report an option that was discarded. A second register() keeps
+  // the first registration and drops whatever the second call asked for, which is
+  // right for a router re-running the same call and wrong when the values differ:
+  // a host believed a gate was in force, and the only symptom was a video that
+  // started when it should have waited.
+  'src/video.ts': 4150,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a

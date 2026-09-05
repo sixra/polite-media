@@ -339,6 +339,8 @@ interface Entry {
   ratio: number;
   /** Held out of arbitration until `until` settles. */
   gated: boolean;
+  /** Whether a gate was ever supplied. `gated` clears on settle, so it cannot answer this. */
+  hadGate: boolean;
   /**
    * This element has been in the document at least once.
    *
@@ -1135,8 +1137,46 @@ function restorePaused(): void {
  * @param video the element to manage
  * @param options see {@link RegisterOptions}
  */
+let warnedDroppedOptions = false;
+
+/**
+ * A second `register()` for a live video keeps the first registration, so whatever the second call
+ * asked for is discarded. Silence is right where the values match, which is how a client-side
+ * router re-registering a surviving element behaves. It is wrong where they differ: the caller
+ * believes a gate or a policy is in force and it is not, and the only visible symptom is a video
+ * that starts when it should have waited.
+ *
+ * Compared against the live entry rather than warning on any options at all, so the documented
+ * pattern -- gate one video, then `registerAll` the rest -- stays quiet.
+ */
+function warnIfOptionsDropped(
+  entry: Entry,
+  video: HTMLVideoElement,
+  options: RegisterOptions
+): void {
+  if (warnedDroppedOptions) return;
+
+  const differs =
+    (options.until !== undefined && !entry.hadGate) ||
+    (options.startWhen !== undefined && options.startWhen !== entry.startWhen) ||
+    (options.observe !== undefined && options.observe !== entry.target);
+  if (!differs) return;
+
+  warnedDroppedOptions = true;
+  console.warn(
+    'polite-media: this video is already registered, so the options passed to this second ' +
+      'register() call were discarded and the first registration still stands. Register it once ' +
+      'with the options it needs, or unregister() it before registering it again.',
+    video
+  );
+}
+
 export function register(video: HTMLVideoElement, options: RegisterOptions = {}): void {
-  if (entries.has(video)) return;
+  const registered = entries.get(video);
+  if (registered) {
+    warnIfOptionsDropped(registered, video, options);
+    return;
+  }
 
   const target = options.observe ?? video;
   // Entries are keyed by video but looked up by observed target, so two videos
@@ -1157,6 +1197,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     host: video.parentElement ?? video,
     ratio: 0,
     gated: Boolean(options.until),
+    hadGate: Boolean(options.until),
     startWhen: options.startWhen,
     seenConnected: video.isConnected,
     prepared: false,
@@ -1316,6 +1357,7 @@ export function unregisterAll(): void {
   setPaused(false);
   warnedNothingToReveal = false;
   warnedUnreachable = false;
+  warnedDroppedOptions = false;
   pauseControlChecked = false;
   resetSourceWarnings();
 }
