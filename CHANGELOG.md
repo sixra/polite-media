@@ -3,6 +3,55 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.4.0 (2026-09-05)
+
+The first release shaped by putting the library into two real sites rather than
+by reading it. Everything here is something that went wrong during that, or
+something a stranger could not find.
+
+### Added
+
+- **`data-polite-active` on `<html>`, for as long as any video is registered.**
+  A pause control is markup on every page and must never offer to stop something
+  that was never registered, and nothing let CSS answer whether anything was.
+  Both consumers had independently written the same attribute in their own
+  namespace, with the same comment explaining why it could not be a
+  `data-polite-*` one.
+
+- **A warning when a second `register()` discards its options.** The first
+  registration stands and the second call's options are dropped, which is right
+  for a client-side router re-running the same call and wrong when the values
+  differ: a host believes a gate is in force and the only symptom is a video
+  starting when it should have waited. Silent for the documented pattern of
+  gating one video and then `registerAll`-ing the rest.
+
+- **A warning when `image.css` is not in effect.** `data-polite-reveal` does
+  nothing without it, and a bundler hides that in one direction only: component
+  CSS is folded together for a build and served separately in dev, so the fade
+  works in a build and is missing in dev. Measured on a throwaway element,
+  because reading computed style off an image mid-reveal forces a style flush
+  that leaves Firefox holding it blank for the whole failsafe delay.
+
+- **A landing page and the demos, published.** Sixteen demo pages existed and had
+  never left the repository. They now reference the build and each other
+  relatively, so they work under a project site's path prefix as well as at a
+  root.
+
+### Documentation
+
+- **Composing your own animation with the reveal.** Gating on
+  `data-polite-ready` needs a failsafe of your own: the attribute is written only
+  by JavaScript, while the one in `image.css` is CSS-only and reveals the image
+  rather than any wrapper around it. A consumer hit exactly that and left 27
+  cards blank on a failed bundle. The `content-visibility: auto` limit is
+  recorded beside it, since a skipped subtree runs no animations at all.
+
+- **"Why it exists" names what the hand-rolled versions got wrong**, because what
+  this competes with is not another package, it is the snippet.
+
+- The status section no longer claims nothing runs it in production. Two sites
+  do.
+
 ## 0.3.1 (2026-09-02)
 
 Documentation only. `src/` is identical to 0.3.0; this republishes so the npm
