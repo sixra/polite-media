@@ -3,6 +3,20 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.4.1 (2026-09-06)
+
+### Fixed
+
+- **A lazy image stayed blank in Firefox** until the failsafe revealed it five seconds later,
+  unfaded. The failsafe animation applied to every marked image, and an animation outranks normal
+  declarations in the cascade whatever their specificity, so it decided `opacity` and
+  `img[data-polite-reveal][data-polite-ready]` could not. It is now scoped to images that have not
+  been revealed yet.
+
+  Eager images were never affected, because they are marked ready inside the same task that applies
+  the stylesheet. That is why the existing test passed in every engine: it covered the eager half,
+  and asserted the attribute rather than what the pixels did.
+
 ## 0.4.0 (2026-09-05)
 
 ### Added
