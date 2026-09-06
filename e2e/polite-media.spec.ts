@@ -627,14 +627,20 @@ test.describe('images', () => {
 
     await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
 
-    const invisible = await page.evaluate(
-      () =>
-        [...document.querySelectorAll('#lazy img[data-polite-reveal][data-polite-ready]')].filter(
-          (image) => Number(getComputedStyle(image).opacity) < 0.05
-        ).length
-    );
-
-    expect(invisible).toBe(0);
+    // Polled rather than read once: `data-polite-ready` starts the fade, it does not finish it,
+    // so an immediate read lands mid-transition in every engine (measured 0.00-0.02 in WebKit and
+    // Chromium at that instant, which is what made this fail on WebKit alone). Waiting stays honest
+    // because the failsafe is 60s away, so nothing but the reveal itself can raise these.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            [
+              ...document.querySelectorAll('#lazy img[data-polite-reveal][data-polite-ready]'),
+            ].filter((image) => Number(getComputedStyle(image).opacity) < 0.95).length
+        )
+      )
+      .toBe(0);
   });
 });
 
