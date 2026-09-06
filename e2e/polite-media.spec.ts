@@ -619,7 +619,12 @@ test.describe('images', () => {
    */
   test('never leaves a lazy image invisible once it is ready', async ({ page }) => {
     await page.goto('/demo/images.html');
-    await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
+    // Bounded under the 5s failsafe, and expect.poll defaults to exactly 5s. Left at the default,
+    // a slow run could reach the assertion after the stylesheet had already rescued the images,
+    // and it would then pass on the broken behaviour it exists to catch.
+    await expect
+      .poll(() => page.evaluate(() => window.__readyCount('#lazy')), { timeout: 3000 })
+      .toBe(4);
 
     const invisible = await page.evaluate(
       () =>
