@@ -653,9 +653,18 @@ so with scripting off the photos arrive unfaded instead of never arriving. And
 because no media query can see a bundle that fails while scripting is on, the
 stylesheet reveals any marked image after `--polite-failsafe` (default `5s`)
 regardless. A missed selector or a dead bundle costs you the fade, not the
-picture. The failsafe applies to every marked image, including managed ones,
-because an earlier design that exempted them could send an already-revealed image
-back to hidden.
+picture.
+
+The failsafe applies only while an image is still hidden, and is dropped the
+moment one is revealed. It has to be: an animation outranks every normal
+declaration in the cascade, so leaving it in place let it, rather than the reveal,
+decide `opacity`, and Firefox then held a decoded image at zero for the full five
+seconds. Two consequences worth knowing. An image revealed by the failsafe itself
+keeps its opacity when a late bundle finally claims it, because the reveal rule
+supplies the same value the animation was holding. And **Lighthouse counts every
+unrevealed marked image under "Avoid non-composited animations"**: that is the
+failsafe waiting its turn, the count falls as images reveal, and the audit does
+not affect the score.
 
 ## Why it exists
 
