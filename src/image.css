@@ -36,19 +36,25 @@
   img[data-polite-reveal] {
     opacity: 0;
     transition: opacity var(--polite-fade, 350ms) ease;
-    /*
-     * Nothing may stay hidden forever. Marking an image and never passing it to
-     * revealImages() used to leave it invisible permanently, and so did a bundle
-     * that never arrived; both now resolve to merely unfaded.
-     *
-     * Deliberately universal rather than cancelled for images the library owns.
-     * An earlier version marked those and set `animation: none`, which reverts
-     * the filled end state: measured in all three engines, an image the failsafe
-     * had already revealed jumped back to opacity 0 the moment it was claimed.
-     * Applying to everything removes that case, and costs nothing, since a
-     * managed image reaches opacity 1 through `data-polite-ready` long before
-     * the delay and the two agree on the value.
-     */
+  }
+
+  /*
+   * Nothing may stay hidden forever. Marking an image and never passing it to
+   * revealImages() used to leave it invisible permanently, and so did a bundle
+   * that never arrived; both resolve to merely unfaded.
+   *
+   * Scoped to images that still need rescuing, which is load-bearing rather than
+   * tidy. An animation outranks every normal declaration in the cascade whatever
+   * its specificity, so while this applies it decides `opacity` and the rule
+   * below cannot. Measured in Firefox: a lazy image marked ready a task after the
+   * stylesheet applied stayed at 0 for the whole delay and then snapped to 1
+   * unfaded, while Chromium and WebKit revealed it. Cancelling only the animation
+   * on such an image put it at 1 immediately.
+   *
+   * Eager images hid the bug, because they are marked ready inside the same task
+   * that applies the stylesheet, before this can take effect.
+   */
+  img[data-polite-reveal]:not([data-polite-ready]) {
     animation: polite-reveal-failsafe 0s var(--polite-failsafe, 5s) forwards;
   }
 

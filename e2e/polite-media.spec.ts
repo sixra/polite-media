@@ -604,6 +604,32 @@ test.describe('images', () => {
     );
     expect(opacity).toBe('1');
   });
+
+  /**
+   * The eager case above passes everywhere because an eager image is marked ready inside the same
+   * task that first applies the stylesheet. A lazy one is marked a task later, and the reveal then
+   * has to beat the failsafe animation already sitting on the element.
+   *
+   * Asserted on opacity, not on `data-polite-ready`. `reveals lazy images once decoded` above checks
+   * the attribute, which lands correctly in every engine, so it stayed green while the pixels did
+   * not: blank until the failsafe filled at five seconds, then a snap with no fade.
+   *
+   * Deliberately without `settle()`: waiting past the failsafe delay is waiting for the symptom to
+   * be papered over.
+   */
+  test('never leaves a lazy image invisible once it is ready', async ({ page }) => {
+    await page.goto('/demo/images.html');
+    await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
+
+    const invisible = await page.evaluate(
+      () =>
+        [...document.querySelectorAll('#lazy img[data-polite-reveal][data-polite-ready]')].filter(
+          (image) => Number(getComputedStyle(image).opacity) < 0.05
+        ).length
+    );
+
+    expect(invisible).toBe(0);
+  });
 });
 
 test.describe('reveal failsafe', () => {
@@ -638,6 +664,46 @@ test.describe('reveal failsafe', () => {
     await expect.poll(() => page.evaluate(() => window.__opacity('managed'))).toBe('1');
 
     await expect.poll(() => warnings.filter((text) => /revealImages/.test(text)).length).toBe(1);
+  });
+
+  /**
+   * The failsafe animation only applies while an image is unrevealed, so a bundle that arrives
+   * after it has already fired takes the animation away from an image that is currently visible
+   * because of it. An earlier version of this stylesheet did that and the image dropped back to
+   * opacity 0 the moment it was claimed, in all three engines.
+   *
+   * It cannot now, because the ready rule supplies the same end state the animation was holding.
+   * Built in the page with a short --polite-failsafe rather than waiting out five real seconds, and
+   * sampled across the claim rather than after it, since a flash is what is being looked for.
+   */
+  test('does not drop an image the failsafe already revealed when it is claimed late', async ({
+    page,
+  }) => {
+    await page.goto('/demo/images.html');
+
+    const result = await page.evaluate(async () => {
+      const image = document.createElement('img');
+      image.setAttribute('data-polite-reveal', '');
+      image.style.setProperty('--polite-failsafe', '200ms');
+      image.src = './assets/sample-poster.avif';
+      document.body.appendChild(image);
+
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const revealedByFailsafe = getComputedStyle(image).opacity;
+
+      image.setAttribute('data-polite-ready', '');
+      const samples: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        samples.push(Number(getComputedStyle(image).opacity));
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      image.remove();
+      return { revealedByFailsafe, lowest: Math.min(...samples) };
+    });
+
+    // Vacuous unless the failsafe actually revealed it first.
+    expect(result.revealedByFailsafe).toBe('1');
+    expect(result.lowest).toBeGreaterThan(0.95);
   });
 });
 
