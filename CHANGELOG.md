@@ -3,6 +3,19 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.4.2 (2026-09-06)
+
+### Fixed
+
+- **Videos stayed paused after a back-navigation** that restored the page from the back/forward
+  cache, until they were scrolled out of view and back in. Playback eligibility is decided from the
+  intersection ratio last recorded for each video, and a restore reconciled against a reading taken
+  before the page was frozen. Where that reading was "nothing intersects", nothing was eligible and
+  nothing played. Each target is now re-observed on a persisted `pageshow`, which is what makes the
+  observer report where things actually are.
+
+  Reported in Safari on two sites, with scrolling as the workaround.
+
 ## 0.4.1 (2026-09-06)
 
 ### Fixed
