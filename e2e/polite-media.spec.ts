@@ -619,12 +619,13 @@ test.describe('images', () => {
    */
   test('never leaves a lazy image invisible once it is ready', async ({ page }) => {
     await page.goto('/demo/images.html');
-    // Bounded under the 5s failsafe, and expect.poll defaults to exactly 5s. Left at the default,
-    // a slow run could reach the assertion after the stylesheet had already rescued the images,
-    // and it would then pass on the broken behaviour it exists to catch.
-    await expect
-      .poll(() => page.evaluate(() => window.__readyCount('#lazy')), { timeout: 3000 })
-      .toBe(4);
+    // The failsafe is pushed out of the way rather than raced. It reveals a marked image after five
+    // seconds regardless, so on a loaded run it can rescue these before the assertion reads them and
+    // the test passes on the broken behaviour. Bounding the poll under 5s instead only traded that
+    // for a flake, because a slow decode then ran out of time.
+    await page.addStyleTag({ content: 'img[data-polite-reveal] { --polite-failsafe: 60s }' });
+
+    await expect.poll(() => page.evaluate(() => window.__readyCount('#lazy'))).toBe(4);
 
     const invisible = await page.evaluate(
       () =>

@@ -975,7 +975,24 @@ function onInteraction(): void {
  * moment it flips rather than at the next scroll.
  */
 function onPageShow(event: PageTransitionEvent): void {
-  if (event.persisted) reconcile();
+  if (!event.persisted) return;
+
+  // Re-measured, not just re-asked. Eligibility reads `entry.ratio`, which is only ever written
+  // from an observer record, so reconciling alone decides on whatever was recorded before the page
+  // was frozen. Where that reading was "nothing intersects", nothing is eligible and every video
+  // stays paused until a scroll makes the observer speak again -- which is exactly how this was
+  // reported in Safari, down to scrolling being the workaround.
+  //
+  // Re-observing is what asks: the callback always fires the first render cycle after observe(),
+  // whether or not the element moved, and it already writes the fresh ratio and reconciles.
+  for (const entry of entries.values()) {
+    observer?.unobserve(entry.target);
+    observer?.observe(entry.target);
+  }
+
+  // Still reconciles directly: the fresh ratios arrive a frame later, and a restore can change
+  // state this does not measure.
+  reconcile();
 }
 
 function onVisibilityChange(): void {

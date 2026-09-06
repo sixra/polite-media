@@ -30,8 +30,21 @@ class FakeIntersectionObserver {
     FakeIntersectionObserver.instances.push(this);
   }
 
+  /**
+   * What the viewport would actually report for a target, when a test needs `observe()` to answer
+   * rather than staying silent. Empty by default, so tests that drive the callback by hand are
+   * unaffected.
+   */
+  ratios = new Map<Element, number>();
+
   observe(el: Element): void {
     this.observed.add(el);
+    // "The observer callback will always fire the first render cycle after observe() is called,
+    // even if the observed element has not yet moved with respect to the viewport." Deferred
+    // rather than synchronous, because the platform delivers it on a later frame and calling back
+    // into the coordinator mid-loop is not what it would do.
+    const ratio = this.ratios.get(el);
+    if (ratio !== undefined) queueMicrotask(() => this.report([[el, ratio]]));
   }
 
   unobserve(el: Element): void {
@@ -2176,5 +2189,42 @@ describe('data-polite-active', () => {
 
     expect(active()).toBe(true);
     expect(inspect().tracked).toBe(1);
+  });
+});
+
+describe('a bfcache restore', () => {
+  /**
+   * Reported in Safari on two sites: going back leaves every video paused, and scrolling them out of
+   * view and back in starts them again. That is the signature of a stale ratio, and the arbiter
+   * reads exactly that: eligibility is `entry.ratio > pauseBelow`, and `ratio` is only ever written
+   * from an observer record. A restore that reconciles without re-measuring decides against a
+   * reading taken before the page was frozen.
+   *
+   * The scroll in the report is what makes the observer speak again. This asks the coordinator to do
+   * that itself.
+   */
+  it('re-measures rather than deciding on the ratio it was frozen with', async () => {
+    vi.useFakeTimers();
+    const { video, play, pause } = makeHarness();
+    register(video);
+
+    currentObserver().report([[video, 0.9]]);
+    expect(play).toHaveBeenCalled();
+
+    // Going into the cache: the last thing recorded is that nothing intersects.
+    currentObserver().report([[video, 0]]);
+    vi.advanceTimersByTime(400);
+    expect(pause).toHaveBeenCalled();
+
+    // The video never moved. Only the recorded reading says otherwise, which is the whole bug.
+    currentObserver().ratios.set(video, 0.9);
+    play.mockClear();
+
+    const restore = new Event('pageshow');
+    Object.defineProperty(restore, 'persisted', { value: true });
+    window.dispatchEvent(restore);
+
+    vi.useRealTimers();
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
   });
 });
