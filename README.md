@@ -686,17 +686,15 @@ most of the web, while every test on Chrome still passes.
 bfcache restore, and mobile browsers pause video while the tab is hidden and
 leave it paused on return.
 
-**None of this is hypothetical.** The two sites this was extracted from had each
-hand-rolled it, by the same author, and each got it wrong differently. One shipped
-no `IntersectionObserver` at all, so its hero decoded for the length of the page,
-and warmed the next page with `<link rel="prefetch">`, which Safari ignores and
-Firefox aborts. The other cross-faded a one-second dissolve over posters cut from
-frame 0, which is a double exposure of a still against a frame that has already
-moved, checked `prefers-reduced-motion` once at startup, could not recover from a
-refused `play()`, and left twelve background videos in the tab order. Both
-autoplayed looping video with no way to stop it, which [WCAG 2.2.2][wcag]
-requires. Writing this yourself is not hard; writing it correctly is, and nothing
-tells you when you haven't.
+**The details add up.** A hand-rolled version usually starts with an autoplaying
+loop and a poster swap, and the rest arrives one bug at a time: an
+`IntersectionObserver` so a hero stops decoding once it is scrolled past, a
+crossfade that is wrong over a poster cut from frame 0, `prefers-reduced-motion`
+read live rather than once at startup, a recovery path for a refused `play()`,
+`tabindex="-1"` so decorative video stays out of the tab order, a warming
+strategy that works outside Chromium, and a stop control, which
+[WCAG 2.2.2][wcag] requires for anything that loops. Writing this yourself is not
+hard; writing all of it is.
 
 ## Status
 
@@ -713,8 +711,8 @@ rejects with `NotAllowedError`; the library follows MDN's documented remedy of
 surfacing a control and waiting for a gesture.
 
 **`0.x`**, so a minor bump may still change behaviour; `CHANGELOG.md` says when
-it does. It runs in production on the two sites it was extracted from, which is
-where every fix above came from.
+it does. In production use, and every case it handles is a page on the
+[demo site](https://sixra.github.io/polite-media/).
 
 Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 

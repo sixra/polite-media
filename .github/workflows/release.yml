@@ -68,7 +68,14 @@ jobs:
       # Trusted publishing attaches the provenance attestation, so no --provenance.
       - run: npm publish --access public
 
+      # --title explicitly: without it gh left the name null on one release and set
+      # it on another from the same command, and GitHub renders a nameless release
+      # as "tag: first line of the body", which reads as the version twice.
       - name: Create the GitHub Release from the tag
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --notes-from-tag
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --notes-from-tag
