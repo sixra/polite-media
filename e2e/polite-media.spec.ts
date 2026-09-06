@@ -673,6 +673,39 @@ test.describe('reveal failsafe', () => {
   });
 
   /**
+   * The failsafe is for images JavaScript never reached: a dead bundle, or a selector that missed.
+   * An image revealImages has claimed does not need it, and firing on one is actively harmful:
+   * opacity reaches 1 before the picture has loaded, so when it finally arrives there is nothing
+   * left to fade. Measured on a real page, eleven below-the-fold images were revealed that way
+   * seven seconds in, none of them loaded, every one of them arriving later with no fade.
+   *
+   * The managed image here is held back past the failsafe delay, which is what a lazy image below
+   * the fold does on any page that takes more than five seconds to scroll.
+   */
+  test('leaves a managed image to its own reveal, however slow it is', async ({ page }) => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/sample-poster.avif?managed', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.goto('/demo/reveal-failsafe.html');
+
+    // Past --polite-failsafe (400ms on this page) with the image still in flight.
+    await expect.poll(() => page.evaluate(() => window.__opacity('stray'))).toBe('1');
+    expect(await page.evaluate(() => window.__opacity('managed'))).toBe('0');
+    expect(await page.evaluate(() => window.__isReady('managed'))).toBe(false);
+
+    // It arrives, and the fade it was owed still happens.
+    release();
+    await expect.poll(() => page.evaluate(() => window.__isReady('managed'))).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.__opacity('managed'))).toBe('1');
+  });
+
+  /**
    * The failsafe animation only applies while an image is unrevealed, so a bundle that arrives
    * after it has already fired takes the animation away from an image that is currently visible
    * because of it. An earlier version of this stylesheet did that and the image dropped back to

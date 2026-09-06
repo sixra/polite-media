@@ -69,13 +69,20 @@ const budgets = {
   // dev, which is how it shipped once. The check runs against a throwaway element:
   // reading computed style off an image mid-reveal forced a style flush that left
   // Firefox holding it at opacity 0 for the whole failsafe delay.
-  'src/image.ts': 850,
+  //
+  // Then 850 to 900, and image.css 220 to 240, to mark an image while this module
+  // owns its reveal and hand it back if a teardown gives up on it. The stylesheet
+  // stands down for those, because firing the failsafe on an image that is still
+  // loading takes it to opacity 1 before the picture exists and there is no fade
+  // left to run when it arrives. Measured on a live page: eleven below-the-fold
+  // images revealed that way five seconds in, none of them loaded.
+  'src/image.ts': 900,
   // warm: the detached <picture> that lets the browser pick the variant, the
   // save-data gate, dedup, and the delegated intent binding. Almost all of it is
   // element plumbing, because the selection it replaces is the browser's own.
   'src/warm.ts': 700,
   'src/video.css': 230,
-  'src/image.css': 220,
+  'src/image.css': 240,
   // The optional stacking stylesheet. Its own entry rather than part of
   // video.css: folding it in would make the "imposes no geometry" promise false
   // for everyone instead of optional for anyone.

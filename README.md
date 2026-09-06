@@ -143,7 +143,7 @@ warmOnIntent('a[data-hero]', (link) => ({
 
 ## The attributes
 
-Seven in total. The distinction that catches people is the middle column: two of
+Eight in total. The distinction that catches people is the middle column: two of
 the ones you write are live on their own, and one is inert until you call
 something.
 
@@ -156,6 +156,7 @@ something.
 | `data-polite-failed`        | the box                     | written by the library                                    |
 | `data-polite-paused`        | `<html>`                    | written by the library                                    |
 | `data-polite-active`        | `<html>`                    | written by the library                                    |
+| `data-polite-managed`       | the `<img>`                 | written by the library                                    |
 
 `data-polite-reveal` is the one to be careful with. `image.css` hides a marked
 image immediately, so marking one you never pass to `revealImages()` leaves it
@@ -176,7 +177,7 @@ stop something that was never registered, and nothing else lets CSS answer that:
 }
 ```
 
-The bottom four are yours to style against and never to write yourself. They are
+The bottom five are yours to style against and never to write yourself. They are
 the public CSS API, along with `--polite-fade` and `--polite-failsafe`.
 
 ### Composing your own animation with the reveal
@@ -655,16 +656,21 @@ stylesheet reveals any marked image after `--polite-failsafe` (default `5s`)
 regardless. A missed selector or a dead bundle costs you the fade, not the
 picture.
 
-The failsafe applies only while an image is still hidden, and is dropped the
-moment one is revealed. It has to be: an animation outranks every normal
-declaration in the cascade, so leaving it in place let it, rather than the reveal,
-decide `opacity`, and Firefox then held a decoded image at zero for the full five
-seconds. Two consequences worth knowing. An image revealed by the failsafe itself
-keeps its opacity when a late bundle finally claims it, because the reveal rule
-supplies the same value the animation was holding. And **Lighthouse counts every
-unrevealed marked image under "Avoid non-composited animations"**: that is the
-failsafe waiting its turn, the count falls as images reveal, and the audit does
-not affect the score.
+**The failsafe is only for images nothing is going to reveal.** It stands down
+for two kinds: one already revealed, and one `revealImages()` has claimed, which
+the library marks with `data-polite-managed`. Both matter.
+
+Leaving it on a revealed image let it, not the reveal, decide `opacity`, because
+an animation outranks every normal declaration in the cascade; Firefox then held
+a decoded image at zero for the full five seconds. Leaving it on a claimed one is
+worse and quieter: a lazy image below the fold reaches `opacity: 1` while it is
+still in flight, so when the picture finally arrives there is no fade left to run.
+Measured on a live page, eleven images were revealed that way five seconds in,
+none of them loaded.
+
+A claimed image is safe without it because this module always resolves one: on
+`decode()`, and failing that on `load` or `error`. If a teardown gives up on a
+claim, the mark is removed and the stylesheet takes the image back.
 
 ## Why it exists
 

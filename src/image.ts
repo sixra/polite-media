@@ -40,6 +40,8 @@ export interface RevealImagesOptions {
 }
 
 const READY = 'data-polite-ready';
+/** Written while this module owns an image's reveal, so image.css can stand down. */
+const MANAGED = 'data-polite-managed';
 
 function markReady(image: HTMLImageElement): void {
   image.setAttribute(READY, '');
@@ -142,8 +144,17 @@ export function revealImages(target: ImageTarget, options: RevealImagesOptions =
 
   scheduleUnmanagedCheck();
 
+  const claimed: HTMLImageElement[] = [];
+
   for (const image of resolveTargets(target)) {
     managed.add(image);
+    // Tells the stylesheet to leave this one alone. The failsafe there is for images nothing
+    // reveals, and firing it on one this module owns is worse than not firing it at all: opacity
+    // reaches 1 while the picture is still in flight, so when it arrives there is no fade left to
+    // run. Measured on a real page, eleven below-the-fold images were revealed that way five
+    // seconds in, none of them loaded.
+    image.setAttribute(MANAGED, '');
+    claimed.push(image);
     // Eager images are revealed at once rather than skipped.
     //
     // Skipping looks like the cautious choice and is the opposite: image.css
@@ -193,7 +204,15 @@ export function revealImages(target: ImageTarget, options: RevealImagesOptions =
       });
   }
 
-  return () => controller.abort();
+  // Hands anything still unrevealed back to the stylesheet. A router tearing the page down before
+  // the images resolved would otherwise leave them owned by a module that has stopped listening,
+  // and with the failsafe suppressed that is hidden forever rather than merely unfaded.
+  return () => {
+    controller.abort();
+    for (const image of claimed) {
+      if (!image.hasAttribute(READY)) image.removeAttribute(MANAGED);
+    }
+  };
 }
 
 // Re-exported so `polite-media/image` carries the ElementEventMap and

@@ -54,7 +54,7 @@
    * Eager images hid the bug, because they are marked ready inside the same task
    * that applies the stylesheet, before this can take effect.
    */
-  img[data-polite-reveal]:not([data-polite-ready]) {
+  img[data-polite-reveal]:not([data-polite-ready]):not([data-polite-managed]) {
     animation: polite-reveal-failsafe 0s var(--polite-failsafe, 5s) forwards;
   }
 

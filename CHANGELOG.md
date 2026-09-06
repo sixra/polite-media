@@ -3,6 +3,27 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## 0.4.3 (2026-09-06)
+
+### Fixed
+
+- **An image below the fold arrived without its fade.** The stylesheet's failsafe reveals a marked
+  image after `--polite-failsafe` (default `5s`) whatever JavaScript does, and it was firing on
+  images `revealImages()` had already claimed. A lazy image that had not loaded yet reached
+  `opacity: 1` while still in flight, so when the picture finally arrived there was nothing left to
+  fade. Measured on a live page: eleven images revealed that way five seconds in, none of them
+  loaded.
+
+  The library now marks an image it owns with `data-polite-managed` and the stylesheet stands down
+  for those. A claimed image is safe without the failsafe because the module always resolves one, on
+  `decode()` and failing that on `load` or `error`; if a teardown gives up on a claim, the mark is
+  removed and the stylesheet takes the image back.
+
+### Added
+
+- **`data-polite-managed` on an `<img>`**, for as long as `revealImages()` owns its reveal. Part of
+  the public CSS API like the other attributes the library writes.
+
 ## 0.4.2 (2026-09-06)
 
 ### Fixed
