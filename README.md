@@ -633,6 +633,24 @@ document.addEventListener('astro:page-load', () => registerAll('[data-polite-med
 registered twice. Videos that did not survive need no cleanup: the coordinator
 drops any entry whose element has left the document on its next pass.
 
+## Astro
+
+This is developed against Astro projects, and the same three things come up.
+
+**Import each stylesheet from the component that emits its attribute.** A build folds every
+component's CSS into one file, so a stylesheet imported anywhere covers everywhere, while a dev
+server serves it per component and does not. Import `image.css` from some other component and the
+fade works in the build and is missing in dev, on exactly the pages that do not render whichever
+component happened to import it. The console says so when the stylesheet never arrives.
+
+**Put the `<script>` in the component that renders the media**, not in the layout. Astro bundles a
+component's script once per page, so a page that never renders that component never downloads the
+coordinator.
+
+**A strict CSP needs nothing from this package.** It writes attributes and never an inline `style`,
+which the end-to-end suite asserts on every demo, so `style-src` needs no `'unsafe-inline'` on its
+account.
+
 ## What it does
 
 - Reveals on a genuinely presented frame, never on `playing`.
