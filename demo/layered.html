@@ -51,9 +51,13 @@
           <p class="note">poster as <code>&lt;img&gt;</code></p>
           <div class="box" data-polite-media id="bare">
             <img src="./assets/sample-poster.avif" alt="" />
-            <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
-              <source src="./assets/sample-h264.mp4" type="video/mp4" />
-            </video>
+            <!-- A wrapper between box and video is a layout choice; both stylesheets match the
+                 video as a descendant, and the library writes to the nearest box. -->
+            <div>
+              <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+                <source src="./assets/sample-h264.mp4" type="video/mp4" />
+              </video>
+            </div>
           </div>
         </div>
         <div>

@@ -901,6 +901,20 @@ test.describe('a per-video --polite-fade', () => {
  * container rather than one.
  */
 test.describe('the stacking stylesheet', () => {
+  // #bare keeps a plain <div> between box and video. Both stylesheets match the video as a
+  // descendant and the library writes to the nearest box, so the wrapper changes nothing.
+  test('reveals and positions a video through a wrapper inside the box', async ({ page }) => {
+    await page.goto('/demo/layered.html');
+    await page.evaluate(() => document.getElementById('bare')?.scrollIntoView({ block: 'center' }));
+
+    await expect.poll(() => page.locator('#bare[data-polite-ready]').count()).toBe(1);
+    await expect
+      .poll(() =>
+        page.evaluate(() => getComputedStyle(document.querySelector('#bare video')!).opacity)
+      )
+      .toBe('1');
+  });
+
   for (const id of ['bare', 'picture']) {
     test(`makes both layers fill the box, poster as ${id}`, async ({ page }) => {
       await page.goto('/demo/layered.html');

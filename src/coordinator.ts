@@ -334,7 +334,11 @@ export interface RegisterOptions {
 interface Entry {
   video: HTMLVideoElement;
   target: Element;
-  /** Element carrying reveal state, so CSS can drive poster and video together. */
+  /**
+   * Element carrying reveal state, so CSS can drive poster and video together: the nearest
+   * `[data-polite-media]` ancestor, or the parent where none is authored so the warning below has
+   * an element to check.
+   */
   host: Element;
   /** How much of the target is visible; 0 when offscreen. */
   ratio: number;
@@ -648,11 +652,10 @@ let warnedNothingToReveal = false;
 /**
  * The one misconfiguration that is otherwise undetectable.
  *
- * `host` is derived as the video's parent, while video.css keys off
- * `data-polite-media` authored on that same element. Nothing forces the two to
- * agree, so putting the attribute one level too high leaves every rule
- * unmatched: the video is visible from the start, the poster never hides, and
- * the library looks installed while doing nothing at all.
+ * video.css hides a video only inside an authored `[data-polite-media]` box. With
+ * none above the video, `host` falls back to its parent, every rule misses, the
+ * video is visible from the start, the poster never hides, and the library looks
+ * installed while doing nothing at all.
  *
  * Checked here rather than at registration because stylesheets have certainly
  * applied by the time a video starts. The visual test is what separates a genuine
@@ -671,8 +674,9 @@ function warnIfNothingToReveal(entry: Entry): void {
 
   warnedNothingToReveal = true;
   console.warn(
-    "polite-media: no data-polite-media on this video's parent, so revealing it does " +
-      'nothing. Put the attribute there, or hide the video with your own CSS.',
+    'polite-media: no data-polite-media on any box around this video, so revealing it does ' +
+      'nothing. Put the attribute on the box holding poster and video, or hide the video with ' +
+      'your own CSS.',
     entry.video
   );
 }
@@ -1237,7 +1241,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   const entry: Entry = {
     video,
     target,
-    host: video.parentElement ?? video,
+    host: video.closest('[data-polite-media]') ?? video.parentElement ?? video,
     ratio: 0,
     gated: Boolean(options.until),
     hadGate: Boolean(options.until),

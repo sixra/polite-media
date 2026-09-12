@@ -237,6 +237,21 @@ describe('register', () => {
     expect(currentObserver().observed.has(video)).toBe(true);
   });
 
+  // The box is where the poster lives; a wrapper between it and the video is a layout choice the
+  // library should not care about, and used to be the one silent way to break the reveal.
+  it('writes reveal state to the nearest data-polite-media box, not the parent', () => {
+    const { video, container } = makeHarness();
+    const wrapper = document.createElement('div');
+    container.append(wrapper);
+    wrapper.append(video);
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(container.hasAttribute('data-polite-ready')).toBe(true);
+    expect(wrapper.hasAttribute('data-polite-ready')).toBe(false);
+  });
+
   it('observes the wrapper when told to', () => {
     const { video, container } = makeHarness();
     register(video, { observe: container });

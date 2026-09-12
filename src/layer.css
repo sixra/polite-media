@@ -50,8 +50,9 @@
  * object-fit needs the image for its own reason: it "Applies to: replaced
  * elements", and a `<picture>` is a container rather than one.
  */
-[data-polite-media] > :is(img, video),
-[data-polite-media] > picture > img {
+[data-polite-media] > img,
+[data-polite-media] > picture > img,
+[data-polite-media] video {
   position: absolute;
   inset: 0;
   width: 100%;
