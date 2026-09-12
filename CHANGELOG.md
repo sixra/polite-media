@@ -3,6 +3,50 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## Unreleased
+
+### Breaking
+
+- **`data-polite-media` no longer has to be the video's direct parent.** The library writes its
+  state to the nearest `[data-polite-media]` ancestor, and `video.css` and `layer.css` match the
+  video as a descendant of the box rather than a child. The poster rules are unchanged: a poster is
+  still a direct child, so a logo deeper in the box is still left alone. Boxes must not nest. If
+  your CSS extended `[data-polite-media] > video`, drop the `>`.
+
+- **`image.css` hides only lazy images.** An eager image may be the LCP element, and a deferred
+  module cannot reveal it before first paint, so the stylesheet now leaves `loading="eager"` (and
+  images with no `loading`) alone. To fade one anyway, write `data-polite-reveal="eager"` on it.
+  `revealImages()`'s `allowEager` option is ignored and warns, because the opt-in has to be where
+  the stylesheet can see it.
+
+### Added
+
+- **`registerAll()` and `revealImages()` take no argument** and default to
+  `'[data-polite-media] video'` and `'img[data-polite-reveal]'`, which is what both known consumers
+  had written out.
+
+- **`polite-video:blocked`, and `data-polite-blocked` on the box**, while the browser refuses
+  `play()` until a gesture. The retry was already there; what was missing was any way for a host to
+  know it was waiting, so a play affordance could not be shown. Fires once per refusal, not on every
+  retried attempt, and the attribute is removed once playback starts.
+
+### Fixed
+
+- **A pause was lost from `<html>` on a client-side navigation.** A router such as Astro's
+  `<ClientRouter />` replaces the root element's attributes with the next document's, and the pause
+  state was only written on the first registration of a page load. The videos stayed paused, but
+  `data-polite-paused` and a declared `aria-pressed` said otherwise. Both are now re-asserted on
+  every `register()`.
+
+- **`polite-video:ready` fired again each time a video scrolled back into view.** The frame was
+  still on screen, so nothing had been revealed. It now fires once per reveal; a retraction (reduced
+  motion, Save-Data, a source fallback) still announces the re-reveal.
+
+### Documentation
+
+- The README now lists all four places the library changes an element you authored: `preload`
+  (twice), `muted`, and `src` plus `load()` when a `<source>` list is resolved.
+
 ## 0.4.3 (2026-09-06)
 
 ### Fixed

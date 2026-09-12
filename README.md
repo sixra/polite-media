@@ -11,7 +11,7 @@ npm install polite-media
 ```
 
 ```html
-<!-- data-polite-media goes on the video's direct parent -->
+<!-- data-polite-media goes on the box that holds poster and video -->
 <div class="your-own-box" data-polite-media>
   <img src="poster.avif" alt="" />
   <!-- decorative: the video is not in the tab order, the poster's alt carries any meaning -->
@@ -122,7 +122,7 @@ one before it arrives.
 import { revealImages } from 'polite-media/image';
 import 'polite-media/image.css';
 
-revealImages('.card img');
+revealImages(); // every img[data-polite-reveal] on the page
 ```
 
 ### Warming the next page's hero
@@ -143,7 +143,7 @@ warmOnIntent('a[data-hero]', (link) => ({
 
 ## The attributes
 
-Eight in total. The distinction that catches people is the middle column: two of
+Nine in total. The distinction that catches people is the middle column: two of
 the ones you write are live on their own, and one is inert until you call
 something.
 
@@ -154,15 +154,17 @@ something.
 | `data-polite-pause-control` | your `<button>`             | **yes**, no call anywhere on the page                     |
 | `data-polite-ready`         | the box, or the image       | written by the library                                    |
 | `data-polite-failed`        | the box                     | written by the library                                    |
+| `data-polite-blocked`       | the box                     | written by the library                                    |
 | `data-polite-paused`        | `<html>`                    | written by the library                                    |
 | `data-polite-active`        | `<html>`                    | written by the library                                    |
 | `data-polite-managed`       | the `<img>`                 | written by the library                                    |
 
 `data-polite-reveal` is the one to be careful with. `image.css` hides a marked
-image immediately, so marking one you never pass to `revealImages()` leaves it
-hidden until the failsafe shows it, five seconds later and without a fade. The
+lazy image immediately, so marking one you never pass to `revealImages()` leaves
+it hidden until the failsafe shows it, five seconds later and without a fade. The
 console names any image in that state, so widen the selector or drop the
-attribute.
+attribute. An eager image is never hidden; give the attribute the value `eager`
+to opt one into the fade anyway.
 
 `data-polite-active` is on `<html>` for as long as at least one video is
 registered. A pause control is markup on every page, but it must not offer to
@@ -177,8 +179,13 @@ stop something that was never registered, and nothing else lets CSS answer that:
 }
 ```
 
-The bottom five are yours to style against and never to write yourself. They are
+The bottom six are yours to style against and never to write yourself. They are
 the public CSS API, along with `--polite-fade` and `--polite-failsafe`.
+
+`data-polite-blocked` is on the box while the browser refuses `play()` until a
+gesture, which MDN reports as `NotAllowedError`. The library keeps retrying on its
+own; the attribute is there so your CSS can show a play affordance in the
+meantime, and it is removed once playback starts.
 
 ### Composing your own animation with the reveal
 
@@ -213,21 +220,20 @@ it could have mattered.
    arrived once JS ran, a page whose bundle failed would stack that over the
    poster. Authored, the safe state is the default.
 
-   That box must be the video's **direct parent**. This is the one rule with a
-   silent failure mode: the library writes `data-polite-ready` to
-   `video.parentElement`, while the stylesheet matches
-   `[data-polite-media][data-polite-ready] > video`. Put the attribute a level
-   too high and the two never meet, every rule misses, and the video is visible
-   from the start with no error anywhere. The library warns on the console when
-   it can detect this.
+   The video may sit anywhere inside that box: the library writes its state to
+   the nearest `[data-polite-media]` ancestor, and the stylesheet matches the
+   video as a descendant. One box holds one video, and boxes must not nest,
+   because the box's ready state reveals every video inside it: a second one
+   would appear before it had painted. With no box above the video at all,
+   nothing hides it and the library warns on the console.
 
 3. The poster is ideally the video's **frame 0**, which is what makes the handoff
    invisible, but only together with cutting rather than fading. See
    [The fade](#the-fade).
-4. Poster and video are direct children of the box. The box may hold anything
-   else it likes, a scrim, a caption, a pause control, and those are left alone.
-   But **every** direct-child `img` or `picture` is treated as the poster and
-   hidden on reveal, so a logo or badge belongs deeper, not beside the video.
+4. The poster is a direct child of the box. The box may hold anything else it
+   likes, a scrim, a caption, a pause control, and those are left alone. But
+   **every** direct-child `img` or `picture` is treated as the poster and hidden
+   on reveal, so a logo or badge belongs deeper, not beside the video.
 5. Order several `<source>` elements narrowest first: the first one that claims
    the viewport wins. **You do not need an unconditional fallback.** Two queries
    meant to partition the viewport often do not quite meet, and
@@ -250,14 +256,14 @@ it could have mattered.
 ```js
 // polite-media/video
 register(video, { until, observe, startWhen }); // manage a video
-registerAll(target, { until, startWhen }); //      manage everything a selector names
+registerAll(target?, { until, startWhen }); //     every [data-polite-media] video by default
 unregister(video); //                              stop managing it, release everything
 unregisterAll(); //                                tear down the whole page
 configure({ ... }); //                             before the first register, or it throws
 pauseAll(); resumeAll(); //                        WCAG 2.2.2 control, emits pausechange
 
 // polite-media/image
-const stop = revealImages(target, { allowEager }); // reveal on decode
+const stop = revealImages(target?); //  reveal on decode; every marked image by default
 stop(); //                                            cancel anything pending
 
 // polite-media/warm
@@ -273,9 +279,15 @@ Types: `ConfigureOptions`, `RegisterOptions`, `RevealImagesOptions`,
 `WarmOptions`, `WarmSource`, `VideoTarget`, `ImageTarget`, `AtOnce`,
 `PoliteVideoEventDetail`, `PoliteImageEventDetail`, `PolitePauseEventDetail`.
 Event names ship as constants
-(`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`, `POLITE_IMAGE_READY`,
-`POLITE_VIDEO_PAUSECHANGE`), because a mistyped event string still compiles
-against lib.dom's `type: string` overload.
+(`POLITE_VIDEO_READY`, `POLITE_VIDEO_FAILED`, `POLITE_VIDEO_BLOCKED`,
+`POLITE_IMAGE_READY`, `POLITE_VIDEO_PAUSECHANGE`), because a mistyped event
+string still compiles against lib.dom's `type: string` overload.
+
+`polite-video:ready` fires once per reveal. A video that scrolls away and back
+keeps its last frame on screen, so it is not announced again; one whose reveal
+was retracted, by reduced motion, Save-Data or a source fallback, is announced
+again when it re-reveals. `polite-video:blocked` fires once when the browser
+refuses `play()` until a gesture, and not again on each refused retry.
 
 `polite-video:pausechange` is the odd one out: a user pause is page-wide rather
 than about one video, so it is dispatched on `document` with
@@ -354,7 +366,9 @@ register(video, {
 when the video is `inset: 0` inside the element that carries the layout.
 
 `registerAll(target)` takes the same shapes `revealImages` does (a selector, an
-element, or any collection) and registers each. It does not accept `observe`:
+element, or any collection) and registers each; called with nothing it takes
+`'[data-polite-media] video'`, which is what every known caller had written out.
+It does not accept `observe`:
 each observed element maps to exactly one video, and `register` refuses a second
 video on a target it already watches, with a warning.
 
@@ -401,10 +415,14 @@ with `'interaction'`, so "wait for the visitor, and also wait for the buffer"
 could not be expressed at all.
 
 Two consequences. A page whose `load` never fires never starts its videos, and
-`requireBuffered` is one of two places the library changes markup you authored:
-`prefetch()` also promotes `preload` to `'auto'` for any video within a
-configured `prefetchMargin`. `until` composes with all of it, and a video waits
-for every gate that applies to it.
+`requireBuffered` is one of four places the library changes the element you
+authored. `prefetch()` also promotes `preload` to `'auto'` for any video within
+a configured `prefetchMargin`; `muted` is set before every `play()`, since muted
+is the one condition autoplay can rely on; and when a `<source>` list is
+resolved, `src` is assigned the chosen file and `load()` is called, so
+`currentSrc` reflects that choice and the `<source>` children are no longer
+consulted. `until` composes with all of it, and a video waits for every gate
+that applies to it.
 
 ### `pauseBelow`
 
@@ -622,9 +640,11 @@ drops any entry whose element has left the document on its next pass.
 - Caps how many videos run at once, on any viewport, not just small ones.
 - Falls through to the next `<source>` when one can't be decoded.
 - Honours `prefers-reduced-motion` live, and Save-Data on the next reconcile.
-- Recovers from bfcache restores, tab refocus and blocked autoplay.
+- Recovers from bfcache restores, tab refocus and blocked autoplay, and says so
+  while it waits.
 - Ships a pause control hook for [WCAG 2.2.2][wcag].
-- Emits `polite-video:ready`, `polite-video:failed` and `polite-video:pausechange`.
+- Emits `polite-video:ready`, `polite-video:failed`, `polite-video:blocked` and
+  `polite-video:pausechange`.
 
 ## What it deliberately doesn't do
 
@@ -641,9 +661,12 @@ candidates you already build, and generates none.
 every image inside it, including ones the library then declines to fade, so each
 one waits out the failsafe instead of fading.
 
-**Eager images are revealed instantly rather than faded.** LCP excludes elements
-at `opacity: 0` and revealing one doesn't restore its candidacy. Pass
-`{ allowEager: true }` to fade anyway.
+**Eager images are never hidden, so they cut rather than fade.** LCP excludes
+elements at `opacity: 0`, and a deferred module cannot reveal one before first
+paint, so `image.css` hides only `loading="lazy"` images and the module marks an
+eager one ready at once. To fade an eager image anyway, write
+`data-polite-reveal="eager"` on it: the choice has to be in the markup, where
+the stylesheet can see it, which is why the old `allowEager` option is gone.
 
 **An image needs a backdrop.** Video degrades to its poster; a lone image
 degrades to nothing, so its container must carry a visible `background-color`.
@@ -717,11 +740,12 @@ Framework-agnostic by construction: no framework dependency, standard DOM only,
 developed against Astro projects.
 
 **Tested on Chromium, Firefox and WebKit**, all three driven by Playwright
-against real media on every change, alongside 222 unit tests. Other engines are
+against real media on every change, alongside 233 unit tests. Other engines are
 unexercised rather than unsupported.
 
 **iOS Safari is outside the matrix**, and Playwright's WebKit does not stand in
-for it. The path that rests on it is the retry after a refused `play()`, which
+for it. The path that rests on it is the retry after a refused `play()`, announced
+as `polite-video:blocked` so it can be seen in the field, which
 rejects with `NotAllowedError`; the library follows MDN's documented remedy of
 surfacing a control and waiting for a gesture.
 

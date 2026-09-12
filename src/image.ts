@@ -46,11 +46,12 @@ function markReady(image: HTMLImageElement): void {
 }
 
 /**
- * Every image this module has taken responsibility for.
- *
- * A WeakSet rather than an attribute: the stylesheet no longer needs to know
- * which images are managed, so writing it into the DOM would be state kept for
- * nobody. Weak so a released image is not pinned by the bookkeeping.
+ * Every image a `revealImages()` call has ever claimed, for the stray-image
+ * warning. Distinct from `data-polite-managed`, which marks an image only while
+ * this module still owns its reveal so the stylesheet's failsafe stands down: a
+ * teardown removes the attribute but the claim stays, since the warning is about
+ * selectors that never reached an image at all. Weak so a released image is not
+ * pinned by the bookkeeping.
  */
 const managed = new WeakSet<HTMLImageElement>();
 
