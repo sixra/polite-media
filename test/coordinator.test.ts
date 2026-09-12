@@ -1497,6 +1497,32 @@ describe('a pause across a navigation', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true');
   });
 
+  // A client-side router swaps <html>'s attributes and the body for the next document's while the
+  // module, and the pause, survive; Astro's ClientRouter does exactly this. The restore path cannot
+  // help, since it stands down once the flag is already set.
+  it('re-asserts a live pause on the next client-side page', () => {
+    register(makeHarness().video);
+    pauseAll();
+    expect(document.documentElement.hasAttribute('data-polite-paused')).toBe(true);
+
+    for (const { name } of [...document.documentElement.attributes]) {
+      document.documentElement.removeAttribute(name);
+    }
+    document.body.innerHTML = '';
+    const button = document.createElement('button');
+    button.setAttribute('data-polite-pause-control', '');
+    button.setAttribute('aria-pressed', 'false');
+    document.body.append(button);
+
+    const { video, play } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 0.9]]);
+
+    expect(play).not.toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute('data-polite-paused')).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
+
   // A restore is not a transition: the visitor did nothing on this page. Firing
   // it would also only reach hosts that bound a listener before register().
   it('announces nothing on restore', () => {

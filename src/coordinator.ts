@@ -1067,19 +1067,22 @@ function detachLifecycle(): void {
 }
 
 /**
- * Keeps `aria-pressed` current on any pause control that already declares it.
+ * Puts `<html>` and every declared pause control in step with `userPaused`.
  *
- * Maintained rather than added, because MDN describes two valid patterns and
- * setting it unconditionally would break one of them: `aria-pressed` is for a
- * control whose label stays constant, while a control that swaps its label
- * between "Pause" and "Play" should not carry it at all -- a screen reader would
- * announce "Play, pressed". Declaring the attribute in markup is the author
+ * `aria-pressed` is maintained rather than added, because MDN describes two valid
+ * patterns and setting it unconditionally would break one of them: `aria-pressed`
+ * is for a control whose label stays constant, while a control that swaps its
+ * label between "Pause" and "Play" should not carry it at all -- a screen reader
+ * would announce "Play, pressed". Declaring the attribute in markup is the author
  * saying which pattern they are in.
  *
  * Restricted to a button role because that is the only role `aria-pressed` is
  * valid on, so this cannot emit ARIA that a validator would reject.
  */
 function reflectPaused(): void {
+  if (userPaused) document.documentElement.setAttribute('data-polite-paused', '');
+  else document.documentElement.removeAttribute('data-polite-paused');
+
   for (const control of document.querySelectorAll('[data-polite-pause-control][aria-pressed]')) {
     if (control.matches('button, [role="button"]')) {
       control.setAttribute('aria-pressed', String(userPaused));
@@ -1138,7 +1141,6 @@ function writeStoredPause(paused: boolean): void {
 function restorePaused(): void {
   if (userPaused || !readStoredPause()) return;
   userPaused = true;
-  document.documentElement.setAttribute('data-polite-paused', '');
   reflectPaused();
 }
 
@@ -1227,6 +1229,9 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   byTarget.set(target, entry);
   reflectActive();
   attachLifecycle();
+  // A client-side router replaces <html>'s attributes and the control with the next page's while
+  // this module, and a pause made before the swap, survive. So it is re-asserted per registration.
+  if (userPaused) reflectPaused();
   getObserver().observe(target);
   getPrefetchObserver()?.observe(target);
 
@@ -1340,9 +1345,6 @@ function reflectActive(): void {
 function setPaused(paused: boolean): void {
   if (userPaused === paused) return;
   userPaused = paused;
-
-  if (paused) document.documentElement.setAttribute('data-polite-paused', '');
-  else document.documentElement.removeAttribute('data-polite-paused');
 
   reflectPaused();
   reconcile();
