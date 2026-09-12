@@ -3,15 +3,16 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
-## Unreleased
+## 0.5.0 (2026-09-12)
 
 ### Breaking
 
 - **`data-polite-media` no longer has to be the video's direct parent.** The library writes its
   state to the nearest `[data-polite-media]` ancestor, and `video.css` and `layer.css` match the
   video as a descendant of the box rather than a child. The poster rules are unchanged: a poster is
-  still a direct child, so a logo deeper in the box is still left alone. Boxes must not nest. If
-  your CSS extended `[data-polite-media] > video`, drop the `>`.
+  still a direct child, so a logo deeper in the box is still left alone. One box holds one video, and
+  boxes must not nest, because the box's ready state reveals every video inside it. If your CSS
+  extended `[data-polite-media] > video`, drop the `>`.
 
 - **`image.css` hides only lazy images.** An eager image may be the LCP element, and a deferred
   module cannot reveal it before first paint, so the stylesheet now leaves `loading="eager"` (and
