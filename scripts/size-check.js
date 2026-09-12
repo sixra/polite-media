@@ -79,13 +79,19 @@ const budgets = {
   // loading takes it to opacity 1 before the picture exists and there is no fade
   // left to run when it arrives. Measured on a live page: eleven below-the-fold
   // images revealed that way five seconds in, none of them loaded.
-  'src/image.ts': 900,
+  //
+  // Then 900 to 980 for the eager opt-in moving into the markup, a default target,
+  // and the warning that says allowEager no longer does anything.
+  'src/image.ts': 980,
   // warm: the detached <picture> that lets the browser pick the variant, the
   // save-data gate, dedup, and the delegated intent binding. Almost all of it is
   // element plumbing, because the selection it replaces is the browser's own.
   'src/warm.ts': 700,
   'src/video.css': 230,
-  'src/image.css': 240,
+  //
+  // Then 240 to 260 to hide only lazy images, and eager ones that ask, so an
+  // LCP image is never at opacity 0 before the module runs.
+  'src/image.css': 260,
   // The optional stacking stylesheet. Its own entry rather than part of
   // video.css: folding it in would make the "imposes no geometry" promise false
   // for everyone instead of optional for anyone.

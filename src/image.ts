@@ -24,17 +24,9 @@ export type ImageTarget = Target<HTMLImageElement>;
 
 export interface RevealImagesOptions {
   /**
-   * Manage images that are not `loading="lazy"`.
-   *
-   * Off by default because LCP excludes elements at `opacity: 0`, and revealing
-   * one does not restore its candidacy -- so fading an eager, above-the-fold
-   * image can forfeit the metric it was meant to improve. A lazy image was never
-   * an LCP candidate, so the default is risk-free.
-   *
-   * Turning this on is legitimate and sometimes right: an eager grid that would
-   * otherwise cut from its backdrop to the photo on whatever frame the async
-   * decode lands looks worse without a fade. It just has to be a decision rather
-   * than an accident.
+   * @deprecated Ignored since 0.5, and warns. image.css no longer hides an eager
+   * image at all, so the opt-in has to be in the markup where the stylesheet can
+   * see it: `data-polite-reveal="eager"` on the image.
    */
   allowEager?: boolean;
 }
@@ -92,6 +84,7 @@ function scheduleUnmanagedCheck(): void {
 }
 
 let warnedNoStylesheet = false;
+let warnedAllowEager = false;
 
 /**
  * image.css is the only thing that hides a marked image. Without it `data-polite-reveal` is inert:
@@ -116,6 +109,8 @@ function warnIfUnstyled(): void {
   // removed in this same task so nothing paints it and no scan above ever sees it.
   const probe = document.createElement('img');
   probe.setAttribute('data-polite-reveal', '');
+  // The stylesheet hides only lazy images, so an eager probe would read as unstyled everywhere.
+  probe.setAttribute('loading', 'lazy');
   document.body.appendChild(probe);
   const opacity = getComputedStyle(probe).opacity;
   probe.remove();
@@ -133,14 +128,26 @@ function warnIfUnstyled(): void {
 }
 
 /**
- * Reveals each matching image once it has decoded.
+ * Reveals each matching image once it has decoded. With no target it takes every
+ * marked image on the page.
  *
  * Returns a function that stops any reveals still pending, for a client-side
  * router tearing the page down before the images resolved.
  */
-export function revealImages(target: ImageTarget, options: RevealImagesOptions = {}): () => void {
+export function revealImages(
+  target: ImageTarget = 'img[data-polite-reveal]',
+  options: RevealImagesOptions = {}
+): () => void {
   const controller = new AbortController();
   const { signal } = controller;
+
+  if (options.allowEager && !warnedAllowEager) {
+    warnedAllowEager = true;
+    console.warn(
+      'polite-media: allowEager is ignored. To fade an eager image, put ' +
+        'data-polite-reveal="eager" on it, where the stylesheet can see the choice.'
+    );
+  }
 
   scheduleUnmanagedCheck();
 
@@ -155,20 +162,18 @@ export function revealImages(target: ImageTarget, options: RevealImagesOptions =
     // seconds in, none of them loaded.
     image.setAttribute(MANAGED, '');
     claimed.push(image);
-    // Eager images are revealed at once rather than skipped.
-    //
-    // Skipping looks like the cautious choice and is the opposite: image.css
-    // has already hidden anything carrying data-polite-reveal, so declining to
-    // manage it leaves it invisible permanently instead of merely unfaded.
-    // Revealing immediately keeps the LCP candidate visible from its first
-    // paint, which is the whole reason eager images are treated differently.
+    // An eager image is never hidden by image.css, because LCP excludes elements at
+    // opacity 0 and a deferred module cannot reveal one before first paint. So it
+    // is marked ready at once, unless the markup opted it into the fade with the
+    // same value the stylesheet keys on.
     //
     // Tested against 'lazy' rather than for 'eager' deliberately. Engines
     // disagree on what an absent or invalid attribute reports: MDN documents
     // only 'eager' and 'lazy', while happy-dom returns 'auto'. Only "lazy" has
     // one agreed spelling, so asking whether it is lazy is answerable
     // everywhere, and everything else correctly falls into the eager branch.
-    if (!options.allowEager && image.loading !== 'lazy') {
+    const optedIn = image.getAttribute('data-polite-reveal') === 'eager';
+    if (!optedIn && image.loading !== 'lazy') {
       markReady(image);
       continue;
     }

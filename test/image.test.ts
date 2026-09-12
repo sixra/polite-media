@@ -180,11 +180,41 @@ describe('the eager guard', () => {
     expect(ready(image)).toBe(true);
   });
 
-  it('manages them when explicitly allowed', async () => {
+  // The opt-in lives in the markup because the stylesheet has to see it too: it hides only what
+  // it can be sure something will reveal.
+  it('fades an eager image that opted in through the attribute value', async () => {
     const { image, settleDecode } = build({ loading: 'eager' });
-    revealImages('img', { allowEager: true });
+    image.setAttribute('data-polite-reveal', 'eager');
+    revealImages('img');
+    expect(ready(image)).toBe(false);
+
     settleDecode();
     await vi.waitFor(() => expect(ready(image)).toBe(true));
+  });
+
+  it('ignores allowEager, and says so once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { image } = build({ loading: 'eager' });
+    revealImages('img', { allowEager: true });
+    revealImages('img', { allowEager: true });
+
+    expect(ready(image)).toBe(true);
+    expect(warn.mock.calls.filter(([m]) => String(m).includes('allowEager'))).toHaveLength(1);
+  });
+});
+
+describe('the default target', () => {
+  it('is every marked image on the page, and nothing else', async () => {
+    const marked = build();
+    const plain = document.createElement('img');
+    plain.setAttribute('loading', 'lazy');
+    document.body.append(plain);
+
+    revealImages();
+    marked.settleDecode();
+
+    await vi.waitFor(() => expect(ready(marked.image)).toBe(true));
+    expect(plain.hasAttribute('data-polite-managed')).toBe(false);
   });
 });
 

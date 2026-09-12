@@ -19,40 +19,109 @@
     <header>
       <h1>Image reveal</h1>
       <p class="note">
-        Top row is lazy and managed by default. Bottom row is eager, so it is revealed instantly
-        rather than faded unless
-        <code>allowEager</code> says otherwise: an eager image may be the LCP element, and LCP
-        excludes anything at <code>opacity: 0</code>.
+        Top row is lazy: hidden by the stylesheet, revealed on decode. Middle row is eager, so the
+        stylesheet never hides it and it is revealed at once rather than faded: an eager image may
+        be the LCP element, and LCP excludes anything at <code>opacity: 0</code>. Bottom row is
+        eager too, but carries <code>data-polite-reveal="eager"</code>, which opts it into the fade.
       </p>
       <nav><a href="./">all demos</a></nav>
     </header>
 
     <main>
       <h2>lazy (managed)</h2>
-      <div class="grid" id="lazy"></div>
+      <div class="grid" id="lazy">
+        <div class="frame card" data-polite-media>
+          <img src="./assets/sample-poster.avif?v=lazy0" alt="" loading="lazy" data-polite-reveal />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img src="./assets/sample-poster.avif?v=lazy1" alt="" loading="lazy" data-polite-reveal />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img src="./assets/sample-poster.avif?v=lazy2" alt="" loading="lazy" data-polite-reveal />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img src="./assets/sample-poster.avif?v=lazy3" alt="" loading="lazy" data-polite-reveal />
+        </div>
+      </div>
 
       <h2>eager (revealed at once, not faded)</h2>
-      <div class="grid" id="eager"></div>
+      <div class="grid" id="eager">
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=eager0"
+            alt=""
+            loading="eager"
+            data-polite-reveal
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=eager1"
+            alt=""
+            loading="eager"
+            data-polite-reveal
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=eager2"
+            alt=""
+            loading="eager"
+            data-polite-reveal
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=eager3"
+            alt=""
+            loading="eager"
+            data-polite-reveal
+          />
+        </div>
+      </div>
+
+      <h2>eager, opted into the fade</h2>
+      <div class="grid" id="eager-fade">
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=fade0"
+            alt=""
+            loading="eager"
+            data-polite-reveal="eager"
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=fade1"
+            alt=""
+            loading="eager"
+            data-polite-reveal="eager"
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=fade2"
+            alt=""
+            loading="eager"
+            data-polite-reveal="eager"
+          />
+        </div>
+        <div class="frame card" data-polite-media>
+          <img
+            src="./assets/sample-poster.avif?v=fade3"
+            alt=""
+            loading="eager"
+            data-polite-reveal="eager"
+          />
+        </div>
+      </div>
     </main>
 
     <script type="module">
       import { revealImages } from '../dist/image.js';
 
-      const card = (loading, i) => `
-        <div class="frame card" data-polite-media>
-          <img src="./assets/sample-poster.avif?v=${loading}${i}" alt="" loading="${loading}" data-polite-reveal />
-        </div>`;
-
-      document.getElementById('lazy').innerHTML = [0, 1, 2, 3].map((i) => card('lazy', i)).join('');
-      document.getElementById('eager').innerHTML = [0, 1, 2, 3]
-        .map((i) => card('eager', i))
-        .join('');
-
-      revealImages('#lazy img');
-      // No allowEager: the bottom row is revealed at once rather than faded.
-      // Not skipped -- skipping would leave images that image.css already hid
-      // invisible for good.
-      revealImages('#eager img');
+      // The default target: every marked image on the page, whichever row it is in.
+      revealImages();
 
       // Read synchronously, because that is the entire claim: an eager image is
       // ready before any decode or animation frame. Read after navigation
@@ -60,6 +129,10 @@
       // indistinguishable -- measured, and Firefox was fast enough to hide it.
       window.__eagerReadyAtSetup = document.querySelectorAll(
         '#eager img[data-polite-ready]'
+      ).length;
+      // And the opted-in row is not: it waits for its decode like a lazy one.
+      window.__eagerFadeReadyAtSetup = document.querySelectorAll(
+        '#eager-fade img[data-polite-ready]'
       ).length;
 
       window.__readyCount = (scope) =>

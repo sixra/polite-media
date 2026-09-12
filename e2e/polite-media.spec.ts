@@ -594,6 +594,40 @@ test.describe('images', () => {
     expect(await page.evaluate(() => window.__eagerReadyAtSetup)).toBe(4);
   });
 
+  // The stylesheet, not the module, is what keeps an LCP candidate visible: a deferred module
+  // cannot run before first paint, so the rule has to leave eager images alone on its own.
+  test('never hides an eager image, even when the module never arrives', async ({ page }) => {
+    await page.route('**/dist/image.js', (route) => route.abort());
+    await page.goto('/demo/images.html');
+
+    const opacity = (scope: string): Promise<string[]> =>
+      page.evaluate(
+        (s) => [...document.querySelectorAll(`${s} img`)].map((i) => getComputedStyle(i).opacity),
+        scope
+      );
+    expect(await opacity('#eager')).toEqual(['1', '1', '1', '1']);
+    // The opted-in row is hidden, which is what makes the opt-in real; the failsafe frees it later.
+    expect(await opacity('#eager-fade')).toEqual(['0', '0', '0', '0']);
+  });
+
+  test('fades an eager image that opted in through the attribute value', async ({ page }) => {
+    await page.goto('/demo/images.html');
+    // Not ready synchronously: it waits for its decode like a lazy image does.
+    expect(await page.evaluate(() => window.__eagerFadeReadyAtSetup)).toBe(0);
+
+    await expect.poll(() => page.evaluate(() => window.__readyCount('#eager-fade'))).toBe(4);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            [...document.querySelectorAll('#eager-fade img')].filter(
+              (image) => Number(getComputedStyle(image).opacity) < 0.95
+            ).length
+        )
+      )
+      .toBe(0);
+  });
+
   test('never leaves an eager image invisible', async ({ page }) => {
     await page.goto('/demo/images.html');
     await settle(page);

@@ -5,6 +5,7 @@ declare global {
     __playingCount: () => number;
     __readyCount: (scope: string) => number;
     __eagerReadyAtSetup: number;
+    __eagerFadeReadyAtSetup: number;
     __preloadCount: () => number;
     /** reveal-failsafe.html: the marked <img> itself. */
     __opacity: (id: string) => string;

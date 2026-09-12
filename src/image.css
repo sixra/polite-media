@@ -9,6 +9,12 @@
  * them invisible forever rather than merely unfaded. Per image, an image is
  * hidden only if something is going to reveal it.
  *
+ * Only a lazy image is hidden. An eager one may be the Largest Contentful Paint
+ * element, LCP excludes anything at opacity 0, and a deferred module cannot
+ * reveal it before first paint, so the stylesheet never touches it and the
+ * module marks it ready at once. To fade an eager image anyway, say so where
+ * this file can see it: `data-polite-reveal="eager"`.
+ *
  * A REQUIREMENT rather than a suggestion: the container needs its own visible
  * backdrop, usually a background-color. Unlike video, an image has no poster
  * behind it, so a hidden image over a transparent container shows nothing.
@@ -33,7 +39,8 @@
  */
 
 @media (scripting: enabled) {
-  img[data-polite-reveal] {
+  img[data-polite-reveal][loading='lazy'],
+  img[data-polite-reveal='eager'] {
     opacity: 0;
     transition: opacity var(--polite-fade, 350ms) ease;
   }
@@ -50,11 +57,9 @@
    * stylesheet applied stayed at 0 for the whole delay and then snapped to 1
    * unfaded, while Chromium and WebKit revealed it. Cancelling only the animation
    * on such an image put it at 1 immediately.
-   *
-   * Eager images hid the bug, because they are marked ready inside the same task
-   * that applies the stylesheet, before this can take effect.
    */
-  img[data-polite-reveal]:not([data-polite-ready]):not([data-polite-managed]) {
+  img[data-polite-reveal][loading='lazy']:not([data-polite-ready]):not([data-polite-managed]),
+  img[data-polite-reveal='eager']:not([data-polite-ready]):not([data-polite-managed]) {
     animation: polite-reveal-failsafe 0s var(--polite-failsafe, 5s) forwards;
   }
 
