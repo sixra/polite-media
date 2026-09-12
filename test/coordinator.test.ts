@@ -1381,6 +1381,20 @@ describe('elements removed from the document', () => {
  * a client-side router, where module scripts do not re-run.
  */
 describe('registerAll', () => {
+  it('defaults to every video inside a data-polite-media box', () => {
+    const first = makeHarness().video;
+    const second = makeHarness().video;
+    const stray = document.createElement('video');
+    document.body.append(stray);
+
+    registerAll();
+
+    expect(inspect().tracked).toBe(2);
+    register(first);
+    register(second);
+    expect(inspect().tracked).toBe(2);
+  });
+
   it('registers every video a selector names', () => {
     makeHarness();
     makeHarness();

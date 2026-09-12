@@ -1286,7 +1286,9 @@ export type VideoTarget = Target<HTMLVideoElement>;
 
 /**
  * Registers every video a target names, so the common case is one line and
- * matches `revealImages` on the image side rather than being a second idea.
+ * matches `revealImages` on the image side rather than being a second idea. With
+ * no target it takes every video inside a `[data-polite-media]` box, which is
+ * what every known caller passed by hand.
  *
  * `observe` is deliberately not accepted. Each observed element maps to exactly
  * one entry, so handing the same wrapper to several videos would silently
@@ -1297,7 +1299,7 @@ export type VideoTarget = Target<HTMLVideoElement>;
  * client-side router, where module scripts do not re-run.
  */
 export function registerAll(
-  target: VideoTarget,
+  target: VideoTarget = '[data-polite-media] video',
   options: Omit<RegisterOptions, 'observe'> = {}
 ): void {
   for (const video of resolveTargets(target)) register(video, options);
