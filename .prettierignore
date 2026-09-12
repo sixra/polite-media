@@ -3,3 +3,4 @@ demo/assets/
 playwright-report/
 test-results/
 pnpm-lock.yaml
+.claude/
