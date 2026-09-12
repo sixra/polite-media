@@ -569,6 +569,9 @@ function clearReady(entry: Entry): void {
 }
 
 function armReveal(entry: Entry): void {
+  // Still revealed from before it scrolled away, so the frame is on screen and re-arming would
+  // only announce `ready` a second time. Only a retraction, which removes the attribute, re-arms.
+  if (entry.host.hasAttribute('data-polite-ready')) return;
   entry.cancelReveal?.();
   entry.cancelReveal = revealWhenPainted(entry.video, () => markReady(entry));
 }

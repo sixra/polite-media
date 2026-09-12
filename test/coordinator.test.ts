@@ -663,6 +663,24 @@ describe('events', () => {
     fail(3);
     expect(seen).toEqual(['failed']);
   });
+
+  // Scrolling away pauses but keeps the frame on screen, so coming back is not a reveal. The
+  // library's own hero demo had to guard against the repeat before this held.
+  it('announces ready once per reveal, not once per scroll back into view', () => {
+    vi.useFakeTimers();
+    const { video, container } = makeHarness();
+    const seen: string[] = [];
+    container.addEventListener('polite-video:ready', () => seen.push('ready'));
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+    currentObserver().report([[video, 0]]);
+    vi.advanceTimersByTime(400);
+    currentObserver().report([[video, 1]]);
+
+    expect(seen).toEqual(['ready']);
+    expect(container.hasAttribute('data-polite-ready')).toBe(true);
+  });
 });
 
 describe('why a video lost decides how it pauses', () => {
@@ -950,6 +968,18 @@ describe('a gate closing and reopening', () => {
     play.mockClear();
     cycleMotionGate(video);
     expect(play).toHaveBeenCalled();
+  });
+
+  // The poster was back in between, so the second reveal is a real one.
+  it('announces ready again after a retraction', () => {
+    const { video, container } = makeHarness();
+    const seen: string[] = [];
+    container.addEventListener('polite-video:ready', () => seen.push('ready'));
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    cycleMotionGate(video);
+    expect(seen).toEqual(['ready', 'ready']);
   });
 });
 
