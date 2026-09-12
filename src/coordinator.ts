@@ -581,6 +581,23 @@ function armReveal(entry: Entry): void {
 }
 
 /**
+ * One shot per page for each report that would otherwise repeat on every video, in one record so
+ * a teardown cannot reset three of four. `pauseControl` is spent when its check is scheduled, the
+ * rest when the warning fires.
+ */
+const warned = {
+  unreachableStart: false,
+  nothingToReveal: false,
+  droppedOptions: false,
+  pauseControl: false,
+};
+
+function resetWarnings(): void {
+  for (const key of Object.keys(warned) as (keyof typeof warned)[]) warned[key] = false;
+  resetSourceWarnings();
+}
+
+/**
  * A video taller than the viewport can never be fully intersecting, because
  * `intersectionRatio` is a fraction of the *element*. So a `pauseBelow` it cannot
  * reach means it never starts, and nothing else would ever say so -- the poster
@@ -592,7 +609,7 @@ function armReveal(entry: Entry): void {
  * first report instead of waiting for a scroll that can never help.
  */
 function warnIfStartUnreachable(entry: Entry): void {
-  if (warnedUnreachable) return;
+  if (warned.unreachableStart) return;
 
   const { pauseBelow } = config;
   if (pauseBelow === 0) return;
@@ -605,7 +622,7 @@ function warnIfStartUnreachable(entry: Entry): void {
   const ceiling = Math.min(1, window.innerHeight / height);
   if (ceiling > pauseBelow) return;
 
-  warnedUnreachable = true;
+  warned.unreachableStart = true;
   console.warn(
     'polite-media: this video is too tall to ever be visible enough to play. ' +
       `pauseBelow is ${pauseBelow}, but its highest possible visible fraction is ` +
@@ -614,10 +631,6 @@ function warnIfStartUnreachable(entry: Entry): void {
     entry.video
   );
 }
-
-let warnedUnreachable = false;
-
-let pauseControlChecked = false;
 
 /**
  * The package's headline claim is that it never autoplays without a way to stop
@@ -631,8 +644,8 @@ let pauseControlChecked = false;
  * clip that ends on its own is outside the criterion.
  */
 function warnIfNoPauseControl(video: HTMLVideoElement): void {
-  if (pauseControlChecked || !video.loop) return;
-  pauseControlChecked = true;
+  if (warned.pauseControl || !video.loop) return;
+  warned.pauseControl = true;
 
   setTimeout(() => {
     // Nothing is moving any more, so there is nothing to demand a control for.
@@ -645,8 +658,6 @@ function warnIfNoPauseControl(video: HTMLVideoElement): void {
     );
   }, 5000);
 }
-
-let warnedNothingToReveal = false;
 
 /**
  * The one misconfiguration that is otherwise undetectable.
@@ -665,13 +676,13 @@ let warnedNothingToReveal = false;
  * saves: it teaches people to ignore the one that matters.
  */
 function warnIfNothingToReveal(entry: Entry): void {
-  if (warnedNothingToReveal) return;
+  if (warned.nothingToReveal) return;
   if (entry.host.hasAttribute('data-polite-media')) return;
 
   const style = getComputedStyle(entry.video);
   if (style.opacity !== '1' || style.visibility !== 'visible') return;
 
-  warnedNothingToReveal = true;
+  warned.nothingToReveal = true;
   console.warn(
     'polite-media: no data-polite-media on any box around this video, so revealing it does ' +
       'nothing. Put the attribute on the box holding poster and video, or hide the video with ' +
@@ -1181,8 +1192,6 @@ function restorePaused(): void {
  * @param video the element to manage
  * @param options see {@link RegisterOptions}
  */
-let warnedDroppedOptions = false;
-
 /**
  * A second `register()` for a live video keeps the first registration, so whatever the second call
  * asked for is discarded. Silence is right where the values match, which is how a client-side
@@ -1198,7 +1207,7 @@ function warnIfOptionsDropped(
   video: HTMLVideoElement,
   options: RegisterOptions
 ): void {
-  if (warnedDroppedOptions) return;
+  if (warned.droppedOptions) return;
 
   const differs =
     (options.until !== undefined && !entry.hadGate) ||
@@ -1206,7 +1215,7 @@ function warnIfOptionsDropped(
     (options.observe !== undefined && options.observe !== entry.target);
   if (!differs) return;
 
-  warnedDroppedOptions = true;
+  warned.droppedOptions = true;
   console.warn(
     'polite-media: this video is already registered, so the options passed to this second ' +
       'register() call were discarded and the first registration still stands. Register it once ' +
@@ -1417,11 +1426,7 @@ export function resumeAll(): void {
 export function unregisterAll(): void {
   for (const video of [...entries.keys()]) unregister(video);
   setPaused(false);
-  warnedNothingToReveal = false;
-  warnedUnreachable = false;
-  warnedDroppedOptions = false;
-  pauseControlChecked = false;
-  resetSourceWarnings();
+  resetWarnings();
 }
 
 /** Internal reset for tests. Not exported from the package entry point. */

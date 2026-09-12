@@ -2254,6 +2254,46 @@ describe('the once-per-page warnings and a client-side router', () => {
     currentObserver().report([[second.video, 0.9]]);
     expect(warn).toHaveBeenCalledTimes(2);
   });
+
+  it('warns again about markup with nothing to reveal on the next page', () => {
+    const warn = warnings();
+    const unstyled = (): HTMLVideoElement => {
+      const { video, container } = makeHarness();
+      container.removeAttribute('data-polite-media');
+      video.style.opacity = '1';
+      video.style.visibility = 'visible';
+      return video;
+    };
+
+    const first = unstyled();
+    register(first);
+    currentObserver().report([[first, 1]]);
+    expect(warn).toHaveBeenCalledOnce();
+
+    unregisterAll();
+
+    const second = unstyled();
+    register(second);
+    currentObserver().report([[second, 1]]);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('warns again about a discarded option on the next page', () => {
+    const warn = warnings();
+    const registerTwice = (): void => {
+      const { video } = makeHarness();
+      register(video, { startWhen: 'visible' });
+      register(video, { startWhen: 'interaction' });
+    };
+
+    registerTwice();
+    expect(warn).toHaveBeenCalledOnce();
+
+    unregisterAll();
+
+    registerTwice();
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('a second register() for a video already tracked', () => {

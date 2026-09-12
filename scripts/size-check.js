@@ -19,7 +19,10 @@ import { gzipSync } from 'node:zlib';
 const budgets = {
   // The coordinator: two observers, source selection, the gates, the pause control, and the
   // once-per-page reports. Those reports are a sixth of it, and they ship to every visitor.
-  'src/video.ts': 4300,
+  // Holding their spent flags in one record costs ~54 B a minifier cannot mangle, since property
+  // names survive where four top-level bindings become four letters. It buys a reset that cannot
+  // list three of four.
+  'src/video.ts': 4400,
   // Reveal on decode, the mark that stands the stylesheet's failsafe down, and the two reports
   // that make a missing stylesheet or an unmanaged image findable.
   'src/image.ts': 980,
