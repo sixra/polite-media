@@ -17,84 +17,20 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought.
  */
 const budgets = {
-  // Raised for: the unstyled-markup warning (~145 B), registerAll and shared
-  // target resolution (~59 B), the missing-pause-control warning (~132 B), the
-  // playAbove band with its unreachable-threshold warning (~230 B), and
-  // startWhen (~144 B), which keeps the video fetch out of page load and can
-  // hold playback until the buffer is ready. The first four bought reports on
-  // things that were otherwise silent; this one is the first that is behaviour.
-  // Raised again for five correctness fixes (~105 B), most of it the warning
-  // refusing a second video on an already-observed target; the re-entrancy guard
-  // in reconcile and clearing `started` on a scroll-away are a line each.
-  // Then +253 B for the feed: a second IntersectionObserver so rootMargin can
-  // buffer ahead without dilating the root that every threshold is measured
-  // against, atOnce replacing the mobile-only switch, pausing an outgoing video
-  // at once when another takes its slot, and holding the prefetch behind page
-  // load so a margin cannot defeat startWhen.
-  // Then +75 B for the startWhen work: an 'interaction' rung that is now the
-  // default, a per-video override so a hero can hold out while a grid does not,
-  // and requireBuffered split off as its own axis.
-  // And +97 B to warn when every <source> carries a media attribute, which
-  // leaves viewports with nothing to play. The markup contract already said the
-  // last one must be unconditional; this is the rule checked rather than trusted.
-  // Then -128 B: playAbove removed outright, and hysteresis and pauseGraceMs
-  // became constants. All three fought oscillation, playAbove was the only one
-  // that shipped disabled, and its band also paid for a threshold-ladder entry
-  // and a branch choosing which option to name in the warning.
-  // And +100 B to remember a pause in sessionStorage. Without it the pause control
-  // was per-document, so a visitor who stopped the motion was asked again on every
-  // navigation, which made the headline accessibility claim only half true. Most
-  // of the cost is the two try/catch blocks: denied storage throws rather than
-  // returning nothing, and it is absent entirely under SSR.
-  // Then +150 B to report an option that was discarded. A second register() keeps
-  // the first registration and drops whatever the second call asked for, which is
-  // right for a router re-running the same call and wrong when the values differ:
-  // a host believed a gate was in force, and the only symptom was a video that
-  // started when it should have waited.
-  //
-  // Then +50 B for data-polite-active, so a pause control can hide itself on a
-  // page where nothing was ever registered. Both known consumers had invented the
-  // same attribute in their own namespace to do exactly that.
-  //
-  // Then +73 B to tell the host when the browser refuses play() until a gesture,
-  // which is the one moment a play affordance is worth showing.
+  // The coordinator: two observers, source selection, the gates, the pause control, and the
+  // once-per-page reports. Those reports are a sixth of it, and they ship to every visitor.
   'src/video.ts': 4300,
-  // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
-  // revealImages() call reaches used to stay invisible forever, and so did every
-  // marked image on a page whose bundle failed. The stylesheet now reveals on a
-  // delay (~32 B) and the module names the stray element on the console
-  // (~157 B). The CSS half is the fix; the JS half is what makes it findable.
-  //
-  // Then 680 to 850 for the other half of the same story: image.css is the only
-  // thing that hides a marked image, and a bundler makes its absence invisible in
-  // one direction, folding every component stylesheet together for a build while
-  // serving them apart in dev. The fade then works in a build and is missing in
-  // dev, which is how it shipped once. The check runs against a throwaway element:
-  // reading computed style off an image mid-reveal forced a style flush that left
-  // Firefox holding it at opacity 0 for the whole failsafe delay.
-  //
-  // Then 850 to 900, and image.css 220 to 240, to mark an image while this module
-  // owns its reveal and hand it back if a teardown gives up on it. The stylesheet
-  // stands down for those, because firing the failsafe on an image that is still
-  // loading takes it to opacity 1 before the picture exists and there is no fade
-  // left to run when it arrives. Measured on a live page: eleven below-the-fold
-  // images revealed that way five seconds in, none of them loaded.
-  //
-  // Then 900 to 980 for the eager opt-in moving into the markup, a default target,
-  // and the warning that says allowEager no longer does anything.
+  // Reveal on decode, the mark that stands the stylesheet's failsafe down, and the two reports
+  // that make a missing stylesheet or an unmanaged image findable.
   'src/image.ts': 980,
-  // warm: the detached <picture> that lets the browser pick the variant, the
-  // save-data gate, dedup, and the delegated intent binding. Almost all of it is
-  // element plumbing, because the selection it replaces is the browser's own.
+  // The detached <picture> that lets the browser pick the variant, the save-data gate, dedup and
+  // the delegated intent binding. Almost all element plumbing, because the selection it replaces
+  // is the browser's own.
   'src/warm.ts': 700,
   'src/video.css': 230,
-  //
-  // Then 240 to 260 to hide only lazy images, and eager ones that ask, so an
-  // LCP image is never at opacity 0 before the module runs.
   'src/image.css': 260,
-  // The optional stacking stylesheet. Its own entry rather than part of
-  // video.css: folding it in would make the "imposes no geometry" promise false
-  // for everyone instead of optional for anyone.
+  // Its own entry rather than part of video.css: folding it in would make the "imposes no
+  // geometry" promise false for everyone instead of optional for anyone.
   'src/layer.css': 160,
 };
 

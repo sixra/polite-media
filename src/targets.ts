@@ -20,8 +20,6 @@ export type Target<T extends Element> = string | T | ArrayLike<T> | Iterable<T>;
 /** Resolves a {@link Target} to the elements it names. */
 export function resolveTargets<T extends Element>(target: Target<T>): T[] {
   if (typeof target === 'string') return [...document.querySelectorAll<T>(target)];
-  // A single element is the obvious thing to pass when you already hold one, and
-  // it used to be rejected: `revealImages(myImg)` did not compile.
   if (target instanceof Element) return [target as T];
   return Array.from(target as ArrayLike<T>);
 }

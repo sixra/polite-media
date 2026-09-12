@@ -223,8 +223,8 @@ const HAVE_ENOUGH_DATA = 4;
  *   ladder was fixed at construction, so a late 0.4 takes effect at 0.25, the
  *   nearest crossing the observer still reports. That is the exact silent lie
  *   `thresholds()` exists to prevent, reached through a second door.
- * - `smallViewport` used to strand a listener. `mediaQuery` memoises by string,
- *   so detaching would resolve a different MediaQueryList than attaching did.
+ * - `smallViewport` strands a listener. `mediaQuery` memoises by string, so detaching resolves a
+ *   different MediaQueryList than attaching did.
  * - `prefetchMargin` builds the prefetch observer, at that same first `register()`.
  *   A late patch would not reach the one already built.
  */
@@ -518,9 +518,8 @@ function pauseNow(entry: Entry): void {
 /**
  * Everything `startWhen` is still waiting for, for this video.
  *
- * One function rather than the condition written out at each site: it was
- * duplicated in reconcile() and prefetch(), and the prefetch copy was added a
- * commit later than the other, having originally been forgotten.
+ * One function rather than the condition written out at each site, because reconcile() and
+ * prefetch() have to apply the same gate and two copies of it drift.
  */
 function waitingToStart(entry: Entry): boolean {
   const startWhen = entry.startWhen ?? config.startWhen;
@@ -1051,12 +1050,10 @@ function onPauseControlClick(event: Event): void {
  * One controller for every page-level listener, rather than six hand-mirrored
  * add/remove pairs.
  *
- * This is not only tidier, it removes a leak. `detachLifecycle` used to call
- * `mediaQuery(config.smallViewport)` a second time, and `mediaQuery` memoises by
- * query string -- so a `configure({ smallViewport })` between register and
- * unregister meant detaching from a *different* MediaQueryList and stranding the
- * listener on the original. Aborting cannot re-resolve the config, so the whole
- * failure mode stops existing rather than being remembered about.
+ * Aborting is what makes it safe rather than merely tidy: it cannot re-resolve the config.
+ * `mediaQuery` memoises by query string, so a hand-written detach after a
+ * `configure({ smallViewport })` would resolve a different MediaQueryList and strand the listener
+ * on the original.
  */
 function attachLifecycle(): void {
   if (lifecycle) return;

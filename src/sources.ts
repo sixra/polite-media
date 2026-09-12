@@ -68,11 +68,11 @@ let warnedMediaGap = false;
  * browser behaves that way too, which is no help to anyone.
  *
  * So when no source claims the current viewport, every decodable one is a
- * candidate and document order decides. The alternative was a markup rule, "the
- * last <source> must carry no media attribute", which every consumer had to
- * remember and which a real project had already got wrong.
+ * candidate and document order decides. The alternative is a markup rule, "the
+ * last <source> must carry no media attribute", which every consumer has to
+ * remember and which is silent when forgotten.
  *
- * The cost is that `media` can no longer mean "and otherwise play nothing". It
+ * The cost is that `media` cannot mean "and otherwise play nothing". It
  * never reliably could, since the markup contract already required an
  * unconditional fallback, and `atOnce: { small: 0 }` says that properly.
  */
