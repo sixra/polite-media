@@ -1,5 +1,6 @@
 import { connectionAllowsMedia, mediaQuery, motionAllowed } from './env.js';
 import {
+  POLITE_VIDEO_BLOCKED,
   POLITE_VIDEO_PAUSECHANGE,
   POLITE_VIDEO_FAILED,
   POLITE_VIDEO_READY,
@@ -543,12 +544,12 @@ function pauseAfterGrace(entry: Entry): void {
  * Events, so a host can react without observing attributes or forking. Bubbling
  * because the useful listener is usually on a container, not on each video.
  */
-function emit(entry: Entry, type: 'ready' | 'failed'): void {
+function emit(
+  entry: Entry,
+  type: typeof POLITE_VIDEO_READY | typeof POLITE_VIDEO_FAILED | typeof POLITE_VIDEO_BLOCKED
+): void {
   entry.video.dispatchEvent(
-    new CustomEvent<PoliteVideoEventDetail>(
-      type === 'ready' ? POLITE_VIDEO_READY : POLITE_VIDEO_FAILED,
-      { bubbles: true, detail: { video: entry.video } }
-    )
+    new CustomEvent<PoliteVideoEventDetail>(type, { bubbles: true, detail: { video: entry.video } })
   );
 }
 
@@ -559,7 +560,7 @@ function emit(entry: Entry, type: 'ready' | 'failed'): void {
  */
 function markReady(entry: Entry): void {
   entry.host.setAttribute('data-polite-ready', '');
-  emit(entry, 'ready');
+  emit(entry, POLITE_VIDEO_READY);
 }
 
 function clearReady(entry: Entry): void {
@@ -682,9 +683,25 @@ function warnIfNothingToReveal(entry: Entry): void {
  */
 function markFailed(entry: Entry): void {
   clearReady(entry);
+  clearBlocked(entry);
   entry.host.setAttribute('data-polite-failed', '');
-  emit(entry, 'failed');
+  emit(entry, POLITE_VIDEO_FAILED);
   unregister(entry.video);
+}
+
+/**
+ * The browser refused to start playback until a gesture, which MDN reports as `NotAllowedError`.
+ * The retry rungs handle recovery; this tells the host, the only party that can offer a play
+ * affordance. The other rejection, nothing buffered yet, is transient and not announced.
+ */
+function markBlocked(entry: Entry): void {
+  if (entry.host.hasAttribute('data-polite-blocked')) return;
+  entry.host.setAttribute('data-polite-blocked', '');
+  emit(entry, POLITE_VIDEO_BLOCKED);
+}
+
+function clearBlocked(entry: Entry): void {
+  entry.host.removeAttribute('data-polite-blocked');
 }
 
 /**
@@ -737,20 +754,24 @@ function tryPlay(entry: Entry): void {
   // muted is the only condition it can rely on. Set rather than trusted, which
   // also covers markup whose property was changed after parse.
   entry.video.muted = true;
-  void entry.video.play().catch(() => {
-    armGestureRetry();
+  void entry.video.play().then(
+    () => clearBlocked(entry),
+    (error: unknown) => {
+      if ((error as DOMException | null)?.name === 'NotAllowedError') markBlocked(entry);
+      armGestureRetry();
 
-    if (entry.retryArmed) return;
-    entry.retryArmed = true;
-    entry.video.addEventListener(
-      'canplay',
-      () => {
-        entry.retryArmed = false;
-        reconcile();
-      },
-      { once: true, signal: entry.listeners.signal }
-    );
-  });
+      if (entry.retryArmed) return;
+      entry.retryArmed = true;
+      entry.video.addEventListener(
+        'canplay',
+        () => {
+          entry.retryArmed = false;
+          reconcile();
+        },
+        { once: true, signal: entry.listeners.signal }
+      );
+    }
+  );
 }
 
 function onMediaError(entry: Entry): void {

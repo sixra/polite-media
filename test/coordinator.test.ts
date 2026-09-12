@@ -914,6 +914,63 @@ describe('recovering from a persistently blocked play()', () => {
       await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
     }
   });
+
+  // The library cannot show a play button; the host can, and needs to hear about it once, not on
+  // every refused retry, and needs to hear when the refusal ends.
+  it('tells the host once, and stands down once playback gets going', async () => {
+    const { video, play } = blockedHarness();
+    const container = video.parentElement!;
+    const seen: string[] = [];
+    container.addEventListener('polite-video:blocked', () => seen.push('blocked'));
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+    await vi.waitFor(() => expect(container.hasAttribute('data-polite-blocked')).toBe(true));
+
+    play.mockClear();
+    tap();
+    await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    // A task, not a microtask: the refusal's rejection handler has to have run for this to mean
+    // anything, and a second announcement would arrive from there.
+    expect(seen).toEqual(['blocked']);
+
+    play.mockImplementation(() => Promise.resolve());
+    tap();
+    await vi.waitFor(() => expect(container.hasAttribute('data-polite-blocked')).toBe(false));
+  });
+
+  // A play affordance on a video that can never play would be a lie.
+  it('stands down when the video fails outright', async () => {
+    const { video, container, fail } = makeHarness({ src: null, sources: [{ src: '/only.mp4' }] });
+    video.play = vi.fn(() =>
+      Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+    ) as unknown as HTMLVideoElement['play'];
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+    await vi.waitFor(() => expect(container.hasAttribute('data-polite-blocked')).toBe(true));
+
+    fail(3);
+    expect(container.hasAttribute('data-polite-blocked')).toBe(false);
+    expect(container.hasAttribute('data-polite-failed')).toBe(true);
+  });
+
+  // Nothing buffered yet is the other way play() rejects, and it resolves itself on `canplay`.
+  it('stays quiet when play() was refused for a reason other than the autoplay policy', async () => {
+    const { video, container } = makeHarness();
+    video.play = vi.fn(() =>
+      Promise.reject(new DOMException('not yet', 'NotSupportedError'))
+    ) as unknown as HTMLVideoElement['play'];
+    const seen: string[] = [];
+    container.addEventListener('polite-video:blocked', () => seen.push('blocked'));
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+    await vi.waitFor(() => expect(video.play).toHaveBeenCalled());
+
+    expect(seen).toEqual([]);
+    expect(container.hasAttribute('data-polite-blocked')).toBe(false);
+  });
 });
 
 describe('a gate closing and reopening', () => {

@@ -27,6 +27,13 @@ export const POLITE_VIDEO_READY = 'polite-video:ready';
 /** Dispatched on the video when no source could be decoded. Bubbles. */
 export const POLITE_VIDEO_FAILED = 'polite-video:failed';
 
+/**
+ * Dispatched on the video when the browser refused `play()` until a user gesture.
+ * Bubbles. The library keeps retrying on its own; this exists so a host can show
+ * a play affordance in the meantime, which the library cannot do for it.
+ */
+export const POLITE_VIDEO_BLOCKED = 'polite-video:blocked';
+
 /** Dispatched on the image once it has decoded. Bubbles. */
 export const POLITE_IMAGE_READY = 'polite-image:ready';
 
@@ -66,12 +73,14 @@ declare global {
   interface ElementEventMap {
     'polite-video:ready': CustomEvent<PoliteVideoEventDetail>;
     'polite-video:failed': CustomEvent<PoliteVideoEventDetail>;
+    'polite-video:blocked': CustomEvent<PoliteVideoEventDetail>;
     'polite-image:ready': CustomEvent<PoliteImageEventDetail>;
   }
 
   interface DocumentEventMap {
     'polite-video:ready': CustomEvent<PoliteVideoEventDetail>;
     'polite-video:failed': CustomEvent<PoliteVideoEventDetail>;
+    'polite-video:blocked': CustomEvent<PoliteVideoEventDetail>;
     'polite-image:ready': CustomEvent<PoliteImageEventDetail>;
     'polite-video:pausechange': CustomEvent<PolitePauseEventDetail>;
   }

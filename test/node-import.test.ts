@@ -41,6 +41,7 @@ describe('public export surface', () => {
     [
       () => import('../src/video.js'),
       [
+        'POLITE_VIDEO_BLOCKED',
         'POLITE_VIDEO_FAILED',
         'POLITE_VIDEO_PAUSECHANGE',
         'POLITE_VIDEO_READY',

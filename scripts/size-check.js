@@ -55,7 +55,10 @@ const budgets = {
   // Then +50 B for data-polite-active, so a pause control can hide itself on a
   // page where nothing was ever registered. Both known consumers had invented the
   // same attribute in their own namespace to do exactly that.
-  'src/video.ts': 4200,
+  //
+  // Then +73 B to tell the host when the browser refuses play() until a gesture,
+  // which is the one moment a play affordance is worth showing.
+  'src/video.ts': 4300,
   // image.ts 500 to 680 and image.css 170 to 220: a marked image that no
   // revealImages() call reaches used to stay invisible forever, and so did every
   // marked image on a page whose bundle failed. The stylesheet now reveals on a
