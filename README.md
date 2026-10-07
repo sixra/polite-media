@@ -569,7 +569,9 @@ Two things that surprise people:
   that is invalid at computed-value time falls back to the property's initial
   value, and the `var()` fallback only applies when the property is undefined.
   Harmless on video, which cuts anyway; on images it silently removes the 350ms
-  fade.
+  fade. The console names the first image or video box where it is set to
+  something that is not a time. A bare `0` is left alone, since the cut it gives
+  is what it looks like it asks for.
 
 Reduced motion overrides you either way: the stylesheet sets `transition: none`
 there, so a fade you asked for never runs for someone who asked not to see one.

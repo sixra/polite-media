@@ -17,6 +17,7 @@
  */
 
 import { POLITE_IMAGE_READY, type PoliteImageEventDetail } from './events.js';
+import { warnIfFadeInvalid } from './fade.js';
 import { resolveTargets, type Target } from './targets.js';
 
 /** Anything that names one or more images. See {@link Target}. */
@@ -43,6 +44,17 @@ function markReady(image: HTMLImageElement): void {
       detail: { image },
     })
   );
+}
+
+let warnedFade = false;
+
+/**
+ * `markReady` for an image that fades, the only kind `--polite-fade` reaches. The value is read once
+ * the attribute has landed, never before, for the reason `warnIfUnstyled` gives.
+ */
+function revealFaded(image: HTMLImageElement): void {
+  markReady(image);
+  warnedFade ||= warnIfFadeInvalid(image);
 }
 
 /**
@@ -185,7 +197,7 @@ export function revealImages(
     // transition still runs instead of snapping.
     if (image.complete && image.naturalWidth > 0) {
       requestAnimationFrame(() => {
-        if (!signal.aborted) markReady(image);
+        if (!signal.aborted) revealFaded(image);
       });
       continue;
     }
@@ -193,7 +205,7 @@ export function revealImages(
     image
       .decode()
       .then(() => {
-        if (!signal.aborted) markReady(image);
+        if (!signal.aborted) revealFaded(image);
       })
       .catch(() => {
         // decode() rejects with EncodingError when `src` changes mid-flight,
@@ -202,11 +214,11 @@ export function revealImages(
         // is the weaker signal, and no reveal at all is worse than an early one.
         if (signal.aborted) return;
         if (image.complete) {
-          markReady(image);
+          revealFaded(image);
           return;
         }
-        image.addEventListener('load', () => markReady(image), { once: true, signal });
-        image.addEventListener('error', () => markReady(image), { once: true, signal });
+        image.addEventListener('load', () => revealFaded(image), { once: true, signal });
+        image.addEventListener('error', () => revealFaded(image), { once: true, signal });
       });
   }
 

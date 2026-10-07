@@ -20,6 +20,12 @@ this is `0.x`, a minor bump may still break things and will say so here.
   once per page, naming the video, when its `tabindex` attribute is not `-1` or no
   `aria-hidden="true"` sits on the video or a box around it.
 
+- **A warning when `--polite-fade` is not a CSS time.** A value such as `0.6` computes to `0s`
+  rather than to the stylesheet's default, so it silently removed the image fade. The first video
+  box and the first fading image that see such a value are named once per page. The browser parses
+  the value, so `calc(0.3s * 2)` passes, and a bare `0` stays quiet because it gives the cut it
+  looks like.
+
 ### Fixed
 
 - **A poster's `alt` left the accessibility tree once its video revealed.** `video.css` hid the

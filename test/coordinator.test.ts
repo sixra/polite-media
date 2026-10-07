@@ -1730,6 +1730,48 @@ describe('the exposed-video warning', () => {
   });
 });
 
+describe('the --polite-fade warning', () => {
+  // happy-dom's CSS.supports accepts any value, so the browser's verdict is stubbed here and the
+  // real parsing is asserted in the e2e suite.
+  beforeEach(() => {
+    vi.stubGlobal('CSS', { supports: (_property: string, value: string) => value.endsWith('s') });
+  });
+
+  const fade = (value?: string): Harness => {
+    const harness = makeHarness();
+    if (value !== undefined) harness.container.style.setProperty('--polite-fade', value);
+    return harness;
+  };
+
+  it('warns once, naming the box, when it is not a CSS time', () => {
+    const warn = warnings();
+    const first = fade('0.6');
+    const second = fade('0.6');
+
+    register(first.video);
+    register(second.video);
+    currentObserver().report([
+      [first.video, 1],
+      [second.video, 1],
+    ]);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[0]).toContain('"0.6"');
+    expect(warn.mock.calls[0]?.[1]).toBe(first.container);
+  });
+
+  // A bare 0 is invalid CSS but gives the cut its author meant.
+  it.each([['600ms'], ['0'], [undefined]])('stays quiet for %s', (value) => {
+    const warn = warnings();
+    const { video } = fade(value);
+
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('the missing-pause-control warning', () => {
   function startLooping(): void {
     const { video } = makeHarness();

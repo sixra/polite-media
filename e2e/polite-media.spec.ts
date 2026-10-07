@@ -961,3 +961,44 @@ test.describe('the stacking stylesheet', () => {
     });
   }
 });
+
+/**
+ * The unit suite stubs `CSS.supports`, since happy-dom accepts any value, so this is where the
+ * browser's own parsing is asserted. The property goes on `:root` in a stylesheet, so it reaches the
+ * media by inheritance as a host's would.
+ */
+test.describe('an invalid --polite-fade', () => {
+  async function withFade(page: Page, path: string, value: string): Promise<string[]> {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+    await page.route(`**${path}`, async (route) => {
+      const response = await route.fetch();
+      const style = `<style>:root { --polite-fade: ${value}; }</style></head>`;
+      await route.fulfill({ response, body: (await response.text()).replace('</head>', style) });
+    });
+    await page.goto(path);
+    return warnings;
+  }
+
+  const fadeWarnings = (warnings: string[]): string[] =>
+    warnings.filter((w) => w.includes('--polite-fade'));
+
+  for (const path of ['/demo/hero.html', '/demo/images.html']) {
+    test(`is named once on ${path}`, async ({ page }) => {
+      const warnings = await withFade(page, path, '0.6');
+
+      await expect.poll(() => fadeWarnings(warnings)).toHaveLength(1);
+    });
+
+    // A pattern would reject this; the browser accepts it as a time.
+    test(`lets a calc() time pass on ${path}`, async ({ page }) => {
+      const warnings = await withFade(page, path, 'calc(0.3s * 2)');
+
+      await expect(page.locator('[data-polite-ready]').first()).toBeAttached();
+      await settle(page);
+      expect(fadeWarnings(warnings)).toEqual([]);
+    });
+  }
+});

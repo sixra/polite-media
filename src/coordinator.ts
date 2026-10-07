@@ -7,6 +7,7 @@ import {
   type PolitePauseEventDetail,
   type PoliteVideoEventDetail,
 } from './events.js';
+import { warnIfFadeInvalid } from './fade.js';
 import { revealWhenPainted } from './reveal.js';
 import { isUnusable, manageSources, resetSourceWarnings, type SourceManager } from './sources.js';
 import { resolveTargets, type Target } from './targets.js';
@@ -591,6 +592,7 @@ const warned = {
   droppedOptions: false,
   pauseControl: false,
   notDecorative: false,
+  invalidFade: false,
 };
 
 function resetWarnings(): void {
@@ -873,6 +875,7 @@ function start(entry: Entry): void {
   entry.started = true;
 
   warnIfNothingToReveal(entry);
+  warned.invalidFade ||= warnIfFadeInvalid(entry.host);
   warnIfNoPauseControl(entry.video);
   if (!prepare(entry)) return;
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { revealImages } from '../src/image.js';
 
 interface Built {
@@ -325,5 +325,62 @@ describe('the unmanaged-image warning', () => {
     vi.advanceTimersByTime(1000);
 
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the --polite-fade warning', () => {
+  // A fresh module per test, or the once-per-page flag one test spends silences the next.
+  let reveal: typeof revealImages;
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ revealImages: reveal } = await import('../src/image.js'));
+    // happy-dom's CSS.supports accepts any value, so the browser's verdict is stubbed here and the
+    // real parsing is asserted in the e2e suite.
+    vi.stubGlobal('CSS', { supports: (_property: string, value: string) => value.endsWith('s') });
+  });
+
+  it('warns once, naming the image, when it is not a CSS time', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const first = build();
+    const second = build();
+    first.image.style.setProperty('--polite-fade', '0.6');
+    second.image.style.setProperty('--polite-fade', '0.6');
+
+    reveal('img');
+    first.settleDecode();
+    second.settleDecode();
+    await vi.waitFor(() => expect(ready(second.image)).toBe(true));
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[1]).toBe(first.image);
+  });
+
+  it('stays quiet for a time', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { image, settleDecode } = build();
+    image.style.setProperty('--polite-fade', '600ms');
+
+    reveal('img');
+    settleDecode();
+    await vi.waitFor(() => expect(ready(image)).toBe(true));
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // A style read before the attribute lands is what made Firefox hold an image at opacity 0.
+  it('reads the value only once the image is marked ready', async () => {
+    const { image, settleDecode } = build();
+    const readyWhenRead: boolean[] = [];
+    const real = globalThis.getComputedStyle.bind(globalThis);
+    vi.spyOn(globalThis, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      if (element === image) readyWhenRead.push(ready(image));
+      return real(element, pseudo);
+    });
+
+    reveal('img');
+    settleDecode();
+    await vi.waitFor(() => expect(ready(image)).toBe(true));
+
+    expect(readyWhenRead).toEqual([true]);
   });
 });
