@@ -843,6 +843,8 @@ function onMediaError(entry: Entry): void {
     markFailed(entry);
     return;
   }
+  // Prefetched before anything asked it to play, so start() will reveal and play it.
+  if (!entry.started) return;
   armReveal(entry);
   tryPlay(entry);
 }

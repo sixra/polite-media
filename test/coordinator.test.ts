@@ -2191,6 +2191,21 @@ describe('prefetchMargin drives a second observer', () => {
     expect(play).not.toHaveBeenCalled();
   });
 
+  it('does not play a video it buffered ahead when a source fails', () => {
+    configure({ prefetchMargin: '200px' });
+    const { video, play, fail } = makeHarness({
+      src: null,
+      sources: [{ src: '/a.webm' }, { src: '/b.mp4' }],
+    });
+    register(video);
+    prefetchObserver()?.report([[video, 0.01]]);
+
+    fail(4);
+
+    expect(video.getAttribute('src')).toContain('/b.mp4');
+    expect(play).not.toHaveBeenCalled();
+  });
+
   it('does not prefetch a video still held by its until gate', () => {
     configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();
@@ -2253,6 +2268,24 @@ describe('prefetchWhileGated', () => {
 
     open();
 
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+  });
+
+  it('plays the next source only once the gate opens, when one fails while it waits', async () => {
+    const { video, play, fail } = makeHarness({
+      src: null,
+      sources: [{ src: '/a.webm' }, { src: '/b.mp4' }],
+    });
+    let open!: () => void;
+    const until = new Promise<void>((resolve) => (open = resolve));
+    register(video, { until, prefetchWhileGated: true });
+    currentObserver().report([[video, 1]]);
+
+    fail(4);
+    expect(video.getAttribute('src')).toContain('/b.mp4');
+    expect(play).not.toHaveBeenCalled();
+
+    open();
     await vi.waitFor(() => expect(play).toHaveBeenCalled());
   });
 
