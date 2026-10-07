@@ -885,7 +885,9 @@ function prepare(entry: Entry): boolean {
  * fetching on the promotion alone.
  */
 function prefetch(entry: Entry): void {
-  if ((entry.gated && !entry.prefetchWhileGated) || !videoAllowed()) return;
+  // A user pause holds the bytes too. The prefetch observer calls in here directly rather than
+  // through reconcile(), which stops at a pause; resuming reconciles, and that retries.
+  if ((entry.gated && !entry.prefetchWhileGated) || userPaused || !videoAllowed()) return;
   // The same page gate reconcile applies. Without it a prefetchMargin defeats
   // startWhen entirely, because the fetch this triggers lands inside page load,
   // which is the contention `'page-loaded'` exists to avoid. Measured on

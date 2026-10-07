@@ -52,6 +52,9 @@ this is `0.x`, a minor bump may still break things and will say so here.
   could not be decoded.** The source fallback revealed and played whatever came next, whether or not
   anything had asked the video to play. It now moves to the next source and waits.
 
+- **A paused page still buffered videos within `prefetchMargin`.** The prefetch observer fetched
+  without asking whether the visitor had paused. It now waits, and resuming starts the fetch.
+
 ### Documentation
 
 - **An `until` gate does not protect LCP**, and the README no longer says it does. The video's

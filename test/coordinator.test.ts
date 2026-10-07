@@ -2206,6 +2206,22 @@ describe('prefetchMargin drives a second observer', () => {
     expect(play).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['an ungated video', {}],
+    ['a gated video that may prefetch', { until: new Promise(() => {}), prefetchWhileGated: true }],
+  ])('buffers nothing for %s while the visitor has paused, and resumes', (_label, options) => {
+    configure({ prefetchMargin: '200px' });
+    const { video } = makeHarness();
+    register(video, options);
+    pauseAll();
+
+    prefetchObserver()?.report([[video, 0.01]]);
+    expect(video.preload).not.toBe('auto');
+
+    resumeAll();
+    expect(video.preload).toBe('auto');
+  });
+
   it('does not prefetch a video still held by its until gate', () => {
     configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();
