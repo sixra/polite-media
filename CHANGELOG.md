@@ -55,6 +55,10 @@ this is `0.x`, a minor bump may still break things and will say so here.
   could not be decoded.** The source fallback revealed and played whatever came next, whether or not
   anything had asked the video to play. It now moves to the next source and waits.
 
+- **A lazy image still faded in under reduced motion.** `image.css`'s reduced-motion rule lost on
+  specificity to the rule that sets the fade, so the README's promise that reduced motion overrides
+  `--polite-fade` held only for eager images that opted in. Lazy images now arrive at once there.
+
 - **A paused page still buffered videos within `prefetchMargin`.** The prefetch observer fetched
   without asking whether the visitor had paused. It now waits, and resuming starts the fetch.
 

@@ -79,7 +79,9 @@
  * fading. Suppressing the reveal entirely would leave a blank card.
  */
 @media (prefers-reduced-motion: reduce) {
-  img[data-polite-reveal] {
+  /* The selectors that set the fade, so this ties on specificity and wins by coming later. */
+  img[data-polite-reveal][loading='lazy'],
+  img[data-polite-reveal='eager'] {
     transition: none;
   }
 }

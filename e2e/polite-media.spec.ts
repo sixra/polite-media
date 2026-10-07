@@ -534,6 +534,18 @@ test.describe('contracts', () => {
     ).toBe('0.25s');
   });
 
+  test('a lazy image arrives without a fade under reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/demo/images.html');
+
+    const duration = await page.evaluate(
+      () =>
+        getComputedStyle(document.querySelector('img[data-polite-reveal][loading="lazy"]')!)
+          .transitionDuration
+    );
+    expect(duration).toBe('0s');
+  });
+
   test('imposes no geometry: identical markup renders at four different sizes', async ({
     page,
   }) => {
