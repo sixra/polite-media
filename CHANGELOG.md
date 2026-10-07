@@ -35,6 +35,17 @@ this is `0.x`, a minor bump may still break things and will say so here.
   with Playwright's `toBeHidden()` needs to wait for computed opacity `0` instead, since Playwright
   counts an element at opacity 0 as visible.
 
+### Documentation
+
+- **An `until` gate does not protect LCP**, and the README no longer says it does. The video's
+  first frame is an LCP candidate whenever it paints; only `startWhen: 'interaction'` keeps it out.
+  The poster-`load` gate example is gone for the same reason.
+- **A gate that never settles holds its video for good.** The README shows racing it against a
+  timeout of your own.
+- **The wrapper recipe in "Composing your own animation" gates only on images that will load.**
+  Lazy images in a horizontal scroller may never be fetched, so a wrapper waiting on all of them
+  waits for its failsafe.
+
 ## 0.5.0 (2026-09-12)
 
 ### Breaking

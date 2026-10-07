@@ -210,6 +210,14 @@ bundle that never arrives leaves your wrapper hidden for good even though the
 library's own failsafe fired. Give any rule of yours that hides on
 `:not([data-polite-ready])` its own failsafe on the same delay.
 
+**Gate a wrapper only on images that will load.** The `:has()` above waits on
+every marked image inside the card, and lazy loading may never fetch some of
+them. Measured in Chromium, in a 412px-wide horizontal scroller of nine lazy
+images, only the first three loaded, and three in the middle never did, even
+after scrolling past them. A card holding that scroller waits for your failsafe
+and then appears unfaded. Gate it on the images in view when it appears, such as
+the first, or leave scrollers out of the rule.
+
 One limit worth knowing: a skipped `content-visibility: auto` subtree runs no
 animations, so neither failsafe fires there until the section is scrolled into
 view. It resolves itself the moment anyone looks at it, which is the only moment
@@ -354,19 +362,25 @@ desktops. Check that value by eye.
 ### Per-video gates
 
 `register(video, { until: promise })` holds a video back until the promise
-settles: for a splash screen, a consent dialog, or protecting your LCP. A hero at
-scroll-top is reported visible in the observer's very first batch, so without
-this it starts before whatever the page is waiting on has finished.
+settles: for a splash screen or a consent dialog. A hero at scroll-top is
+reported visible in the observer's very first batch, so without this it starts
+before whatever the page is waiting on has finished.
+
+**A gate delays the video; it does not keep it out of Largest Contentful Paint.**
+The first frame is an LCP candidate like any image, whenever it paints: measured
+in Chromium on a real hero gated behind a splash, the video's first frame
+replaced the poster as the LCP element just after the gate opened. Only
+[`startWhen: 'interaction'`](#startwhen) keeps a video out of LCP.
+
+The gate opens when the promise settles, fulfilled or rejected, and not
+otherwise: one that never settles holds the video on its poster for the life of
+the page. If whatever resolves it might never run, race it against a timeout of
+your own:
 
 ```js
-// If the poster is your LCP element, gate the video on it having loaded.
-register(video, {
-  until: new Promise((done) => {
-    const poster = document.querySelector('img.hero-poster');
-    if (!poster || poster.complete) done();
-    else poster.addEventListener('load', () => done(), { once: true });
-  }),
-});
+const timeout = (ms) => new Promise((done) => setTimeout(done, ms));
+
+register(video, { until: Promise.race([splashDone, timeout(15000)]) });
 ```
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for

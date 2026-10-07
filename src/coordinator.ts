@@ -315,6 +315,9 @@ export interface RegisterOptions {
    * at scroll-top is reported visible in the observer's very first batch, so
    * without a gate it starts before whatever the page is waiting on (a splash
    * screen, a consent dialog) has finished.
+   *
+   * Settling, fulfilled or rejected, is the only release: a promise that never
+   * settles holds the video on its poster for the life of the page.
    */
   until?: Promise<unknown>;
   /**
