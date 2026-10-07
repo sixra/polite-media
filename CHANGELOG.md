@@ -13,6 +13,12 @@ this is `0.x`, a minor bump may still break things and will say so here.
   follows those gates on every reconcile, and a user pause keeps it, since the control is then what
   resumes. CSS that used the attribute to mean "a video is registered" needs another hook.
 
+- **`smallViewport` defaults to `'(max-width: 767.98px)'`**, from `'(max-width: 767px)'`. Beside a
+  `(min-width: 768px)` the old default left every width between 767px and 768px, which page zoom
+  produces, matching neither, so arbitration treated those viewports as large. The gap is now
+  0.02px. Range syntax would close it fully, but Safari before 16.4 never matches it. Pass
+  `smallViewport` yourself to keep the old value.
+
 ### Added
 
 - **A warning when a registered video is not decorative.** The markup contract asks for

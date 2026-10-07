@@ -324,7 +324,13 @@ rather than guessed.
 | option          | default                      | reach for it when                                          |
 | --------------- | ---------------------------- | ---------------------------------------------------------- |
 | `atOnce`        | `{ small: 1, large: 'all' }` | a feed wants one at a time everywhere, or phones want none |
-| `smallViewport` | `'(max-width: 767px)'`       | your breakpoint is not ours                                |
+| `smallViewport` | `'(max-width: 767.98px)'`    | your breakpoint is not ours                                |
+
+The `smallViewport` default meets a `(min-width: 768px)` with a 0.02px gap rather
+than a whole pixel, so a fractional width from page zoom lands on one side. Pair
+your own queries the same way. Range syntax, `(width < 768px)`, would close the
+gap entirely, but Safari before 16.4 never matches it, so phones there would
+count as large and play every visible video at once.
 
 **When may it begin?**
 
@@ -353,11 +359,13 @@ effect on the next pass.
 callers: a `2` would otherwise fall through to the single-slot branch and quietly
 mean `1`.
 
-**A malformed `smallViewport` cannot be detected.** An invalid media query does
-not throw and does not normalise to anything recognisable; Chromium echoes the
-text straight back and never matches. So `smallViewport: '(max-width: 767)'`,
+**A malformed `smallViewport` is not checked for you.** An invalid media query
+does not throw and does not normalise to anything recognisable; Chromium echoes
+the text straight back and never matches. So `smallViewport: '(max-width: 767)'`,
 missing its unit, means arbitration silently never engages and phones behave like
-desktops. Check that value by eye.
+desktops. Check it in the console on both sides of your breakpoint:
+`matchMedia(query).matches` should be `true` below it and `false` above. A
+malformed query is `false` on both.
 
 ### Per-video gates
 

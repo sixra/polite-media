@@ -835,10 +835,10 @@ describe('configure validation', () => {
     expect(() => configure({ smallViewport: '  ' })).toThrow(SyntaxError);
   });
 
-  // Deliberately not asserted as throwing: a malformed media query cannot be
-  // detected. Chromium echoes it back through MediaQueryList.media and never
-  // matches, so this documents the known gap rather than pretending it is caught.
-  it('cannot detect a malformed media query, and does not pretend to', () => {
+  // Deliberately not asserted as throwing: a malformed media query is not checked.
+  // Chromium echoes it back through MediaQueryList.media and never matches, so this
+  // documents the known gap rather than pretending it is caught.
+  it('accepts a malformed media query, which it does not check', () => {
     expect(() => configure({ smallViewport: '(max-width: 767)' })).not.toThrow();
   });
 
@@ -2137,6 +2137,23 @@ describe('atOnce', () => {
   it.each([2, 0.5, 'one'])('rejects %p rather than quietly meaning 1', (value) => {
     // @ts-expect-error -- the runtime check is for JS callers the union cannot reach.
     expect(() => configure({ atOnce: value })).toThrow(RangeError);
+  });
+});
+
+describe('smallViewport', () => {
+  // (min-width: 768px) beside the old (max-width: 767px) left fractional widths, which page zoom
+  // produces, on neither side.
+  it('defaults to (max-width: 767.98px)', () => {
+    const asked: string[] = [];
+    const stubbed = globalThis.matchMedia;
+    vi.stubGlobal('matchMedia', (query: string) => {
+      asked.push(query);
+      return stubbed(query);
+    });
+
+    register(makeHarness().video);
+
+    expect(asked).toContain('(max-width: 767.98px)');
   });
 });
 

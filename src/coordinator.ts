@@ -68,8 +68,13 @@ export interface ConfigureOptions {
    */
   prefetchMargin?: string;
   /**
-   * Which viewports count as small. Configurable because 767px is one project's
+   * Which viewports count as small. Configurable because 768px is one project's
    * breakpoint, not a fact about phones.
+   *
+   * The default stops at 767.98px so it meets a `(min-width: 768px)` with no gap
+   * a zoomed page's fractional width can fall into. Range syntax would close it
+   * fully, but Safari before 16.4 never matches it, so phones there would count
+   * as large.
    */
   smallViewport?: string;
   /**
@@ -165,7 +170,7 @@ type ResolvedConfig = Required<ConfigureOptions>;
 
 const defaults: ResolvedConfig = {
   prefetchMargin: '0px',
-  smallViewport: '(max-width: 767px)',
+  smallViewport: '(max-width: 767.98px)',
   atOnce: { small: 1, large: 'all' },
   pauseBelow: 0.5,
   startWhen: 'page-loaded',
@@ -263,12 +268,14 @@ export function configure(patch: ConfigureOptions): void {
  * `register()`, arbitrarily far from the `configure()` call responsible. So these
  * checks relocate the browser's own error to the call that caused it.
  *
- * `smallViewport` is the one that cannot be checked. An invalid media query does
- * not throw and does not normalise to something recognisable: Chromium echoes
- * the malformed text straight back through `MediaQueryList.media` and simply
- * never matches. So `smallViewport: '(max-width: 767)'`, one missing unit, means
- * arbitration silently never engages and phones behave like desktops. Only the
- * obviously empty case is caught; the rest is a documentation problem.
+ * `smallViewport` is not checked. An invalid media query does not throw and does
+ * not normalise to something recognisable: Chromium echoes the malformed text
+ * straight back through `MediaQueryList.media` and simply never matches. So
+ * `smallViewport: '(max-width: 767)'`, one missing unit, means arbitration
+ * silently never engages and phones behave like desktops. Chromium also never
+ * matches `not (query)` for such a query, which could detect it, but how Safari
+ * before 16.4 parses that form is not known, and a check that warned on valid
+ * queries there would be worse than none. Only the empty case is caught.
  */
 function validate(patch: ConfigureOptions): void {
   const { pauseBelow } = patch;
