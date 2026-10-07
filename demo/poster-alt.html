@@ -30,6 +30,16 @@
       .box video {
         z-index: -1;
       }
+
+      /* A common shape for a <picture>, and one that generates no box for opacity to act on. */
+      #contents picture {
+        display: contents;
+      }
+
+      /* The failsafe fires at once, so the case it covers is reached without waiting. */
+      #unmanaged img {
+        --polite-failsafe: 0s;
+      }
     </style>
   </head>
   <body>
@@ -41,6 +51,12 @@
         poster is a lazy image that <code>revealImages()</code> fades in, with
         <code>image.css</code> loaded after <code>video.css</code> and the video stacked beneath it:
         the arrangement where a poster left opaque would hide the video.
+      </p>
+      <p class="note">
+        Two more posters stay hidden under that arrangement: one inside a
+        <code>&lt;picture&gt;</code> with <code>display: contents</code>, and one marked
+        <code>data-polite-reveal</code> that no <code>revealImages()</code> call manages, the
+        mistake the console names, so image.css's failsafe has already shown it.
       </p>
       <nav><a href="./">all demos</a></nav>
     </header>
@@ -59,6 +75,26 @@
             <source src="./assets/sample-h264.mp4" type="video/mp4" />
           </video>
         </div>
+        <div class="box" data-polite-media id="contents">
+          <picture>
+            <source srcset="./assets/sample-poster.avif?contents" type="image/avif" />
+            <img src="./assets/sample-poster.jpg?contents" alt="" />
+          </picture>
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+            <source src="./assets/sample-h264.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div class="box" data-polite-media id="unmanaged">
+          <img
+            src="./assets/sample-poster.avif?unmanaged"
+            alt=""
+            loading="lazy"
+            data-polite-reveal
+          />
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+            <source src="./assets/sample-h264.mp4" type="video/mp4" />
+          </video>
+        </div>
       </div>
     </main>
 
@@ -70,7 +106,7 @@
       import { revealImages } from '../dist/image.js';
       import { registerAll } from '../dist/video.js';
 
-      revealImages();
+      revealImages('#lazy img');
       registerAll();
 
       window.__posterOpacity = (id) =>

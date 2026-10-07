@@ -13,6 +13,16 @@ this is `0.x`, a minor bump may still break things and will say so here.
   follows those gates on every reconcile, and a user pause keeps it, since the control is then what
   resumes. CSS that used the attribute to mean "a video is registered" needs another hook.
 
+- **A revealed poster is hidden with `opacity`, so its `alt` stays in the accessibility tree.**
+  `video.css` hid it with `visibility: hidden`, which removes it from the tree, while the README
+  tells you to put the meaning in the poster's `alt` and hide the video. It now sets
+  `opacity: 0 !important` and `pointer-events: none` on the poster image, inside a `<picture>` too,
+  after the same `--polite-fade` delay. `!important` because image.css's failsafe animation would
+  otherwise keep a marked poster that nothing manages opaque. A rule of yours that changes the
+  poster's opacity after the reveal now needs `!important` as well, and a test that waited for the
+  poster with Playwright's `toBeHidden()` must wait for computed opacity `0`, since Playwright
+  counts an element at opacity 0 as visible.
+
 - **`smallViewport` defaults to `'(max-width: 767.98px)'`**, from `'(max-width: 767px)'`. Beside a
   `(min-width: 768px)` the old default left every width between 767px and 768px, which page zoom
   produces, matching neither, so arbitration treated those viewports as large. The gap is now
@@ -40,13 +50,6 @@ this is `0.x`, a minor bump may still break things and will say so here.
   `canplaythrough`, which fires while the gate still holds; the README shows the recipe.
 
 ### Fixed
-
-- **A poster's `alt` left the accessibility tree once its video revealed.** `video.css` hid the
-  poster with `visibility: hidden`, which removes it from the tree, while the README tells you to put
-  the meaning in the poster's `alt` and hide the video. It now uses `opacity: 0` with
-  `pointer-events: none`, after the same `--polite-fade` delay. A test that waited for the poster
-  with Playwright's `toBeHidden()` needs to wait for computed opacity `0` instead, since Playwright
-  counts an element at opacity 0 as visible.
 
 - **A video buffered ahead through `prefetchMargin` started playing off screen when its first source
   could not be decoded.** The source fallback revealed and played whatever came next, whether or not

@@ -85,12 +85,30 @@ test.describe('a revealed poster', () => {
     expect(images.map((node) => node.name?.value)).toContain(name);
   });
 
-  // image.css sets opacity 1 on a revealed image, and loaded after video.css it wins any tie.
-  test('stays hidden when image.css revealed it and loaded later', async ({ page }) => {
+  // image.css gives a revealed lazy image opacity 1 and a 350ms fade, and loaded later it wins a tie.
+  test('stays hidden, and cuts, when image.css revealed it and loaded later', async ({ page }) => {
     await page.goto('/demo/poster-alt.html');
     await expect(page.locator('#lazy img[data-polite-ready]')).toHaveCount(1);
 
     await revealed(page, 'lazy');
+    const duration = await page.evaluate(
+      () => getComputedStyle(document.querySelector('#lazy img')!).transitionDuration
+    );
+    expect(duration).toBe('0s');
+  });
+
+  test('stays hidden inside a display: contents picture', async ({ page }) => {
+    await page.goto('/demo/poster-alt.html');
+
+    await revealed(page, 'contents');
+  });
+
+  // Polled on opacity alone: the failsafe animation keeps filling, so it never stops running.
+  test('stays hidden when it is marked but nothing manages it', async ({ page }) => {
+    await page.goto('/demo/poster-alt.html');
+    await expect(page.locator('#unmanaged[data-polite-ready]')).toHaveCount(1);
+
+    await expect.poll(() => page.evaluate(() => window.__posterOpacity('unmanaged'))).toBe('0');
   });
 
   test('comes back when reduced motion retracts the reveal', async ({ page }) => {

@@ -54,17 +54,18 @@
 }
 
 /*
- * The poster is hidden only after the crossfade finishes. Removing it up front
- * would expose whatever sits behind mid-dissolve, so the delay must track
- * --polite-fade. Opacity rather than `visibility`, which would drop the poster's
- * alt from the accessibility tree, or `display`, which would reflow.
+ * The poster is hidden only after the crossfade finishes, so nothing behind it
+ * shows mid-dissolve; the delay must track --polite-fade. Opacity rather than
+ * `visibility`, which would drop its alt from the accessibility tree.
  *
- * The doubled attribute outranks image.css's `img[data-polite-reveal][data-polite-ready]`,
- * which sets opacity 1 on a revealed lazy poster at the same (0,2,1) otherwise
- * and wins whenever image.css loads later.
+ * On the image, since a `display: contents` <picture> has no box for opacity.
+ * `!important` to beat image.css's failsafe animation on a marked poster that
+ * nothing manages, and the doubled attribute to beat its lazy-image transition
+ * at the same specificity when image.css loads later.
  */
-[data-polite-media][data-polite-media][data-polite-ready] > :is(img, picture) {
-  opacity: 0;
+[data-polite-media][data-polite-media][data-polite-ready] > img,
+[data-polite-media][data-polite-media][data-polite-ready] > picture > img {
+  opacity: 0 !important;
   pointer-events: none;
   transition: opacity 0s linear var(--polite-fade, 0s);
 }
