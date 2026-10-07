@@ -3,6 +3,16 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## Unreleased
+
+### Breaking
+
+- **`data-polite-active` is on `<html>` only while a registered video may play.** It used to stay
+  for as long as any video was registered, so under reduced motion, on Save-Data or a 2g connection,
+  or with `atOnce` at `0`, the README's recipe showed a pause control with nothing to stop. It now
+  follows those gates on every reconcile, and a user pause keeps it, since the control is then what
+  resumes. CSS that used the attribute to mean "a video is registered" needs another hook.
+
 ## 0.5.0 (2026-09-12)
 
 ### Breaking

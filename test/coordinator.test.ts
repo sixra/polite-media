@@ -2372,6 +2372,53 @@ describe('data-polite-active', () => {
     expect(active()).toBe(true);
     expect(inspect().tracked).toBe(1);
   });
+
+  it('stays off under reduced motion, and appears once the preference lifts', () => {
+    reduceMotion = true;
+    const { video } = makeHarness();
+    register(video);
+    expect(active()).toBe(false);
+
+    reduceMotion = false;
+    currentObserver().report([[video, 1]]);
+    expect(active()).toBe(true);
+  });
+
+  it('stays off on Save-Data, and appears once it is turned off', () => {
+    Object.defineProperty(navigator, 'connection', {
+      value: { saveData: true },
+      configurable: true,
+    });
+    const { video } = makeHarness();
+    register(video);
+    expect(active()).toBe(false);
+
+    Object.defineProperty(navigator, 'connection', { value: undefined, configurable: true });
+    currentObserver().report([[video, 1]]);
+    expect(active()).toBe(true);
+  });
+
+  it('stays off where atOnce is 0 for this viewport', () => {
+    smallViewport = true;
+    configure({ atOnce: { small: 0, large: 'all' } });
+    const { video } = makeHarness();
+    register(video);
+    expect(active()).toBe(false);
+
+    smallViewport = false;
+    currentObserver().report([[video, 1]]);
+    expect(active()).toBe(true);
+  });
+
+  it('stays set through a user pause, which the control has to undo', () => {
+    const { video } = makeHarness();
+    register(video);
+    currentObserver().report([[video, 1]]);
+
+    pauseAll();
+
+    expect(active()).toBe(true);
+  });
 });
 
 describe('a bfcache restore', () => {

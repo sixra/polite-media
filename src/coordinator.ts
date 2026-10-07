@@ -903,6 +903,7 @@ function pickWinners(candidates: Entry[]): Set<Entry> {
 
 export function reconcile(): void {
   const pass = ++generation;
+  reflectActive();
 
   // A client-side router swaps the whole body and does not re-run module
   // scripts, so nothing calls unregister for the elements it discarded. Left
@@ -1343,17 +1344,16 @@ export function unregister(video: HTMLVideoElement): void {
 }
 
 /**
- * Marks the document while at least one video is managed.
+ * Marks the document while a managed video may play, so a pause control can hide when there is
+ * nothing to stop: nothing registered, reduced motion, Save-Data or 2g, or `atOnce: 0`. CSS can see
+ * only the motion preference. Both known consumers had invented the same attribute, which is what
+ * makes this the library's job. A user pause keeps it, since the control is then what resumes.
  *
- * A pause control is markup on every page, but it must not offer to stop something that was never
- * registered, and a host cannot answer that in CSS on its own. Both known consumers had invented
- * the same attribute in their own namespace to do it, which is what makes this the library's job.
- *
- * Driven from the only two places `entries` changes, so it cannot drift from what is tracked.
+ * Driven from where `entries` changes and from every reconcile, which is where the gates are read.
  */
 function reflectActive(): void {
-  if (entries.size > 0) document.documentElement.setAttribute('data-polite-active', '');
-  else document.documentElement.removeAttribute('data-polite-active');
+  const active = entries.size > 0 && videoAllowed() && slots() !== 0;
+  document.documentElement.toggleAttribute('data-polite-active', active);
 }
 
 /**

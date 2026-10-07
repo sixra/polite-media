@@ -166,9 +166,12 @@ console names any image in that state, so widen the selector or drop the
 attribute. An eager image is never hidden; give the attribute the value `eager`
 to opt one into the fade anyway.
 
-`data-polite-active` is on `<html>` for as long as at least one video is
-registered. A pause control is markup on every page, but it must not offer to
-stop something that was never registered, and nothing else lets CSS answer that:
+`data-polite-active` is on `<html>` while a registered video may play. It is
+absent when nothing is registered, under reduced motion, on Save-Data or a 2g
+connection, and where `atOnce` is `0` for the viewport; a user pause keeps it,
+since the control is then what resumes. A pause control is markup on every page,
+but it must not offer to stop something that cannot move, and CSS alone cannot
+see most of those reasons:
 
 ```css
 [data-polite-pause-control] {
