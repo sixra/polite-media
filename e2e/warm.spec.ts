@@ -31,7 +31,7 @@ const POSTER = '/demo/assets/sample-poster';
 async function choose(
   page: Page,
   spec: {
-    sources?: { type: string; srcset: string }[];
+    sources?: { type: string; srcset: string; sizes?: string }[];
     srcset?: string;
     src?: string;
     sizes?: string;
@@ -42,6 +42,7 @@ async function choose(
     for (const s of spec.sources ?? []) {
       const source = document.createElement('source');
       source.type = s.type;
+      if (s.sizes) source.sizes = s.sizes;
       source.srcset = s.srcset;
       picture.append(source);
     }
@@ -134,6 +135,45 @@ test.describe('a detached <picture> selects and fetches (the premise)', () => {
     expect(chosen).toContain('only=this');
     expect(requested).toHaveLength(1);
     expect(requested[0]).toContain('only=this');
+  });
+});
+
+/**
+ * A `<source>` with no `sizes` of its own is selected as if it said `100vw`, so a `sources` warm
+ * has to hand `sizes` to each one. The demo's 480w/800w pair cannot show that: at 1200px both
+ * `100vw` and `800px` take the 800w. These candidates are spread so that `100vw` and `200px` pick
+ * different files at any desktop DPR.
+ */
+test.describe('warm with sources', () => {
+  test('fetches the candidate the destination picks, at a desktop width', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/demo/warm.html');
+
+    const sizes = '(min-width: 50rem) 200px, 100vw';
+    // Tagged per side so the two never share a cached URL, and compared on the variant alone.
+    const srcset = (side: string): string =>
+      [200, 400, 800, 3200].map((w) => `${POSTER}.avif?v=${w}&for=${side} ${w}w`).join(', ');
+    const variant = (url: string): string | null =>
+      new URL(url, 'http://localhost').searchParams.get('v');
+
+    const destination = await choose(page, {
+      sources: [{ type: 'image/avif', srcset: srcset('destination'), sizes }],
+      src: `${POSTER}.jpg`,
+      sizes,
+    });
+
+    const warmed: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('for=warm')) warmed.push(request.url());
+    });
+    const options = { sources: [{ type: 'image/avif', srcset: srcset('warm') }], sizes };
+    await page.addScriptTag({
+      type: 'module',
+      content: `import { warm } from '/dist/warm.js'; warm(${JSON.stringify(options)});`,
+    });
+    await expect.poll(() => warmed.length).toBeGreaterThan(0);
+
+    expect(warmed.map(variant)).toEqual([variant(destination)]);
   });
 });
 

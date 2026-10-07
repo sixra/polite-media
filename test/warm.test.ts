@@ -17,6 +17,7 @@ function imagesCreated(): number {
 }
 
 let created: string[] = [];
+let sources: HTMLSourceElement[] = [];
 
 function stubConnection(value: unknown): void {
   Object.defineProperty(navigator, 'connection', { value, configurable: true, writable: true });
@@ -24,10 +25,13 @@ function stubConnection(value: unknown): void {
 
 beforeEach(() => {
   created = [];
+  sources = [];
   const real = document.createElement.bind(document);
   vi.spyOn(document, 'createElement').mockImplementation((tag: string, ...rest: unknown[]) => {
     created.push(tag);
-    return real(tag, ...(rest as []));
+    const element = real(tag, ...(rest as []));
+    if (element instanceof HTMLSourceElement) sources.push(element);
+    return element;
   });
 });
 
@@ -73,6 +77,19 @@ describe('warm', () => {
     warm({ srcset: 'hero.avif 480w, hero-800.avif 800w', sizes: '100vw' });
     warm({ srcset: 'hero.avif 480w, hero-800.avif 800w', sizes: '400px' });
     expect(imagesCreated()).toBe(2);
+  });
+
+  it('gives every source the sizes it was passed', () => {
+    const sizes = '(min-width: 50rem) 800px, 100vw';
+    warm({
+      sources: [
+        { type: 'image/avif', srcset: 'hero.avif 480w, hero-800.avif 800w' },
+        { type: 'image/webp', srcset: 'hero.webp 480w, hero-800.webp 800w' },
+      ],
+      sizes,
+    });
+
+    expect(sources.map((source) => source.getAttribute('sizes'))).toEqual([sizes, sizes]);
   });
 
   it('warns and warms nothing when given no candidates', () => {

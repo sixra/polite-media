@@ -585,6 +585,11 @@ warmOnIntent('a[data-hero]', (link) => ({
 }));
 ```
 
+Give a format through `sources` with its `type`, as above, rather than as a bare `srcset`: a
+browser that cannot decode AVIF then skips it and warms the fallback, instead of fetching a file it
+cannot show. `sizes` goes on every `<source>` and on the image, since a `<source>` without its own
+is chosen as if it said `100vw`.
+
 **Nothing in this package parses a media query**, which is the point: the
 candidates are assembled as a detached `<picture>` and the browser picks, running
 the same algorithm it will run on the destination. Hand-rolling that selection

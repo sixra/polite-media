@@ -44,7 +44,10 @@ export interface WarmOptions {
   srcset?: string;
   /** A single URL, for an image with no variants. */
   src?: string;
-  /** Handed to the browser verbatim. Nothing in this package parses it. */
+  /**
+   * Handed to the browser verbatim, on every `<source>` and on the `<img>`. Nothing in this
+   * package parses it.
+   */
   sizes?: string;
 }
 
@@ -98,6 +101,8 @@ export function warm(options: WarmOptions): void {
   for (const source of sources) {
     const element = document.createElement('source');
     if (source.type) element.type = source.type;
+    // A <source> without its own sizes is chosen as if it said 100vw.
+    if (options.sizes) element.sizes = options.sizes;
     element.srcset = source.srcset;
     picture.append(element);
   }
