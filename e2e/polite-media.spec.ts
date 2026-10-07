@@ -41,14 +41,14 @@ test.describe('hero', () => {
       )
       .toBe('1');
 
-    // The poster outlasts the fade deliberately: `visibility` carries a
+    // The poster outlasts the fade deliberately: its opacity carries a
     // --polite-fade delay, so dropping it early would expose whatever sits
     // behind, mid-dissolve.
     await expect
       .poll(() =>
-        page.evaluate(() => getComputedStyle(document.querySelector('#hero img')!).visibility)
+        page.evaluate(() => getComputedStyle(document.querySelector('#hero img')!).opacity)
       )
-      .toBe('hidden');
+      .toBe('0');
   });
 
   /**
@@ -81,7 +81,7 @@ test.describe('hero', () => {
       for (let i = 0; i < 900 && afterReady < 5; i += 1) {
         frames.push({
           opacity: Number(getComputedStyle(video).opacity),
-          posterVisible: getComputedStyle(poster).visibility !== 'hidden',
+          posterVisible: getComputedStyle(poster).opacity !== '0',
         });
         if (box.hasAttribute('data-polite-ready')) afterReady += 1;
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -159,10 +159,8 @@ test.describe('source fallback', () => {
     await expect.poll(() => page.evaluate(() => window.__state().exhaustsFailed)).toBe(true);
     expect(await page.evaluate(() => window.__events)).toContain('exhausts:failed');
     expect(
-      await page.evaluate(
-        () => getComputedStyle(document.querySelector('#exhausts img')!).visibility
-      )
-    ).toBe('visible');
+      await page.evaluate(() => getComputedStyle(document.querySelector('#exhausts img')!).opacity)
+    ).toBe('1');
   });
 });
 
@@ -383,12 +381,12 @@ test.describe('reduced motion', () => {
     const state = await page.evaluate(() => ({
       ready: document.getElementById('hero')!.hasAttribute('data-polite-ready'),
       playing: !document.querySelector<HTMLVideoElement>('#hero video')!.paused,
-      posterVisibility: getComputedStyle(document.querySelector('#hero img')!).visibility,
+      posterOpacity: getComputedStyle(document.querySelector('#hero img')!).opacity,
     }));
 
     expect(state.playing).toBe(false);
     expect(state.ready).toBe(false);
-    expect(state.posterVisibility).toBe('visible');
+    expect(state.posterOpacity).toBe('1');
   });
 });
 

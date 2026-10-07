@@ -96,7 +96,7 @@
       window.__videoOpacity = (id) =>
         getComputedStyle(document.querySelector(`#${id} video`)).opacity;
       window.__posterVisible = (id) =>
-        getComputedStyle(document.querySelector(`#${id} img`)).visibility !== 'hidden';
+        getComputedStyle(document.querySelector(`#${id} img`)).opacity !== '0';
       window.__fadeDuration = (id) =>
         getComputedStyle(document.querySelector(`#${id} video`)).transitionDuration;
     </script>

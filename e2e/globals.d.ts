@@ -14,6 +14,8 @@ declare global {
     /** art-directed.html: the <video> inside the box, not the box. */
     __videoOpacity: (id: string) => string;
     __posterVisible: (id: string) => boolean;
+    /** poster-alt.html: the poster's computed opacity. */
+    __posterOpacity: (id: string) => string;
     __fadeDuration: (id: string) => string;
     __fills: (id: string) => { poster: boolean; video: boolean; objectFit: string };
     __marks: {

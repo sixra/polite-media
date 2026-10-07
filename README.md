@@ -252,7 +252,9 @@ it could have mattered.
 6. The video carries `tabindex="-1" aria-hidden="true"`. It is decorative, and
    without this it lands in the tab order: measured in Firefox, twelve background
    videos sat ahead of the pause button, so a keyboard user reached it on the
-   thirteenth Tab.
+   thirteenth Tab. Anything the picture means goes in the poster's `alt`: the
+   reveal hides the poster with `opacity`, not `visibility`, so it stays in the
+   accessibility tree while the video plays.
 
 ## API
 

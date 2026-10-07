@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>polite-media: a poster that carries meaning</title>
+    <link rel="stylesheet" href="../dist/video.css" />
+    <link rel="stylesheet" href="../dist/layer.css" />
+    <!-- After video.css on purpose: its rule for a revealed image ties with a single-attribute
+         poster rule, and the later stylesheet wins a tie. -->
+    <link rel="stylesheet" href="../dist/image.css" />
+    <link rel="stylesheet" href="./demo.css" />
+    <style>
+      .pair {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      }
+
+      .box {
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #1c1c22;
+        isolation: isolate;
+      }
+
+      /* Beneath the poster, as layer.css's own example stacks it, so a poster that stayed
+         opaque would cover the video for good. */
+      .box video {
+        z-index: -1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>A poster that carries meaning</h1>
+      <p class="note">
+        Once a video reveals, its poster is hidden with <code>opacity</code> rather than
+        <code>visibility</code>, so the poster's alt text stays in the accessibility tree. The right
+        poster is a lazy image that <code>revealImages()</code> fades in, with
+        <code>image.css</code> loaded after <code>video.css</code> and the video stacked beneath it:
+        the arrangement where a poster left opaque would hide the video.
+      </p>
+      <nav><a href="./">all demos</a></nav>
+    </header>
+
+    <main>
+      <div class="pair">
+        <div class="box" data-polite-media id="named">
+          <img src="./assets/sample-poster.avif" alt="Colour bars test pattern" />
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+            <source src="./assets/sample-h264.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div class="box" data-polite-media id="lazy">
+          <img src="./assets/sample-poster.avif?lazy" alt="" loading="lazy" data-polite-reveal />
+          <video muted loop playsinline preload="none" tabindex="-1" aria-hidden="true">
+            <source src="./assets/sample-h264.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+    </main>
+
+    <div class="controls">
+      <button data-polite-pause-control type="button" aria-pressed="false">pause / resume</button>
+    </div>
+
+    <script type="module">
+      import { revealImages } from '../dist/image.js';
+      import { registerAll } from '../dist/video.js';
+
+      revealImages();
+      registerAll();
+
+      window.__posterOpacity = (id) =>
+        getComputedStyle(document.querySelector(`#${id} img`)).opacity;
+    </script>
+  </body>
+</html>

@@ -13,6 +13,15 @@ this is `0.x`, a minor bump may still break things and will say so here.
   follows those gates on every reconcile, and a user pause keeps it, since the control is then what
   resumes. CSS that used the attribute to mean "a video is registered" needs another hook.
 
+### Fixed
+
+- **A poster's `alt` left the accessibility tree once its video revealed.** `video.css` hid the
+  poster with `visibility: hidden`, which removes it from the tree, while the README tells you to put
+  the meaning in the poster's `alt` and hide the video. It now uses `opacity: 0` with
+  `pointer-events: none`, after the same `--polite-fade` delay. A test that waited for the poster
+  with Playwright's `toBeHidden()` needs to wait for computed opacity `0` instead, since Playwright
+  counts an element at opacity 0 as visible.
+
 ## 0.5.0 (2026-09-12)
 
 ### Breaking
