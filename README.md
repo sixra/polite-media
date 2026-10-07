@@ -270,8 +270,8 @@ it could have mattered.
 
 ```js
 // polite-media/video
-register(video, { until, observe, startWhen }); // manage a video
-registerAll(target?, { until, startWhen }); //     every [data-polite-media] video by default
+register(video, { until, observe, startWhen, prefetchWhileGated }); // manage a video
+registerAll(target?, { until, startWhen, prefetchWhileGated }); // every [data-polite-media] video by default
 unregister(video); //                              stop managing it, release everything
 unregisterAll(); //                                tear down the whole page
 configure({ ... }); //                             before the first register, or it throws
@@ -390,6 +390,38 @@ const timeout = (ms) => new Promise((done) => setTimeout(done, ms));
 
 register(video, { until: Promise.race([splashDone, timeout(15000)]) });
 ```
+
+**A splash can buy the video load time.** A gate holds the download as well as
+playback, so a hero behind a five-second splash only starts fetching once the
+splash ends. `prefetchWhileGated: true` lets it download while it waits: only
+playback waits for the gate, while `startWhen`, reduced motion, Save-Data and a
+pause still hold the fetch. The browser fires `canplaythrough` once it can play
+through, which a splash can end on, with a floor and a cap of its own:
+
+```js
+const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+let endSplash;
+const splashDone = new Promise((done) => (endSplash = done));
+
+register(hero, { until: splashDone, prefetchWhileGated: true });
+
+// Nothing downloads where nothing will play (reduced motion, Save-Data,
+// atOnce: 0), or while the visitor has paused.
+const root = document.documentElement;
+const buffered =
+  root.hasAttribute('data-polite-active') && !root.hasAttribute('data-polite-paused')
+    ? new Promise((done) => hero.addEventListener('canplaythrough', done, { once: true }))
+    : Promise.resolve();
+
+// At least 1.5s of splash, at most 4.5s, and in between until the hero can play through.
+await Promise.race([Promise.all([buffered, wait(1500)]), wait(4500)]);
+hideSplash();
+endSplash();
+```
+
+Keep the cap. Whether iOS Safari buffers under `preload="auto"` before anything
+calls `play()` is untested, and the cap is what ends the splash if the event
+never comes.
 
 `register(video, { observe: box })` observes a wrapper instead of the video, for
 when the video is `inset: 0` inside the element that carries the layout.

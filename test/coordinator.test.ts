@@ -2231,6 +2231,93 @@ describe('prefetchMargin drives a second observer', () => {
   });
 });
 
+describe('prefetchWhileGated', () => {
+  const never = (): Promise<never> => new Promise(() => {});
+
+  it('buffers a gated video on screen without playing it', () => {
+    const { video, play } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+
+    currentObserver().report([[video, 1]]);
+
+    expect(video.preload).toBe('auto');
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('plays once the gate opens', async () => {
+    const { video, play } = makeHarness();
+    let open!: () => void;
+    const until = new Promise<void>((resolve) => (open = resolve));
+    register(video, { until, prefetchWhileGated: true });
+    currentObserver().report([[video, 1]]);
+
+    open();
+
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+  });
+
+  it('leaves the fetch held by the gate without it', () => {
+    const { video } = makeHarness();
+    register(video, { until: never() });
+
+    currentObserver().report([[video, 1]]);
+
+    expect(video.preload).not.toBe('auto');
+  });
+
+  it('fetches nothing for a video off screen', () => {
+    const { video } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+
+    currentObserver().report([[video, 0]]);
+
+    expect(video.preload).not.toBe('auto');
+  });
+
+  it('still waits for the page to load', () => {
+    setReadyState('loading');
+    const { video } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+
+    currentObserver().report([[video, 1]]);
+    expect(video.preload).not.toBe('auto');
+
+    setReadyState('complete');
+    window.dispatchEvent(new Event('load'));
+    expect(video.preload).toBe('auto');
+  });
+
+  it('fetches nothing under reduced motion', () => {
+    reduceMotion = true;
+    const { video } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+
+    currentObserver().report([[video, 1]]);
+
+    expect(video.preload).not.toBe('auto');
+  });
+
+  it('fetches nothing while the visitor has paused', () => {
+    const { video } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+    pauseAll();
+
+    currentObserver().report([[video, 1]]);
+
+    expect(video.preload).not.toBe('auto');
+  });
+
+  it('buffers a gated video the prefetch observer reports near', () => {
+    configure({ prefetchMargin: '200px' });
+    const { video } = makeHarness();
+    register(video, { until: never(), prefetchWhileGated: true });
+
+    prefetchObserver()?.report([[video, 0.01]]);
+
+    expect(video.preload).toBe('auto');
+  });
+});
+
 describe('a handover under a single slot', () => {
   // Measured on demo/feed.html before this: an outgoing card kept decoding for
   // the full grace period while the incoming one played, so a stepped scroll
@@ -2440,6 +2527,16 @@ describe('a second register() for a video already tracked', () => {
     register(video, { startWhen: 'interaction' });
 
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns when it would drop prefetchWhileGated', () => {
+    const { video } = makeHarness();
+    register(video, { until: new Promise(() => {}) });
+    const warn = warnings();
+
+    register(video, { prefetchWhileGated: true });
+
+    expect(warn).toHaveBeenCalledOnce();
   });
 
   /**

@@ -22,6 +22,11 @@
         <strong>Watch the network panel: the video is not requested either.</strong>
       </p>
       <p class="note">
+        <a href="./until.html?prefetch">With <code>?prefetch</code></a> the page opts in to
+        <code>prefetchWhileGated</code>: the video downloads while the gate holds it, so a splash
+        buys it load time, and it still plays only once you press the button.
+      </p>
+      <p class="note">
         Nothing is configured here. On the shipped <code>'page-loaded'</code> default the video
         would play as soon as the page finished loading, so anything still holding it is
         <code>until</code> and nothing else.
@@ -52,13 +57,17 @@
       });
       document.getElementById('dismiss').addEventListener('click', () => dismiss());
 
-      register(document.querySelector('#hero video'), { until: splashDone });
+      const prefetchWhileGated = new URLSearchParams(location.search).has('prefetch');
+      register(document.querySelector('#hero video'), { until: splashDone, prefetchWhileGated });
 
       const video = document.querySelector('#hero video');
       window.__playing = () => !video.paused;
       // Still "none" means the gate held the fetch, not just the playback: a
-      // gated entry returns from prefetch() before the promotion.
+      // gated entry returns from prefetch() before the promotion, unless it opted in.
       window.__preload = () => video.preload;
+      // The event a host would end a splash on, recorded while the gate still holds.
+      window.__events = [];
+      video.addEventListener('canplaythrough', () => window.__events.push('canplaythrough'));
     </script>
   </body>
 </html>

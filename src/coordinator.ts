@@ -340,6 +340,16 @@ export interface RegisterOptions {
    * the same rule buys nothing.
    */
   startWhen?: StartWhen;
+  /**
+   * Let the video download while `until` holds it, so a splash buys it load time.
+   * Only playback waits for the gate; the download still waits for `startWhen`,
+   * Save-Data, reduced motion and a user pause, and starts once the video is on
+   * screen or within `prefetchMargin`.
+   *
+   * Opt-in, because a gate holding the fetch too is what `until` has always
+   * done, and a page gating a video behind a consent dialog may rely on it.
+   */
+  prefetchWhileGated?: boolean;
 }
 
 interface Entry {
@@ -357,6 +367,8 @@ interface Entry {
   gated: boolean;
   /** Whether a gate was ever supplied. `gated` clears on settle, so it cannot answer this. */
   hadGate: boolean;
+  /** May download while `gated`. */
+  prefetchWhileGated: boolean;
   /**
    * This element has been in the document at least once.
    *
@@ -871,7 +883,7 @@ function prepare(entry: Entry): boolean {
  * fetching on the promotion alone.
  */
 function prefetch(entry: Entry): void {
-  if (entry.gated || !videoAllowed()) return;
+  if ((entry.gated && !entry.prefetchWhileGated) || !videoAllowed()) return;
   // The same page gate reconcile applies. Without it a prefetchMargin defeats
   // startWhen entirely, because the fetch this triggers lands inside page load,
   // which is the contention `'page-loaded'` exists to avoid. Measured on
@@ -1018,10 +1030,15 @@ export function reconcile(): void {
   }
 
   // Retried here because the prefetch observer reports a target once, and a
-  // refusal may since have been lifted: page load, or the first interaction.
+  // refusal may since have been lifted: page load, or the first interaction. A
+  // gated video that may download is fetched from here once on screen, since at
+  // the default prefetchMargin no prefetch observer exists to report it.
   // Last, so it can never influence the decisions this pass just made.
   for (const entry of [...entries.values()]) {
-    if (entry.nearby && !entry.prepared) prefetch(entry);
+    if (entry.prepared) continue;
+    if (entry.nearby || (entry.gated && entry.prefetchWhileGated && entry.ratio > 0)) {
+      prefetch(entry);
+    }
   }
 }
 
@@ -1236,7 +1253,9 @@ function warnIfOptionsDropped(
   const differs =
     (options.until !== undefined && !entry.hadGate) ||
     (options.startWhen !== undefined && options.startWhen !== entry.startWhen) ||
-    (options.observe !== undefined && options.observe !== entry.target);
+    (options.observe !== undefined && options.observe !== entry.target) ||
+    (options.prefetchWhileGated !== undefined &&
+      options.prefetchWhileGated !== entry.prefetchWhileGated);
   if (!differs) return;
 
   warned.droppedOptions = true;
@@ -1289,6 +1308,7 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     ratio: 0,
     gated: Boolean(options.until),
     hadGate: Boolean(options.until),
+    prefetchWhileGated: Boolean(options.prefetchWhileGated),
     startWhen: options.startWhen,
     seenConnected: video.isConnected,
     prepared: false,

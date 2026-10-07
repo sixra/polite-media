@@ -56,6 +56,25 @@ test.describe('until', () => {
       .poll(() => page.evaluate(() => document.querySelector('video')!.readyState))
       .toBeGreaterThan(0);
   });
+
+  /*
+   * Waiting on canplaythrough is also the premise of the README's splash recipe: a host can end its
+   * splash on that event while the gate still holds playback.
+   */
+  test('with prefetchWhileGated, buffers while it holds and plays once it settles', async ({
+    page,
+  }) => {
+    await page.goto('/demo/until.html?prefetch');
+    await page.waitForFunction(() => typeof window.__playing === 'function');
+
+    await expect.poll(() => page.evaluate(() => window.__events)).toContain('canplaythrough');
+    expect(await page.evaluate(() => window.__preload())).toBe('auto');
+    expect(await page.evaluate(() => window.__playing())).toBe(false);
+
+    await page.click('#dismiss');
+
+    await expect.poll(() => page.evaluate(() => window.__playing())).toBe(true);
+  });
 });
 
 test.describe('requireBuffered', () => {

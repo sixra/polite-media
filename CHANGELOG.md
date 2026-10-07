@@ -32,6 +32,13 @@ this is `0.x`, a minor bump may still break things and will say so here.
   the value, so `calc(0.3s * 2)` passes, and a bare `0` stays quiet because it gives the cut it
   looks like.
 
+- **`register(video, { until, prefetchWhileGated: true })`** lets a gated video download while it
+  waits, so a splash buys it load time. A gate used to hold the fetch as well as playback, and that
+  stays the default, since a page may rely on a consent dialog holding the bytes too. The download
+  still waits for `startWhen`, reduced motion, Save-Data and a user pause, and starts once the video
+  is on screen or within `prefetchMargin`. A host can end its splash on the video's own
+  `canplaythrough`, which fires while the gate still holds; the README shows the recipe.
+
 ### Fixed
 
 - **A poster's `alt` left the accessibility tree once its video revealed.** `video.css` hid the
