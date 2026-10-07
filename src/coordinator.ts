@@ -1181,18 +1181,6 @@ function restorePaused(): void {
 }
 
 /**
- * Starts managing a video: reveals it on its first genuinely painted frame,
- * plays it only while it is visible, falls through its `<source>` list when one
- * cannot be decoded, and stops it when a gate closes.
- *
- * The video and its poster must already share a box carrying `data-polite-media`
- * in the authored markup, and the video should be `muted loop playsinline
- * preload="none"`. Calling this twice on the same element is a no-op.
- *
- * @param video the element to manage
- * @param options see {@link RegisterOptions}
- */
-/**
  * A second `register()` for a live video keeps the first registration, so whatever the second call
  * asked for is discarded. Silence is right where the values match, which is how a client-side
  * router re-registering a surviving element behaves. It is wrong where they differ: the caller
@@ -1224,6 +1212,18 @@ function warnIfOptionsDropped(
   );
 }
 
+/**
+ * Starts managing a video: reveals it on its first genuinely painted frame,
+ * plays it only while it is visible, falls through its `<source>` list when one
+ * cannot be decoded, and stops it when a gate closes.
+ *
+ * The video and its poster must already share a box carrying `data-polite-media`
+ * in the authored markup, and the video should be `muted loop playsinline
+ * preload="none"`. Calling this twice on the same element is a no-op.
+ *
+ * @param video the element to manage
+ * @param options see {@link RegisterOptions}
+ */
 export function register(video: HTMLVideoElement, options: RegisterOptions = {}): void {
   const registered = entries.get(video);
   if (registered) {
@@ -1343,28 +1343,6 @@ export function unregister(video: HTMLVideoElement): void {
 }
 
 /**
- * Stops every managed video and keeps them stopped.
- *
- * WCAG 2.2.2 applies to content that moves automatically, runs for more than
- * five seconds, and sits alongside other content -- which a looping background
- * video does. Honouring `prefers-reduced-motion` is necessary but, per the W3C
- * understanding document, is not listed as satisfying the criterion, so a
- * mechanism the user can actually operate has to exist.
- *
- * The host supplies the button and its styling; the library ships no markup and
- * no CSS for it. A `<button>` carrying `data-polite-pause-control` toggles this.
- *
- * It has to be a real `<button>`. The binding is a delegated `click`, and a
- * browser only synthesises that from Enter and Space for a native button, so a
- * `div[role="button"][tabindex="0"]` responds to a mouse and not to a keyboard.
- */
-/**
- * The only place `userPaused` changes, so the attribute, `aria-pressed` and the
- * event cannot drift apart. Returns early when nothing actually changed: calling
- * `pauseAll()` twice is idempotent, and announcing a transition that did not
- * happen would make a host's own state wrong.
- */
-/**
  * Marks the document while at least one video is managed.
  *
  * A pause control is markup on every page, but it must not offer to stop something that was never
@@ -1378,6 +1356,12 @@ function reflectActive(): void {
   else document.documentElement.removeAttribute('data-polite-active');
 }
 
+/**
+ * The only place `userPaused` changes, so the attribute, `aria-pressed` and the
+ * event cannot drift apart. Returns early when nothing actually changed: calling
+ * `pauseAll()` twice is idempotent, and announcing a transition that did not
+ * happen would make a host's own state wrong.
+ */
 function setPaused(paused: boolean): void {
   if (userPaused === paused) return;
   userPaused = paused;
@@ -1404,6 +1388,23 @@ function setPaused(paused: boolean): void {
  *   visitor changing their mind. Leaving the record intact is what carries a pause
  *   across a client-side router's unregister/register cycle as well as a real
  *   navigation.
+ */
+
+/**
+ * Stops every managed video and keeps them stopped.
+ *
+ * WCAG 2.2.2 applies to content that moves automatically, runs for more than
+ * five seconds, and sits alongside other content -- which a looping background
+ * video does. Honouring `prefers-reduced-motion` is necessary but, per the W3C
+ * understanding document, is not listed as satisfying the criterion, so a
+ * mechanism the user can actually operate has to exist.
+ *
+ * The host supplies the button and its styling; the library ships no markup and
+ * no CSS for it. A `<button>` carrying `data-polite-pause-control` toggles this.
+ *
+ * It has to be a real `<button>`. The binding is a delegated `click`, and a
+ * browser only synthesises that from Enter and Space for a native button, so a
+ * `div[role="button"][tabindex="0"]` responds to a mouse and not to a keyboard.
  */
 export function pauseAll(): void {
   writeStoredPause(true);
