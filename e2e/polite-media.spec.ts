@@ -1002,6 +1002,8 @@ test.describe('an invalid --polite-fade', () => {
       const warnings = await withFade(page, path, '0.6');
 
       await expect.poll(() => fadeWarnings(warnings)).toHaveLength(1);
+      await settle(page);
+      expect(fadeWarnings(warnings)).toHaveLength(1);
     });
 
     // A pattern would reject this; the browser accepts it as a time.
