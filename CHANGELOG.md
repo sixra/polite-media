@@ -3,7 +3,7 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
-## Unreleased
+## 0.6.0 (2026-10-07)
 
 ### Breaking
 
@@ -51,6 +51,11 @@ this is `0.x`, a minor bump may still break things and will say so here.
 
 ### Fixed
 
+- **`warm()` with `sources` fetched the candidate for the full viewport width.** A `<source>`
+  without its own `sizes` is selected as if it said `100vw`, and `sizes` went on the `<img>` alone,
+  so a desktop warm could fetch a file several times the size the destination then picked. Every
+  `<source>` now carries the `sizes` it was passed.
+
 - **A video buffered ahead through `prefetchMargin` started playing off screen when its first source
   could not be decoded.** The source fallback revealed and played whatever came next, whether or not
   anything had asked the video to play. It now moves to the next source and waits.
@@ -63,6 +68,9 @@ this is `0.x`, a minor bump may still break things and will say so here.
   without asking whether the visitor had paused. It now waits, and resuming starts the fetch.
 
 ### Documentation
+
+- **`register()` and `pauseAll()` carry their documentation in the published types.** Their doc
+  comments sat above other functions, so an editor hovering either showed nothing.
 
 - **An `until` gate does not protect LCP**, and the README no longer says it does. The video's
   first frame is an LCP candidate whenever it paints; only `startWhen: 'interaction'` keeps it out.
