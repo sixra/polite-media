@@ -2356,6 +2356,29 @@ describe('prefetchWhileGated', () => {
     expect(video.preload).not.toBe('auto');
   });
 
+  // A failed listener can release another video while the pass still holds it in its snapshot.
+  it('buffers nothing for a video released earlier in the same pass', () => {
+    const failing = makeHarness({
+      src: null,
+      sources: [{ src: '/x.webm', type: 'video/webm' }],
+      canPlayType: () => '',
+    });
+    const released = makeHarness();
+    register(failing.video, { until: never(), prefetchWhileGated: true });
+    register(released.video, { until: never(), prefetchWhileGated: true });
+    document.addEventListener('polite-video:failed', () => unregister(released.video), {
+      once: true,
+    });
+
+    currentObserver().report([
+      [failing.video, 1],
+      [released.video, 1],
+    ]);
+
+    expect(failing.container.hasAttribute('data-polite-failed')).toBe(true);
+    expect(released.video.preload).not.toBe('auto');
+  });
+
   it('buffers a gated video the prefetch observer reports near', () => {
     configure({ prefetchMargin: '200px' });
     const { video } = makeHarness();

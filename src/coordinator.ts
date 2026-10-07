@@ -1039,7 +1039,7 @@ export function reconcile(): void {
   // the default prefetchMargin no prefetch observer exists to report it.
   // Last, so it can never influence the decisions this pass just made.
   for (const entry of [...entries.values()]) {
-    if (entry.prepared) continue;
+    if (entries.get(entry.video) !== entry || entry.prepared) continue;
     if (entry.nearby || (entry.gated && entry.prefetchWhileGated && entry.ratio > 0)) {
       prefetch(entry);
     }
