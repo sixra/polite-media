@@ -71,10 +71,10 @@ export interface ConfigureOptions {
    * Which viewports count as small. Configurable because 768px is one project's
    * breakpoint, not a fact about phones.
    *
-   * The default stops at 767.98px so it meets a `(min-width: 768px)` with no gap
-   * a zoomed page's fractional width can fall into. Range syntax would close it
-   * fully, but Safari before 16.4 never matches it, so phones there would count
-   * as large.
+   * The default stops at 767.98px, leaving 0.02px beside a `(min-width: 768px)`
+   * rather than the whole pixel a zoomed page's fractional width can fall into.
+   * Range syntax would close the gap, but Safari before 16.4 never matches it, so
+   * phones there would count as large.
    */
   smallViewport?: string;
   /**

@@ -22,11 +22,11 @@ const budgets = {
   // Holding their spent flags in one record costs ~54 B a minifier cannot mangle, since property
   // names survive where four top-level bindings become four letters. It buys a reset that cannot
   // list three of four. The warning for a video left in the tab order or the accessibility tree
-  // added ~135 B, and the one for a --polite-fade that is not a CSS time ~130 B.
+  // costs ~135 B, and the one for a --polite-fade that is not a CSS time ~130 B.
   'src/video.ts': 4650,
   // Reveal on decode, the mark that stands the stylesheet's failsafe down, and the three reports
   // that make a missing stylesheet, an unmanaged image or a --polite-fade that is not a time
-  // findable. The last added ~135 B.
+  // findable. The last costs ~135 B.
   'src/image.ts': 1120,
   // The detached <picture> that lets the browser pick the variant, the save-data gate, dedup and
   // the delegated intent binding. Almost all element plumbing, because the selection it replaces

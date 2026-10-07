@@ -1680,11 +1680,6 @@ describe('a pause across a navigation', () => {
   });
 });
 
-/**
- * The claim the library cannot keep on its own: it ships the hook, the host
- * ships the button, and forgetting it is silent. Deferred by WCAG 2.2.2's own
- * five-second threshold, so these use fake timers.
- */
 describe('the exposed-video warning', () => {
   it('warns once when a video is in the tab order', () => {
     const warn = warnings();
@@ -1772,6 +1767,11 @@ describe('the --polite-fade warning', () => {
   });
 });
 
+/**
+ * The claim the library cannot keep on its own: it ships the hook, the host
+ * ships the button, and forgetting it is silent. Deferred by WCAG 2.2.2's own
+ * five-second threshold, so these use fake timers.
+ */
 describe('the missing-pause-control warning', () => {
   function startLooping(): void {
     const { video } = makeHarness();
@@ -2141,7 +2141,7 @@ describe('atOnce', () => {
 });
 
 describe('smallViewport', () => {
-  // (min-width: 768px) beside the old (max-width: 767px) left fractional widths, which page zoom
+  // (max-width: 767px) beside (min-width: 768px) leaves fractional widths, which page zoom
   // produces, on neither side.
   it('defaults to (max-width: 767.98px)', () => {
     const asked: string[] = [];
