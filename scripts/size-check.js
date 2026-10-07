@@ -21,8 +21,9 @@ const budgets = {
   // once-per-page reports. Those reports are a sixth of it, and they ship to every visitor.
   // Holding their spent flags in one record costs ~54 B a minifier cannot mangle, since property
   // names survive where four top-level bindings become four letters. It buys a reset that cannot
-  // list three of four.
-  'src/video.ts': 4400,
+  // list three of four. The warning for a video left in the tab order or the accessibility tree
+  // added ~135 B.
+  'src/video.ts': 4500,
   // Reveal on decode, the mark that stands the stylesheet's failsafe down, and the two reports
   // that make a missing stylesheet or an unmanaged image findable.
   'src/image.ts': 980,

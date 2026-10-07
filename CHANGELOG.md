@@ -13,6 +13,13 @@ this is `0.x`, a minor bump may still break things and will say so here.
   follows those gates on every reconcile, and a user pause keeps it, since the control is then what
   resumes. CSS that used the attribute to mean "a video is registered" needs another hook.
 
+### Added
+
+- **A warning when a registered video is not decorative.** The markup contract asks for
+  `tabindex="-1" aria-hidden="true"` on the video, and nothing checked it. `register()` now warns
+  once per page, naming the video, when its `tabindex` attribute is not `-1` or no
+  `aria-hidden="true"` sits on the video or a box around it.
+
 ### Fixed
 
 - **A poster's `alt` left the accessibility tree once its video revealed.** `video.css` hid the

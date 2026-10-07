@@ -590,6 +590,7 @@ const warned = {
   nothingToReveal: false,
   droppedOptions: false,
   pauseControl: false,
+  notDecorative: false,
 };
 
 function resetWarnings(): void {
@@ -688,6 +689,27 @@ function warnIfNothingToReveal(entry: Entry): void {
       'nothing. Put the attribute on the box holding poster and video, or hide the video with ' +
       'your own CSS.',
     entry.video
+  );
+}
+
+/**
+ * The markup contract makes a managed video decorative, and missing that is otherwise silent:
+ * measured in Firefox, twelve background videos sat in the tab order ahead of the pause button.
+ *
+ * The attribute rather than `tabIndex`, which reads 0 in Chromium and Firefox but -1 in WebKit when
+ * none is authored, so it would judge the same markup per engine. Any `aria-hidden` ancestor counts,
+ * since it removes the video from the tree as surely as its own.
+ */
+function warnIfNotDecorative(video: HTMLVideoElement): void {
+  if (warned.notDecorative) return;
+  if (video.getAttribute('tabindex') === '-1' && video.closest('[aria-hidden="true"]')) return;
+
+  warned.notDecorative = true;
+  console.warn(
+    'polite-media: this video is in the tab order or exposed to screen readers. A background ' +
+      'video is decorative: give it tabindex="-1" aria-hidden="true", and put any meaning in the ' +
+      "poster's alt.",
+    video
   );
 }
 
@@ -1245,6 +1267,8 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
     );
     return;
   }
+  warnIfNotDecorative(video);
+
   const entry: Entry = {
     video,
     target,

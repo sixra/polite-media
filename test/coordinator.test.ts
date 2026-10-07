@@ -128,6 +128,9 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   // element reports preload 'auto' from the start, and any assertion about the
   // promotion that starts buffering would hold before the promotion happened.
   video.setAttribute('preload', 'none');
+  // Also the documented markup: without these the coordinator warns that the video is exposed.
+  video.setAttribute('tabindex', '-1');
+  video.setAttribute('aria-hidden', 'true');
   if (src !== null) video.setAttribute('src', src);
   for (const spec of sources) {
     const source = document.createElement('source');
@@ -1682,6 +1685,51 @@ describe('a pause across a navigation', () => {
  * ships the button, and forgetting it is silent. Deferred by WCAG 2.2.2's own
  * five-second threshold, so these use fake timers.
  */
+describe('the exposed-video warning', () => {
+  it('warns once when a video is in the tab order', () => {
+    const warn = warnings();
+    const first = makeHarness().video;
+    const second = makeHarness().video;
+    first.removeAttribute('tabindex');
+    second.removeAttribute('tabindex');
+
+    register(first);
+    register(second);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[0]).toContain('tabindex="-1" aria-hidden="true"');
+    expect(warn.mock.calls[0]?.[1]).toBe(first);
+  });
+
+  it('warns when nothing hides the video from assistive technology', () => {
+    const warn = warnings();
+    const { video } = makeHarness();
+    video.removeAttribute('aria-hidden');
+
+    register(video);
+
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it('accepts aria-hidden on the box instead of the video', () => {
+    const warn = warnings();
+    const { video, container } = makeHarness();
+    video.removeAttribute('aria-hidden');
+    container.setAttribute('aria-hidden', 'true');
+
+    register(video);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet on the documented markup', () => {
+    const warn = warnings();
+    register(makeHarness().video);
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('the missing-pause-control warning', () => {
   function startLooping(): void {
     const { video } = makeHarness();
@@ -2275,6 +2323,23 @@ describe('the once-per-page warnings and a client-side router', () => {
     const second = unstyled();
     register(second);
     currentObserver().report([[second, 1]]);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('warns again about an exposed video on the next page', () => {
+    const warn = warnings();
+    const exposed = (): HTMLVideoElement => {
+      const { video } = makeHarness();
+      video.removeAttribute('tabindex');
+      return video;
+    };
+
+    register(exposed());
+    expect(warn).toHaveBeenCalledOnce();
+
+    unregisterAll();
+
+    register(exposed());
     expect(warn).toHaveBeenCalledTimes(2);
   });
 
