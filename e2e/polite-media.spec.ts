@@ -794,6 +794,44 @@ test.describe('reveal failsafe', () => {
     expect(result.revealedByFailsafe).toBe('1');
     expect(result.lowest).toBeGreaterThan(0.95);
   });
+
+  /**
+   * Chromium runs no animation of zero length on the compositor, so a 0s failsafe sat on every
+   * marked image as a main-thread animation, and Lighthouse listed each one as non-composited.
+   */
+  test('runs on the compositor', async ({ page, browser, browserName }) => {
+    test.skip(browserName !== 'chromium', 'only Chromium traces its compositing decisions');
+    await browser.startTracing(page, { categories: ['blink.animations'] });
+    await page.goto('/demo/reveal-failsafe.html');
+    await expect.poll(() => page.evaluate(() => window.__opacity('stray'))).toBe('1');
+    const trace = await browser.stopTracing();
+
+    type TraceEvent = {
+      name: string;
+      ph: string;
+      id?: string;
+      id2?: { local?: string };
+      args?: { data?: { displayName?: string; compositeFailed?: number } };
+    };
+    const animations = (
+      JSON.parse(trace.toString()) as { traceEvents: TraceEvent[] }
+    ).traceEvents.filter((event) => event.name === 'Animation');
+    const keyOf = (event: TraceEvent): string | undefined => event.id2?.local ?? event.id;
+    const failsafes = new Set(
+      animations
+        .filter(
+          (event) => event.ph === 'b' && event.args?.data?.displayName === 'polite-reveal-failsafe'
+        )
+        .map(keyOf)
+    );
+    const failed = animations.filter(
+      (event) => failsafes.has(keyOf(event)) && event.args?.data?.compositeFailed
+    );
+
+    // Vacuous unless the trace saw the failsafe start.
+    expect(failsafes.size).toBeGreaterThan(0);
+    expect(failed).toEqual([]);
+  });
 });
 
 test.describe('the shipped default', () => {

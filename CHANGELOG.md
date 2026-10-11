@@ -3,6 +3,15 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## Unreleased
+
+### Fixed
+
+- **The reveal failsafe could not run on the compositor.** Its animation lasted `0s`, which
+  Chromium will not composite, so every image marked for a reveal carried a main-thread animation
+  and Lighthouse listed it under "Avoid non-composited animations". It now lasts `1ms`, and a
+  stray image still arrives unfaded once `--polite-failsafe` has passed.
+
 ## 0.6.0 (2026-10-07)
 
 ### Breaking

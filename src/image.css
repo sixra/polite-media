@@ -57,10 +57,13 @@
    * stylesheet applied stayed at 0 for the whole delay and then snapped to 1
    * unfaded, while Chromium and WebKit revealed it. Cancelling only the animation
    * on such an image put it at 1 immediately.
+   *
+   * 1ms rather than 0s: Chromium runs no animation of zero length on the
+   * compositor, and Lighthouse lists every such image as non-composited.
    */
   img[data-polite-reveal][loading='lazy']:not([data-polite-ready]):not([data-polite-managed]),
   img[data-polite-reveal='eager']:not([data-polite-ready]):not([data-polite-managed]) {
-    animation: polite-reveal-failsafe 0s var(--polite-failsafe, 5s) forwards;
+    animation: polite-reveal-failsafe 1ms var(--polite-failsafe, 5s) forwards;
   }
 
   img[data-polite-reveal][data-polite-ready] {
