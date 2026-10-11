@@ -12,6 +12,11 @@ this is `0.x`, a minor bump may still break things and will say so here.
   and Lighthouse listed it under "Avoid non-composited animations". It now lasts `1ms`, and a
   stray image still arrives unfaded once `--polite-failsafe` has passed.
 
+### Documentation
+
+- **The wrapper recipe in "Composing your own animation" uses a `1ms` failsafe**, for the same
+  reason. Its `0s` gave a copied rule the same Lighthouse warning.
+
 ## 0.6.0 (2026-10-07)
 
 ### Breaking

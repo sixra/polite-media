@@ -200,7 +200,7 @@ you have to add yourself:
 .card.is-visible:has(img[data-polite-reveal]:not([data-polite-ready])) {
   opacity: 0;
   /* yours, not the library's: see below */
-  animation: your-failsafe 0s linear 5s forwards;
+  animation: your-failsafe 1ms linear 5s forwards;
 }
 ```
 
@@ -208,7 +208,9 @@ you have to add yourself:
 `image.css` is CSS-only and reveals **the image**, not a wrapper around it. So a
 bundle that never arrives leaves your wrapper hidden for good even though the
 library's own failsafe fired. Give any rule of yours that hides on
-`:not([data-polite-ready])` its own failsafe on the same delay.
+`:not([data-polite-ready])` its own failsafe on the same delay, and give it a
+length: Chromium runs no animation of `0s` on the compositor, and Lighthouse
+lists every such element as non-composited.
 
 **Gate a wrapper only on images that will load.** The `:has()` above waits on
 every marked image inside the card, and lazy loading may never fetch some of
