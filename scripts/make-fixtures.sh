@@ -18,6 +18,11 @@ for encoder in libx264 libsvtav1; do
     exit 1
   fi
 done
+# The fallback fixture is built by a node script, after every slow encode.
+if ! command -v node >/dev/null 2>&1; then
+  echo "error: node is not on PATH, and the fallback fixture needs it." >&2
+  exit 1
+fi
 
 out="$(dirname "$0")/../demo/assets"
 mkdir -p "$out"
@@ -67,12 +72,11 @@ ffmpeg -y -hide_banner -loglevel error -f lavfi -i "smptebars=s=$size" \
 # A truncated AV1 file, for exercising error-driven source fallback without an
 # Apple device that claims AV1 it cannot decode.
 #
-# Verified in Chromium: raises a media `error` after ~17 ms
-# with code 3, MEDIA_ERR_DECODE -- the same class of failure as the real Apple
-# case, not merely a stall. Re-check if the encoder or truncation size changes:
-# a fixture that stalls instead of erroring would make fallback tests pass for
-# the wrong reason.
+# It ends after the first frame, and that frame is overwritten.
+# make-fallback-fixture.js says why and what each engine reported. Re-check all
+# three engines on Linux if the encoder or that script changes. A fixture that
+# stalls instead of firing `error` leaves the fallback tests to time out.
 echo "truncated av1 (fallback fixture) ..."
-head -c 2048 "$out/sample-av1.mp4" > "$out/sample-truncated-av1.mp4"
+node "$(dirname "$0")/make-fallback-fixture.js" "$out/sample-av1.mp4" "$out/sample-truncated-av1.mp4"
 
 ls -lh "$out"

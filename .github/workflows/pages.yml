@@ -44,7 +44,7 @@ jobs:
         id: fixtures
         with:
           path: demo/assets
-          key: fixtures-${{ hashFiles('scripts/make-fixtures.sh') }}
+          key: fixtures-${{ hashFiles('scripts/make-fixtures.sh', 'scripts/make-fallback-fixture.js') }}
 
       - name: Install ffmpeg
         if: steps.fixtures.outputs.cache-hit != 'true'

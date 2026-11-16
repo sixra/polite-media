@@ -142,10 +142,24 @@ test.describe('hero', () => {
 });
 
 test.describe('source fallback', () => {
-  // The library's reason to exist: canPlayType answers "probably" for the
-  // truncated AV1, the decode then fails, and the next source takes over.
+  // The library's reason to exist. Chromium, Firefox and Linux WebKit answer
+  // "probably" for the truncated AV1. The file then fails with a media error,
+  // and the next source takes over.
+  //
+  // macOS WebKit answers "" instead, so the library never loads the AV1 file
+  // there. Both tests would pass without the error path ever running, so they
+  // skip where that happens rather than pass while proving nothing.
+  async function skipUnlessAv1IsClaimed(page: Page): Promise<void> {
+    const answer = await page.evaluate(() => {
+      const video = document.querySelector<HTMLVideoElement>('#recovers video')!;
+      return video.canPlayType(video.querySelector('source')!.type);
+    });
+    test.skip(answer === '', 'this engine refuses the AV1 type up front, so no error path runs');
+  }
+
   test('falls through a source the browser claimed it could play', async ({ page }) => {
     await page.goto('/demo/fallback.html');
+    await skipUnlessAv1IsClaimed(page);
 
     await expect
       .poll(() => page.evaluate(() => window.__state().recoversSrc))
@@ -155,6 +169,7 @@ test.describe('source fallback', () => {
 
   test('keeps the poster and flags the container when nothing is decodable', async ({ page }) => {
     await page.goto('/demo/fallback.html');
+    await skipUnlessAv1IsClaimed(page);
 
     await expect.poll(() => page.evaluate(() => window.__state().exhaustsFailed)).toBe(true);
     expect(await page.evaluate(() => window.__events)).toContain('exhausts:failed');
