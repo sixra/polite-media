@@ -78,6 +78,7 @@
     "size": "node scripts/size-check.js",
     "test": "vitest run",
     "test:e2e": "pnpm run build && playwright test",
+    "test:e2e:linux": "pnpm run build && sh scripts/e2e-linux.sh",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm size"

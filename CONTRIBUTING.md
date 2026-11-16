@@ -21,6 +21,15 @@ a separate build option a distro ffmpeg may lack, and the AV1 fixture is what
 the source-fallback tests rest on. The script checks both up front and names
 whichever is missing.
 
+CI runs the e2e suite on Linux, and some failures show only there.
+`pnpm test:e2e:linux` runs the suite in Playwright's Linux image, with fixtures
+generated there too. It needs Docker, but not a local ffmpeg. Its arguments go
+on to Playwright.
+
+```sh
+pnpm test:e2e:linux --project=webkit
+```
+
 ## Commits
 
 Conventional Commits, enforced by `commitlint` on the `commit-msg` hook. This is a
