@@ -9,6 +9,11 @@ allowBuilds:
   esbuild: false
   lefthook: false
 
+# A day is pnpm's default already, but the default is lenient. Setting it here
+# makes it strict, so an install no longer takes a package under a day old
+# without asking. https://pnpm.io/settings/dependency-resolution#minimumreleaseagestrict
+minimumReleaseAge: 1440
+
 # minimatch below 11.0.1 has a denial of service through globparts
 # amplification (GHSA-g3hv-75wg-m249), and 10.x gets no fix. typescript-eslint
 # moved to minimatch 11 in 8.73.0. This moves older typescript-estree releases
