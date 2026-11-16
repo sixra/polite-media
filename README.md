@@ -836,6 +836,14 @@ type represents a media resource that it can render". Confidence is not a
 guarantee, so codec checks only _order_ the candidates here and the `error` event
 decides.
 
+**A cut-off file can hang on Linux WebKit.** WebKit 27.2 on Linux plays media
+through GStreamer's playbin3 by default ([WebKit bug 236884][webkit-playbin3]).
+Measured in Playwright's build of it, a file that ends inside its first frame
+never fires `error`. The video waits at `readyState` 0, so the library never
+moves to the next source or emits `polite-video:failed`, and the poster stays.
+A file whose first frame is complete but undecodable still fires `error` there,
+and falls back as before.
+
 **Absence of `navigator.connection` means allow, not block.** Safari and Firefox
 never expose the Network Information API and Brave disables it as a
 fingerprinting surface. Read absence as "block" and you silently kill video for
@@ -882,6 +890,7 @@ Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 [vite-library]: https://vite.dev/guide/build#library-mode
 [rollup-replace]: https://github.com/rollup/plugins/tree/master/packages/replace
 [html-canplaytype]: https://html.spec.whatwg.org/multipage/media.html
+[webkit-playbin3]: https://bugs.webkit.org/show_bug.cgi?id=236884
 [prerender]: https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API
 [lcp]: https://web.dev/articles/lcp
 [preload]: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload
