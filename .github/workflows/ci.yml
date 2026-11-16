@@ -15,9 +15,13 @@ jobs:
       # pnpm/setup, not pnpm/action-setup: action-setup's own README names this as
       # its successor for pnpm v11 and newer, and it installs the runtime in the
       # same step, replacing actions/setup-node.
-      - uses: pnpm/setup@v2
+      #
+      # .nvmrc is named on purpose. Left to itself, the action takes Node from
+      # devEngines.runtime in package.json before it looks at .nvmrc, and the
+      # `>=24` there would install the newest Node released.
+      - uses: pnpm/setup@v3
         with:
-          runtime: node@26
+          node-version-file: .nvmrc
           cache: true
 
       - run: pnpm lint
@@ -41,9 +45,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
-          runtime: node@26
+          node-version-file: .nvmrc
           cache: true
 
       # Fixtures are generated, not committed. Keyed on the generator so a changed

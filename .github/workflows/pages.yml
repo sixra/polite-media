@@ -33,9 +33,10 @@ jobs:
       id-token: write # the OIDC token deploy-pages verifies the origin with
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
+      # .nvmrc by name, since devEngines.runtime would win otherwise. See ci.yml.
+      - uses: pnpm/setup@v3
         with:
-          runtime: node@26
+          node-version-file: .nvmrc
           cache: true
 
       # Same cache and key as the e2e job: fixtures are generated rather than
