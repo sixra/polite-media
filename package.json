@@ -24,7 +24,7 @@
   ],
   "license": "MIT",
   "author": "sixra",
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.21.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sixra/polite-media.git"
