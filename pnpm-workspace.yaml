@@ -8,3 +8,11 @@
 allowBuilds:
   esbuild: false
   lefthook: false
+
+# minimatch below 11.0.1 has a denial of service through globparts
+# amplification (GHSA-g3hv-75wg-m249), and 10.x gets no fix. typescript-eslint
+# moved to minimatch 11 in 8.73.0. This moves older typescript-estree releases
+# to minimatch 11. They call only `minimatch()`, which 11 keeps. From 8.73.0 on
+# the override no longer applies, so delete it after that update.
+overrides:
+  '@typescript-eslint/typescript-estree@<8.73.0>minimatch': ^11.0.1
