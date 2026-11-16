@@ -83,20 +83,20 @@
     "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm size"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
-    "@commitlint/cli": "^21.2.3",
-    "@commitlint/config-conventional": "^21.2.3",
+    "@axe-core/playwright": "^4.14.0",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.2",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
-    "eslint": "^10.11.0",
-    "globals": "^17.12.0",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
     "happy-dom": "^20.14.5",
-    "lefthook": "^2.1.14",
-    "prettier": "^3.9.9",
+    "lefthook": "^2.2.2",
+    "prettier": "^3.10.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.1"
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
   }
 }
