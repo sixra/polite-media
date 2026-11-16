@@ -3,6 +3,19 @@
 Notable changes, newest first. Versions follow [semver](https://semver.org); while
 this is `0.x`, a minor bump may still break things and will say so here.
 
+## Unreleased
+
+### Breaking
+
+- **The console warnings run in development builds only.** Each check sits behind
+  `process.env.NODE_ENV !== 'production'`, so a production build leaves out the checks and their
+  text: 1181 B gzipped from `polite-media/video`, 546 B from `polite-media/image` and 57 B from
+  `polite-media/warm`. Vite and esbuild fill the expression in on their own. Rollup needs
+  `@rollup/plugin-replace`, and a page that loads `dist/` with no bundler has to define `process`
+  first, or the bare `process` throws. A test that asserts "no polite-media warning" against a
+  production build now passes whatever the markup says, so run it against a development build,
+  such as `astro build --devOutput`.
+
 ## 0.6.1 (2026-10-11)
 
 ### Fixed

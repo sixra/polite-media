@@ -25,9 +25,9 @@ export type ImageTarget = Target<HTMLImageElement>;
 
 export interface RevealImagesOptions {
   /**
-   * @deprecated Ignored since 0.5, and warns. image.css no longer hides an eager
-   * image at all, so the opt-in has to be in the markup where the stylesheet can
-   * see it: `data-polite-reveal="eager"` on the image.
+   * @deprecated Ignored since 0.5, and warns in development builds. image.css no
+   * longer hides an eager image at all, so the opt-in has to be in the markup where
+   * the stylesheet can see it: `data-polite-reveal="eager"` on the image.
    */
   allowEager?: boolean;
 }
@@ -54,7 +54,7 @@ let warnedFade = false;
  */
 function revealFaded(image: HTMLImageElement): void {
   markReady(image);
-  warnedFade ||= warnIfFadeInvalid(image);
+  if (process.env.NODE_ENV !== 'production') warnedFade ||= warnIfFadeInvalid(image);
 }
 
 /**
@@ -154,20 +154,22 @@ export function revealImages(
   const controller = new AbortController();
   const { signal } = controller;
 
-  if (options.allowEager && !warnedAllowEager) {
-    warnedAllowEager = true;
-    console.warn(
-      'polite-media: allowEager is ignored. To fade an eager image, put ' +
-        'data-polite-reveal="eager" on it, where the stylesheet can see the choice.'
-    );
-  }
+  if (process.env.NODE_ENV !== 'production') {
+    if (options.allowEager && !warnedAllowEager) {
+      warnedAllowEager = true;
+      console.warn(
+        'polite-media: allowEager is ignored. To fade an eager image, put ' +
+          'data-polite-reveal="eager" on it, where the stylesheet can see the choice.'
+      );
+    }
 
-  scheduleUnmanagedCheck();
+    scheduleUnmanagedCheck();
+  }
 
   const claimed: HTMLImageElement[] = [];
 
   for (const image of resolveTargets(target)) {
-    managed.add(image);
+    if (process.env.NODE_ENV !== 'production') managed.add(image);
     // Tells the stylesheet to leave this one alone. The failsafe there is for images nothing
     // reveals, and firing it on one this module owns is worse than not firing it at all: opacity
     // reaches 1 while the picture is still in flight, so when it arrives there is no fade left to

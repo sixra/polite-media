@@ -607,6 +607,9 @@ function armReveal(entry: Entry): void {
  * One shot per page for each report that would otherwise repeat on every video, in one record so
  * a teardown cannot reset three of four. `pauseControl` is spent when its check is scheduled, the
  * rest when the warning fires.
+ *
+ * Each call sits behind `process.env.NODE_ENV !== 'production'`. Vite and esbuild replace that
+ * expression, so their production builds drop the checks and their text.
  */
 const warned = {
   unreachableStart: false,
@@ -900,9 +903,11 @@ function prefetch(entry: Entry): void {
 function start(entry: Entry): void {
   entry.started = true;
 
-  warnIfNothingToReveal(entry);
-  warned.invalidFade ||= warnIfFadeInvalid(entry.host);
-  warnIfNoPauseControl(entry.video);
+  if (process.env.NODE_ENV !== 'production') {
+    warnIfNothingToReveal(entry);
+    warned.invalidFade ||= warnIfFadeInvalid(entry.host);
+    warnIfNoPauseControl(entry.video);
+  }
   if (!prepare(entry)) return;
 
   armReveal(entry);
@@ -993,7 +998,9 @@ export function reconcile(): void {
   // interaction both arrive later and each has to re-run the arbiter.
   const eligible = [...entries.values()].filter((e) => {
     if (e.gated || waitingToStart(e)) return false;
-    if (!e.started && e.ratio > 0) warnIfStartUnreachable(e);
+    if (process.env.NODE_ENV !== 'production' && !e.started && e.ratio > 0) {
+      warnIfStartUnreachable(e);
+    }
     return e.ratio > config.pauseBelow;
   });
   const winners = pickWinners(eligible);
@@ -1286,7 +1293,7 @@ function warnIfOptionsDropped(
 export function register(video: HTMLVideoElement, options: RegisterOptions = {}): void {
   const registered = entries.get(video);
   if (registered) {
-    warnIfOptionsDropped(registered, video, options);
+    if (process.env.NODE_ENV !== 'production') warnIfOptionsDropped(registered, video, options);
     return;
   }
 
@@ -1296,14 +1303,16 @@ export function register(video: HTMLVideoElement, options: RegisterOptions = {})
   // the second video would have taken the first's slot, leaving it without
   // ratios and making either unregister release the other's observation.
   if (byTarget.has(target)) {
-    console.warn(
-      'polite-media: this target is already observed for another video, so the video ' +
-        'below was not registered. Give each video its own observe target.',
-      video
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        'polite-media: this target is already observed for another video, so the video ' +
+          'below was not registered. Give each video its own observe target.',
+        video
+      );
+    }
     return;
   }
-  warnIfNotDecorative(video);
+  if (process.env.NODE_ENV !== 'production') warnIfNotDecorative(video);
 
   const entry: Entry = {
     video,
@@ -1488,7 +1497,7 @@ export function resumeAll(): void {
 export function unregisterAll(): void {
   for (const video of [...entries.keys()]) unregister(video);
   setPaused(false);
-  resetWarnings();
+  if (process.env.NODE_ENV !== 'production') resetWarnings();
 }
 
 /** Internal reset for tests. Not exported from the package entry point. */

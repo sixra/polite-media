@@ -88,9 +88,11 @@ export function warm(options: WarmOptions): void {
   // Checked before anything is built, so an empty call allocates nothing, and
   // before `warmed` is touched, so it cannot make a later correct call a no-op.
   if (sources.length === 0 && !options.srcset && !options.src) {
-    console.warn(
-      'polite-media: warm() was given no src, srcset or sources, so nothing was warmed.'
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        'polite-media: warm() was given no src, srcset or sources, so nothing was warmed.'
+      );
+    }
     return;
   }
 

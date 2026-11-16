@@ -96,7 +96,9 @@ function candidatesFor(video: HTMLVideoElement): { declared: number; playable: s
     return !media || mediaQuery(media).matches;
   });
 
-  if (claiming.length === 0 && decodable.length > 0) warnMediaGap(video);
+  if (process.env.NODE_ENV !== 'production' && claiming.length === 0 && decodable.length > 0) {
+    warnMediaGap(video);
+  }
 
   return {
     declared: sources.length,

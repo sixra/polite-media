@@ -50,8 +50,10 @@ revealImages('.card img');
 ## What it costs
 
 Three independent entry points, imported separately, because they share almost
-nothing. Gzipped and including its stylesheet, `polite-media/video` is around
-4 KB, and `polite-media/image` and `polite-media/warm` are under 1 KB each.
+nothing. Gzipped and including its stylesheet, a production build of
+`polite-media/video` is around 3.7 KB, and `polite-media/image` and
+`polite-media/warm` are under 1 KB each. The console checks are
+[development-only](#warnings-in-development) and not in those figures.
 `polite-media/layer.css` is a third, optional stylesheet for the standard
 poster-over-video stack.
 
@@ -721,6 +723,37 @@ coordinator.
 which the end-to-end suite asserts on every demo, so `style-src` needs no `'unsafe-inline'` on its
 account.
 
+## Warnings in development
+
+The library checks your markup and options and names what it finds wrong on the console: a looping
+video with no pause control, a video in the tab order, a box missing `data-polite-media`, a
+`pauseBelow` a tall video can never reach, a `<source>` list no viewport claims, a `--polite-fade`
+that is not a time, options dropped by a second `register()`, and the image module's own checks.
+Each of those warns once per page. Two warn on every call: a second video on an `observe` target
+already in use, and a `warm()` given nothing to warm.
+
+**They run in development builds only.** Each check sits behind
+`process.env.NODE_ENV !== 'production'`, so a production build drops the checks and their text,
+about 1.8 KB gzipped across the three entry points. Your bundler fills that expression in:
+
+- **Vite** replaces it in the dev server and in an app build, measured on Vite 8.3. Library mode
+  leaves `process.env` alone ([docs][vite-library]), so a library that bundles this one passes the
+  check on to its own consumers' bundler.
+- **esbuild** defines it as `"production"` when every minify option is on and `"development"`
+  otherwise ([docs][esbuild-platform]).
+- **Rollup** leaves it alone. Add [`@rollup/plugin-replace`][rollup-replace] with
+  `'process.env.NODE_ENV': JSON.stringify('production')`, or the bare `process` throws in the
+  browser.
+
+Loading `dist/` in a browser with no bundler needs `process` defined first, which the demos do in
+`demo/development.js`.
+
+**A test that asserts "no polite-media warning" has to run against a development build.** Against
+a production build it passes whatever the markup says. In Astro,
+[`astro build --devOutput`][astro-dev-output] gives a development build. Its build code, read in
+Astro 7.4, sets `NODE_ENV` to `development` only where nothing set it already, so check that your
+CI does not.
+
 ## What it does
 
 - Reveals on a genuinely presented frame, never on `playing`.
@@ -844,6 +877,10 @@ it does. In production use, and every case it handles is a page on the
 Contributing, and how to run the suite: [CONTRIBUTING.md](CONTRIBUTING.md). MIT.
 
 [astro-scripts]: https://docs.astro.build/en/guides/view-transitions/#script-re-execution
+[astro-dev-output]: https://docs.astro.build/en/reference/cli-reference/#--devoutput
+[esbuild-platform]: https://esbuild.github.io/api/#platform
+[vite-library]: https://vite.dev/guide/build#library-mode
+[rollup-replace]: https://github.com/rollup/plugins/tree/master/packages/replace
 [html-canplaytype]: https://html.spec.whatwg.org/multipage/media.html
 [prerender]: https://developer.mozilla.org/en-US/docs/Web/API/Speculation_Rules_API
 [lcp]: https://web.dev/articles/lcp

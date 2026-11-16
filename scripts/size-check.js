@@ -17,21 +17,17 @@ import { gzipSync } from 'node:zlib';
  * what the bytes bought.
  */
 const budgets = {
-  // The coordinator: two observers, source selection, the gates, the pause control, and the
-  // once-per-page reports. Those reports are a sixth of it, and they ship to every visitor.
-  // Holding their spent flags in one record costs ~54 B a minifier cannot mangle, since property
-  // names survive where four top-level bindings become four letters. It buys a reset that cannot
-  // list three of four. The warning for a video left in the tab order or the accessibility tree
-  // costs ~135 B, and the one for a --polite-fade that is not a CSS time ~130 B.
-  'src/video.ts': 4650,
-  // Reveal on decode, the mark that stands the stylesheet's failsafe down, and the three reports
-  // that make a missing stylesheet, an unmanaged image or a --polite-fade that is not a time
-  // findable. The last costs ~135 B.
-  'src/image.ts': 1120,
+  // The coordinator: two observers, source selection, the gates and the pause control. Its
+  // console reports are development-only and not in this figure. A development build with them
+  // measured 4641 B.
+  'src/video.ts': 3500,
+  // Reveal on decode and the mark that stands the stylesheet's failsafe down. Its reports are
+  // development-only too. A development build with them measured 1088 B.
+  'src/image.ts': 550,
   // The detached <picture> that lets the browser pick the variant, the save-data gate, dedup and
   // the delegated intent binding. Almost all element plumbing, because the selection it replaces
   // is the browser's own.
-  'src/warm.ts': 700,
+  'src/warm.ts': 600,
   'src/video.css': 230,
   'src/image.css': 260,
   // Its own entry rather than part of video.css: folding it in would make the "imposes no
@@ -53,6 +49,9 @@ async function measure(entry) {
     format: entry.endsWith('.css') ? undefined : 'esm',
     target: 'es2022',
     minify: true,
+    // A production build, which leaves out every developer check. esbuild sets this itself when
+    // minifying. Spelled out so the figure does not rest on that default.
+    define: { 'process.env.NODE_ENV': '"production"' },
     write: false,
   });
   const output = result.outputFiles[0];
