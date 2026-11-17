@@ -19,6 +19,7 @@ export default defineConfig([
     'demo/assets/**',
     'playwright-report/**',
     'test-results/**',
+    '.scratch/**',
   ]),
 
   js.configs.recommended,

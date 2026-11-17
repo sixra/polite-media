@@ -4,3 +4,6 @@ playwright-report/
 test-results/
 pnpm-lock.yaml
 .claude/
+
+# Local notes. Prettier does not read .git/info/exclude, which keeps them out of git.
+.scratch/
